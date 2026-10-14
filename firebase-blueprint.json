@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Salon customers registered for interaction",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "Catalog": {
+      "title": "Catalog",
+      "description": "List of available services/procedures in the salon",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "number" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "price", "ownerId"]
+    },
+    "Queue": {
+      "title": "Queue",
+      "description": "Real-time client walk-in queue item",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string" },
+        "service": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["clientName", "status"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled appointments",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["clientName", "serviceName", "date", "time"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial bills, sales, and invoices",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["description", "amount", "type", "ownerId"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Establishment settings information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "domain": { "type": "string" }
+      }
+    },
+    "CompanyLicense": {
+      "title": "CompanyLicense",
+      "description": "Commercial license limits and active modules",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "plan": { "type": "string" },
+        "status": { "type": "string" },
+        "expireDate": { "type": "string" },
+        "aiUsage": { "type": "number" },
+        "aiLimit": { "type": "number" },
+        "waUsage": { "type": "number" },
+        "waLimit": { "type": "number" },
+        "unitsCount": { "type": "number" },
+        "maxUsers": { "type": "number" },
+        "addons": { "type": "array", "items": { "type": "string" } },
+        "modules": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["companyId", "plan", "status"]
+    },
+    "PushToken": {
+      "title": "PushToken",
+      "description": "Registered device push notification token linked to users",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string" },
+        "platform": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "osVersion": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["token", "userId", "role", "platform", "updatedAt"]
+    },
+    "FeatureFlag": {
+      "title": "FeatureFlag",
+      "description": "Feature flag assignments per company/user",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "pdv": { "type": "boolean" },
+        "agenda": { "type": "boolean" },
+        "crm": { "type": "boolean" },
+        "whatsapp": { "type": "boolean" },
+        "aiAssistant": { "type": "boolean" },
+        "cashback": { "type": "boolean" },
+        "whiteLabel": { "type": "boolean" },
+        "marketplace": { "type": "boolean" },
+        "mobileApp": { "type": "boolean" }
+      },
+      "required": ["companyId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user configurations"
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Salon customers"
+    },
+    "/catalog/{serviceId}": {
+      "schema": "Catalog",
+      "description": "Service catalog items"
+    },
+    "/queue/{itemId}": {
+      "schema": "Queue",
+      "description": "Waitlist items"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Schedules"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial reports"
+    },
+    "/companies/{companyId}": {
+      "schema": "Company",
+      "description": "Salon details"
+    },
+    "/company_licenses/{licenseId}": {
+      "schema": "CompanyLicense",
+      "description": "Store licence modules, limits and expirations"
+    },
+    "/feature_flags/{flagId}": {
+      "schema": "FeatureFlag",
+      "description": "Custom feature flag switches"
+    },
+    "/push_tokens/{tokenId}": {
+      "schema": "PushToken",
+      "description": "Registered credentials for dispatching notifications"
+    }
+  }
+}

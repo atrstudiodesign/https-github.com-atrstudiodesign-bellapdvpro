@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Bella PDV - O Sistema ERP & PDV Inteligente com IA</title>
+    
+    <!-- Meta Tags para SEO Avançado -->
+    <meta name="description" content="Bella PDV é o ERP Inteligente definitivo com inteligência artificial integrada. Gestão de vendas, agendamentos, clientes, automação via WhatsApp e insights em tempo real para Barbearias, Salões, Clínicas e Oficinas." />
+    <meta name="keywords" content="Bella PDV, ERP Inteligente, Gestão Inteligente, Agenda Online, PDV Barbearia, Sistema para Salão de Beleza, CRM WhatsApp, Inteligência Artificial de Vendas, ERP com IA, Controle Financeiro" />
+    <meta name="author" content="ATR Studio" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph / Facebook / LinkedIn (Compartilhamento Social) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bella PDV - O ERP Inteligente com IA integrado" />
+    <meta property="og:description" content="Acelere o crescimento de sua empresa com a inteligência artificial da Bella PDV. Agendamento inteligente, PDV em tempo real, gestão financeira completa e CRM integrado." />
+    <meta property="og:url" content="https://bellapdv.com" />
+    <meta property="og:image" content="/icon.svg" />
+    <meta property="og:site_name" content="Bella PDV" />
+    <meta property="og:locale" content="pt_BR" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bella PDV - O ERP Inteligente com IA integrado" />
+    <meta name="twitter:description" content="Acelere o crescimento de sua empresa com a inteligência artificial da Bella PDV. Agendamento inteligente, PDV em tempo real, gestão financeira completa e CRM integrado." />
+    <meta name="twitter:image" content="/icon.svg" />
+
+    <!-- Configurações PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#05070F" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
