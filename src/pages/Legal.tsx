@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { AtrStudioBadge } from '../components/ui/AtrStudioBadge';
 
 const legalData: Record<string, { title: string, content: string }> = {
   'politica-de-privacidade': {
@@ -144,6 +145,11 @@ export default function Legal() {
               prose-strong:text-white prose-strong:font-bold"
             dangerouslySetInnerHTML={{ __html: content.content }}
           />
+
+          <div className="mt-12 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+            <p>© {new Date().getFullYear()} BellaPDV. Todos os direitos reservados.</p>
+            <AtrStudioBadge size="sm" />
+          </div>
         </div>
       </div>
     </div>

@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>Bella PDV - O Sistema ERP & PDV Inteligente com IA</title>
+    <script>
+      // Ignorar erros benignos de fechamento de WebSocket do HMR no iframe/proxy do AI Studio
+      window.addEventListener('error', function(e) {
+        if (e && e.message && (
+          e.message.includes('WebSocket') || 
+          e.message.includes('@vite/client') || 
+          e.message.includes('ws://') || 
+          e.message.includes('wss://')
+        )) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        const msg = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+        if (msg.includes('WebSocket') || msg.includes('@vite/client')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
     
     <!-- Meta Tags para SEO Avançado -->
     <meta name="description" content="Bella PDV é o ERP Inteligente definitivo com inteligência artificial integrada. Gestão de vendas, agendamentos, clientes, automação via WhatsApp e insights em tempo real para Barbearias, Salões, Clínicas e Oficinas." />

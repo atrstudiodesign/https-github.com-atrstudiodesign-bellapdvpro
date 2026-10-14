@@ -1,33 +1,44 @@
 // Service for Neural Humanized Voice Narration in Portuguese (BR)
-// Supports both Gemini 3.8 Neural TTS and Brazilian Portuguese Web Speech Synthesis fallback
+// Supports both Instant Zero-Delay Web Speech and Gemini Neural TTS with automatic silence detection
 
 export type VoicePersona = 'feminino' | 'masculino';
+export type VoiceEngineMode = 'instant' | 'neural'; // 'instant' = 0ms latency, 'neural' = studio quality
 
 export interface VoiceSettings {
   voice: VoicePersona;
   speed: number; // 0.8, 1.0, 1.25
   volume: number; // 0 to 1
   autoPlay: boolean;
+  engineMode: VoiceEngineMode;
+  handsFree: boolean; // Continuous listening for operator
 }
 
-type AudioStateListener = (state: { isSpeaking: boolean; isListening: boolean; currentVoice: VoicePersona }) => void;
+type AudioStateListener = (state: { 
+  isSpeaking: boolean; 
+  isListening: boolean; 
+  currentVoice: VoicePersona;
+  interimTranscript: string;
+}) => void;
 
 class VoiceNarrationService {
   private currentAudio: HTMLAudioElement | null = null;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private isSpeaking = false;
   private isListening = false;
+  private interimTranscript = '';
   private recognition: any = null;
+  private silenceTimer: any = null;
   private listeners: Set<AudioStateListener> = new Set();
   private settings: VoiceSettings = {
     voice: 'feminino',
-    speed: 1.0,
+    speed: 1.05, // slightly more agile for real-time cashier experience
     volume: 1.0,
     autoPlay: true,
+    engineMode: 'instant', // default to instant for zero-wait response
+    handsFree: false,
   };
 
   constructor() {
-    // Load persisted settings if available
     try {
       const saved = localStorage.getItem('bella_voice_settings');
       if (saved) {
@@ -54,7 +65,12 @@ class VoiceNarrationService {
 
   public subscribe(listener: AudioStateListener) {
     this.listeners.add(listener);
-    listener({ isSpeaking: this.isSpeaking, isListening: this.isListening, currentVoice: this.settings.voice });
+    listener({ 
+      isSpeaking: this.isSpeaking, 
+      isListening: this.isListening, 
+      currentVoice: this.settings.voice,
+      interimTranscript: this.interimTranscript
+    });
     return () => {
       this.listeners.delete(listener);
     };
@@ -62,16 +78,21 @@ class VoiceNarrationService {
 
   private notifyState() {
     for (const listener of this.listeners) {
-      listener({ isSpeaking: this.isSpeaking, isListening: this.isListening, currentVoice: this.settings.voice });
+      listener({ 
+        isSpeaking: this.isSpeaking, 
+        isListening: this.isListening, 
+        currentVoice: this.settings.voice,
+        interimTranscript: this.interimTranscript
+      });
     }
   }
 
-  // Sanitize markdown text for clean speech pronunciation
+  // Clean markdown for spoken pronunciation
   private cleanTextForSpeech(raw: string): string {
     return raw
       .replace(/[*_#`~>\[\]]/g, '') // remove markdown symbols
-      .replace(/https?:\/\/\S+/g, 'link') // replace links
-      .replace(/R\$\s*(\d+)[,.](\d{2})/g, '$1 reais e $2 centavos') // natural currency reading
+      .replace(/https?:\/\/\S+/g, 'link')
+      .replace(/R\$\s*(\d+)[,.](\d{2})/g, '$1 reais e $2 centavos')
       .replace(/R\$\s*(\d+)/g, '$1 reais')
       .replace(/\s+/g, ' ')
       .trim();
@@ -90,12 +111,14 @@ class VoiceNarrationService {
     this.notifyState();
   }
 
+  // Speak immediately without delay
   public async speak(
     text: string,
     options?: {
       voice?: VoicePersona;
       speed?: number;
       volume?: number;
+      mode?: VoiceEngineMode;
       onStart?: () => void;
       onEnd?: () => void;
     }
@@ -103,19 +126,28 @@ class VoiceNarrationService {
     const selectedVoice = options?.voice || this.settings.voice;
     const speed = options?.speed ?? this.settings.speed;
     const volume = options?.volume ?? this.settings.volume;
+    const engineMode = options?.mode ?? this.settings.engineMode;
 
     const speechText = this.cleanTextForSpeech(text);
     if (!speechText) return false;
 
-    // Stop any current playback
+    // Stop previous audio
     this.stopSpeaking();
 
     this.isSpeaking = true;
     this.notifyState();
     options?.onStart?.();
 
-    // 1. Try Gemini Neural TTS Backend
+    // Mode 1: Instant Web Speech (0ms latency, zero wait for cashier)
+    if (engineMode === 'instant') {
+      return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
+    }
+
+    // Mode 2: Neural Studio TTS with ultra-fast 1.5s fallback to Web Speech
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,7 +155,10 @@ class VoiceNarrationService {
           text: speechText,
           voice: selectedVoice,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -132,10 +167,10 @@ class VoiceNarrationService {
         }
       }
     } catch (e) {
-      console.warn('[VoiceNarration] Backend TTS unavailable, falling back to Web Speech API', e);
+      console.warn('[VoiceNarration] Neural TTS exceeded 1.5s, switching instantly to Web Speech', e);
     }
 
-    // 2. Fallback to Browser Speech Synthesis (Brazilian Portuguese)
+    // Fast fallback to Web Speech
     return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
   }
 
@@ -187,7 +222,7 @@ class VoiceNarrationService {
     });
   }
 
-  private speakWithWebSpeech(
+  public speakWithWebSpeech(
     text: string,
     voicePersona: VoicePersona,
     speed: number,
@@ -207,14 +242,14 @@ class VoiceNarrationService {
       const utterance = new SpeechSynthesisUtterance(text);
       this.currentUtterance = utterance;
       utterance.lang = 'pt-BR';
-      utterance.rate = speed;
+      utterance.rate = Math.max(0.8, Math.min(1.4, speed));
       utterance.volume = volume;
 
       const voices = window.speechSynthesis.getVoices();
       const ptBrVoices = voices.filter(v => v.lang.replace('_', '-').toLowerCase().startsWith('pt'));
 
       if (voicePersona === 'feminino') {
-        utterance.pitch = 1.1;
+        utterance.pitch = 1.08;
         const femaleVoice = ptBrVoices.find(v => 
           /francisca|maria|luciana|leticia|helena|camila|female|mulher|brasil/i.test(v.name)
         ) || ptBrVoices[0];
@@ -249,13 +284,14 @@ class VoiceNarrationService {
     });
   }
 
-  // --- SPEECH RECOGNITION (Falar em Português) ---
+  // --- SPEECH RECOGNITION WITH ZERO DELAY & LIVE INTERIM ---
   public isSpeechRecognitionSupported(): boolean {
     return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }
 
   public startListening(callbacks: {
     onResult: (transcript: string) => void;
+    onInterim?: (interim: string) => void;
     onError?: (error: any) => void;
     onEnd?: () => void;
   }): boolean {
@@ -269,29 +305,69 @@ class VoiceNarrationService {
     try {
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'pt-BR';
-      this.recognition.continuous = false;
-      this.recognition.interimResults = false;
+      this.recognition.continuous = true; // allow continuous stream so speech isn't cut prematurely
+      this.recognition.interimResults = true; // live transcription as user speaks
+      this.recognition.maxAlternatives = 1;
+
+      let lastFinalTranscript = '';
+      let activeInterim = '';
+
+      const finalizeAndSend = () => {
+        const toSend = (lastFinalTranscript + ' ' + activeInterim).trim();
+        if (toSend && toSend.length > 1) {
+          this.interimTranscript = '';
+          this.notifyState();
+          this.stopListening();
+          callbacks.onResult(toSend);
+        }
+      };
 
       this.recognition.onstart = () => {
         this.isListening = true;
+        this.interimTranscript = '';
         this.notifyState();
       };
 
       this.recognition.onresult = (event: any) => {
-        const transcript = event.results?.[0]?.[0]?.transcript || '';
-        if (transcript) {
-          callbacks.onResult(transcript);
+        // Reset silence timer on every new speech event
+        if (this.silenceTimer) clearTimeout(this.silenceTimer);
+
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const res = event.results[i];
+          const text = res[0].transcript;
+          if (res.isFinal) {
+            lastFinalTranscript += ' ' + text;
+          } else {
+            interim += text;
+          }
+        }
+
+        activeInterim = interim;
+        const currentFull = (lastFinalTranscript + ' ' + interim).trim();
+        this.interimTranscript = currentFull;
+        this.notifyState();
+        callbacks.onInterim?.(currentFull);
+
+        // Immediate silence detection (600ms of silence triggers instant execution!)
+        if (currentFull.length > 2) {
+          this.silenceTimer = setTimeout(() => {
+            finalizeAndSend();
+          }, 650);
         }
       };
 
       this.recognition.onerror = (event: any) => {
         console.warn('[SpeechRecognition Error]', event.error);
-        this.isListening = false;
-        this.notifyState();
-        callbacks.onError?.(event.error);
+        if (event.error !== 'no-speech') {
+          this.isListening = false;
+          this.notifyState();
+          callbacks.onError?.(event.error);
+        }
       };
 
       this.recognition.onend = () => {
+        if (this.silenceTimer) clearTimeout(this.silenceTimer);
         this.isListening = false;
         this.notifyState();
         callbacks.onEnd?.();
@@ -308,6 +384,10 @@ class VoiceNarrationService {
   }
 
   public stopListening() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
     if (this.recognition) {
       try {
         this.recognition.stop();
@@ -317,6 +397,7 @@ class VoiceNarrationService {
       this.recognition = null;
     }
     this.isListening = false;
+    this.interimTranscript = '';
     this.notifyState();
   }
 }

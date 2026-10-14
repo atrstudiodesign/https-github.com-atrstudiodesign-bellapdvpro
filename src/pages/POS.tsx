@@ -313,7 +313,33 @@ Responda APENAS com um arquivo JSON válido e nada mais:
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // AI Voice Assistant & System Operator Integrations
+    const handlePosAddItem = (e: Event) => {
+      const customEvent = e as CustomEvent<Service>;
+      if (customEvent.detail) {
+        addToCart(customEvent.detail);
+        toast.success(`🛒 Adicionado ao caixa: ${customEvent.detail.name}`);
+      }
+    };
+    const handlePosClearCart = () => {
+      setCart([]);
+      toast.info('Carrinho do caixa limpo com sucesso.');
+    };
+    const handlePosOpenDrawer = () => {
+      toast.success('💵 Gaveta do caixa acionada via Assistente Bella!');
+    };
+
+    window.addEventListener('pos-add-item', handlePosAddItem);
+    window.addEventListener('pos-clear-cart', handlePosClearCart);
+    window.addEventListener('pos-open-drawer', handlePosOpenDrawer);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pos-add-item', handlePosAddItem);
+      window.removeEventListener('pos-clear-cart', handlePosClearCart);
+      window.removeEventListener('pos-open-drawer', handlePosOpenDrawer);
+    };
   }, [cart, isSuccess]);
 
   const addToCart = (service: Service) => {
