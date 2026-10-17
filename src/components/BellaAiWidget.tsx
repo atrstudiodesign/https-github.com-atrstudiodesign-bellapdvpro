@@ -62,13 +62,15 @@ export function BellaAiWidget() {
   const [message, setMessage] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [voiceSettings, setVoiceSettings] = useState(() => voiceNarration.getSettings());
-  const [voiceState, setVoiceState] = useState({ 
+  const [voiceState, setVoiceState] = useState(() => ({ 
     isSpeaking: false, 
     isListening: false, 
     currentVoice: voiceSettings.voice,
     interimTranscript: '',
-    volumeLevel: 0
-  });
+    volumeLevel: 0,
+    frequencyData: new Array(12).fill(0),
+    engine: voiceSettings.engineMode,
+  }));
   const [playingMessageIdx, setPlayingMessageIdx] = useState<number | null>(null);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [handsFreeMode, setHandsFreeMode] = useState(() => voiceSettings.handsFree);
@@ -672,25 +674,28 @@ Diretrizes:
                 </button>
               </div>
 
-              {/* Sound Wave Equalizer Bars */}
-              <div className="flex items-center justify-center gap-1.5 h-10">
-                {[4, 12, 24, 36, 44, 28, 16, 32, 48, 20, 8].map((h, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      height: voiceState.isSpeaking || voiceState.isListening
-                        ? `${Math.max(6, (h * (voiceState.isSpeaking ? 1 : 0.8)))}px`
-                        : '6px'
-                    }}
-                    className={`w-1.5 rounded-full transition-all duration-150 ${
-                      voiceState.isListening
-                        ? 'bg-red-400 animate-pulse'
-                        : voiceState.isSpeaking
-                        ? 'bg-gradient-to-t from-cyan-400 to-indigo-400 animate-bounce'
-                        : 'bg-slate-700'
-                    }`}
-                  />
-                ))}
+              {/* High-Fidelity Sound Wave Equalizer Bars */}
+              <div className="flex items-center justify-center gap-1.5 h-12">
+                {voiceState.frequencyData.map((f, i) => {
+                  const barHeight = voiceState.isSpeaking
+                    ? Math.max(6, Math.round(f * 48))
+                    : voiceState.isListening
+                    ? Math.max(6, Math.round((voiceState.volumeLevel || 0.4) * 36 * (((i % 4) + 1) / 3)))
+                    : 6;
+                  return (
+                    <span
+                      key={i}
+                      style={{ height: `${barHeight}px` }}
+                      className={`w-1.5 rounded-full transition-all duration-75 ${
+                        voiceState.isListening
+                          ? 'bg-red-400 animate-pulse'
+                          : voiceState.isSpeaking
+                          ? 'bg-gradient-to-t from-cyan-400 via-indigo-400 to-purple-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
+                          : 'bg-slate-700'
+                      }`}
+                    />
+                  );
+                })}
               </div>
 
               {/* Subtitle / Live Transcript Display */}
@@ -955,24 +960,34 @@ Diretrizes:
                   )}
                 </AnimatePresence>
 
-                {/* ACTIVE NARRATION BAR */}
+                {/* ACTIVE NARRATION BAR (High-Fidelity Studio Audio) */}
                 {voiceState.isSpeaking && (
-                  <div className="bg-gradient-to-r from-cyan-950/70 to-indigo-950/70 px-4 py-2 border-b border-cyan-500/30 flex items-center justify-between text-xs text-cyan-300">
+                  <div className="bg-gradient-to-r from-cyan-950/80 via-indigo-950/80 to-purple-950/80 px-4 py-2 border-b border-cyan-500/30 flex items-center justify-between text-xs text-cyan-300">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        <span className="w-1 h-3 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-1 h-5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-1 h-2 bg-cyan-300 rounded-full animate-bounce" />
+                        {voiceState.frequencyData.slice(0, 4).map((f, idx) => (
+                          <span
+                            key={idx}
+                            style={{ height: `${Math.max(6, Math.round(f * 18))}px` }}
+                            className="w-1 bg-cyan-400 rounded-full transition-all duration-75"
+                          />
+                        ))}
                       </div>
-                      <span className="text-[11px] font-medium">
-                        Narrando com voz de <strong>{voiceSettings.voice === 'feminino' ? 'Bella' : 'Gabriel'}</strong>
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-medium text-white">
+                          Voz: <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Kore)' : 'Gabriel (Fenrir)'}</strong>
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono font-bold flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
+                          24kHz HD
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => voiceNarration.stopSpeaking()}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[10px] font-semibold transition-colors"
+                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
                     >
-                      <Square className="w-2.5 h-2.5 fill-current" /> Parar Áudio
+                      <Square className="w-2.5 h-2.5 fill-current" /> Parar
                     </button>
                   </div>
                 )}
@@ -1040,22 +1055,26 @@ Diretrizes:
                             {isAi && (
                               <button
                                 onClick={() => handleToggleSpeakMessage(msg.parts[0].text, index)}
-                                className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all font-semibold ${
+                                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-md transition-all font-semibold cursor-pointer ${
                                   isThisPlaying 
-                                    ? 'bg-cyan-500 text-black shadow' 
-                                    : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'
+                                    ? 'bg-gradient-to-r from-cyan-400 to-indigo-400 text-black shadow-[0_0_10px_rgba(34,211,238,0.4)]' 
+                                    : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/15 border border-cyan-500/20'
                                 }`}
-                                title={isThisPlaying ? 'Pausar/Parar' : 'Ouvir Narração'}
+                                title={isThisPlaying ? 'Pausar/Parar áudio' : 'Ouvir resposta com Voz Neural Humanizada (24kHz)'}
                               >
                                 {isThisPlaying ? (
                                   <>
-                                    <Square className="w-2.5 h-2.5 fill-current" />
-                                    <span>Parar</span>
+                                    <span className="flex items-center gap-0.5">
+                                      <span className="w-0.5 h-2 bg-black rounded-full animate-bounce [animation-delay:-0.2s]" />
+                                      <span className="w-0.5 h-3 bg-black rounded-full animate-bounce [animation-delay:-0.1s]" />
+                                      <span className="w-0.5 h-2 bg-black rounded-full animate-bounce" />
+                                    </span>
+                                    <span>Tocando</span>
                                   </>
                                 ) : (
                                   <>
-                                    <Volume2 className="w-3 h-3" />
-                                    <span>Ouvir</span>
+                                    <Volume2 className="w-3 h-3 text-cyan-400" />
+                                    <span>Voz Neural</span>
                                   </>
                                 )}
                               </button>

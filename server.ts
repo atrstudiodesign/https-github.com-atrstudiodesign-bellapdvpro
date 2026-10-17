@@ -195,12 +195,59 @@ app.use(express.json());
       }
   });
 
-  // --- NEURAL TTS (Voz Humanizada em Português) ---
+  // --- IN-MEMORY HIGH-SPEED TTS AUDIO CACHE (<1ms latency for repeated phrases) ---
+  const ttsAudioCache = new Map<string, { audioBase64: string; format: string; voiceName: string; timestamp: number }>();
+  const MAX_TTS_CACHE = 150;
+
+  function normalizeTextForTts(raw: string): string {
+      return raw
+          .replace(/[*_#`~>\[\]]/g, '') // remove markdown symbols
+          .replace(/https?:\/\/\S+/g, 'link')
+          // Natural spoken currency in Brazilian Portuguese
+          .replace(/R\$\s*(\d{1,3}(?:\.\d{3})*),(\d{2})/g, (_m, intPart, decPart) => {
+              const cleanInt = intPart.replace(/\./g, '');
+              return decPart === '00' ? `${cleanInt} reais` : `${cleanInt} reais e ${parseInt(decPart, 10)} centavos`;
+          })
+          .replace(/R\$\s*(\d+)[,.](\d{2})/g, (_m, intPart, decPart) => {
+              return decPart === '00' ? `${intPart} reais` : `${intPart} reais e ${parseInt(decPart, 10)} centavos`;
+          })
+          .replace(/R\$\s*(\d+)/g, '$1 reais')
+          .replace(/(\d+)%/g, '$1 por cento')
+          .replace(/(\d{1,2}):(\d{2})/g, '$1 horas e $2 minutos')
+          .replace(/\bPDV\b/gi, 'P. D. V.')
+          .replace(/\bCRM\b/gi, 'C. R. M.')
+          .replace(/\bIA\b/gi, 'I. A.')
+          .replace(/\bPIX\b/gi, 'Pix')
+          .replace(/\bNFC-e\b/gi, 'nota fiscal eletrônica')
+          .replace(/\s+/g, ' ')
+          .trim();
+  }
+
+  // --- HIGH-FIDELITY NEURAL TTS API (Voz Humanizada de Baixa Latência) ---
   app.post('/api/ai/tts', async (req, res) => {
       try {
-          const { text, voice = 'feminino' } = req.body;
+          const { text, voice = 'feminino', style } = req.body;
           if (!text || typeof text !== 'string') {
              return res.status(400).json({ error: "Texto para narração é obrigatório." });
+          }
+
+          const cleanedText = normalizeTextForTts(text);
+          if (!cleanedText) {
+             return res.status(400).json({ error: "Texto vazio após processamento." });
+          }
+
+          // 1. FAST IN-MEMORY CACHE CHECK (< 1ms instant zero-latency response)
+          const cacheKey = `${voice}_${cleanedText.slice(0, 150).toLowerCase()}`;
+          const cached = ttsAudioCache.get(cacheKey);
+          if (cached) {
+              return res.json({
+                  audioBase64: cached.audioBase64,
+                  format: cached.format,
+                  voice,
+                  voiceName: cached.voiceName,
+                  cached: true,
+                  fallback: false
+              });
           }
 
           const key = process.env.GEMINI_API_KEY;
@@ -208,57 +255,90 @@ app.use(express.json());
           const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : key;
 
           if (!effectiveKey) {
-             return res.json({ fallback: true, message: "Sem chave Gemini configurada, utilizando fallback de voz neural do navegador." });
+             return res.json({ fallback: true, message: "Sem chave Gemini configurada, utilizando fallback de voz do navegador." });
           }
 
           const { GoogleGenAI } = await import("@google/genai");
           const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
           // Voice mapping for Portuguese neural humanized speech:
-          // 'feminino' -> 'Kore' (Warm, articulate female voice)
-          // 'masculino' -> 'Fenrir' (Deep, confident male executive voice)
+          // 'feminino' -> 'Kore' (Warm, friendly, expressive Brazilian female voice)
+          // 'masculino' -> 'Fenrir' (Articulate, executive, natural Brazilian male voice)
           const voiceName = voice === 'masculino' ? 'Fenrir' : 'Kore';
-          const styleDescription = voice === 'masculino'
-              ? 'Narração natural em português do Brasil com voz masculina confiante, executiva e cordial.'
-              : 'Narração natural em português do Brasil com voz feminina acolhedora, clara e profissional.';
+          const defaultStyle = voice === 'masculino'
+              ? 'Locução em português do Brasil com voz masculina confiante, elegante e atenciosa, tom profissional e expressivo, entonação fluida e natural de consultor de negócios.'
+              : 'Locução em português do Brasil com voz feminina acolhedora, humana e expressiva, tom amigável e caloroso de atendente profissional, entonação natural sem soar robótica.';
 
-          const response = await ai.models.generateContent({
-              model: 'gemini-3.8-flash-lite-tts',
-              contents: [
-                  {
-                      role: 'user',
-                      parts: [
+          const styleDescription = style || defaultStyle;
+
+          // Attempt with gemini-3.8-flash-lite-tts (ultra-fast low latency)
+          const modelsToTry = ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts'];
+          let base64Audio: string | null = null;
+          let lastErr: any = null;
+
+          for (const ttsModel of modelsToTry) {
+              try {
+                  const response = await ai.models.generateContent({
+                      model: ttsModel,
+                      contents: [
                           {
-                              text: text.slice(0, 800),
-                              speechMetadata: {
-                                  style: styleDescription,
+                              role: 'user',
+                              parts: [
+                                  {
+                                      text: cleanedText.slice(0, 1000),
+                                      speechMetadata: {
+                                          style: styleDescription,
+                                      },
+                                  },
+                              ],
+                          },
+                      ] as any,
+                      config: {
+                          responseModalities: ['AUDIO'],
+                          speechConfig: {
+                              voiceConfig: {
+                                  prebuiltVoiceConfig: { voiceName },
                               },
                           },
-                      ],
-                  },
-              ] as any,
-              config: {
-                  responseModalities: ['AUDIO'],
-                  speechConfig: {
-                      voiceConfig: {
-                          prebuiltVoiceConfig: { voiceName },
                       },
-                  },
-              },
-          });
+                  });
 
-          const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                  const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                  if (audioData) {
+                      base64Audio = audioData;
+                      break;
+                  }
+              } catch (e: any) {
+                  lastErr = e;
+                  console.warn(`[TTS Engine] Model ${ttsModel} failed: ${e?.message || e}. Trying next...`);
+              }
+          }
+
           if (base64Audio) {
+              // Store in LRU cache
+              if (ttsAudioCache.size >= MAX_TTS_CACHE) {
+                  const oldestKey = ttsAudioCache.keys().next().value;
+                  if (oldestKey) ttsAudioCache.delete(oldestKey);
+              }
+              ttsAudioCache.set(cacheKey, {
+                  audioBase64: base64Audio,
+                  format: 'audio/wav',
+                  voiceName,
+                  timestamp: Date.now()
+              });
+
               return res.json({
                   audioBase64: base64Audio,
                   format: 'audio/wav',
                   voice,
                   voiceName,
+                  cached: false,
                   fallback: false
               });
           }
 
-          return res.json({ fallback: true, message: "Formato de áudio alternativo." });
+          console.warn('[TTS Synthesis Fallbacks Exhausted]', lastErr?.message || lastErr);
+          return res.json({ fallback: true, message: "Fallback imediato para voz do navegador." });
       } catch (err: any) {
           console.warn('[TTS Proxy Error - Graceful Fallback to Web Speech]', err?.message || err);
           return res.json({ fallback: true, message: "Fallback imediato para voz do navegador." });

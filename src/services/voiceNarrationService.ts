@@ -1,8 +1,9 @@
-// Service for Neural Humanized Voice Narration in Portuguese (BR)
-// Supports Instant Zero-Delay Web Speech with Natural Neural voices and Gemini TTS
+// Service for High-Fidelity Humanized Voice Narration in Portuguese (BR)
+// Integrates Gemini 3.8 Flash Lite TTS (24kHz studio audio) + Instant Web Speech fallback
+// Features client/server audio caching, Web Audio compressor mastering, and real-time frequency analysis
 
 export type VoicePersona = 'feminino' | 'masculino';
-export type VoiceEngineMode = 'instant' | 'neural'; // 'instant' = 0ms latency, 'neural' = studio quality
+export type VoiceEngineMode = 'neural' | 'instant'; // 'neural' = High-fidelity Gemini Studio TTS, 'instant' = Web Speech
 
 export interface VoiceSettings {
   voice: VoicePersona;
@@ -14,13 +15,17 @@ export interface VoiceSettings {
   soundEffects: boolean; // Subtle audio cues
 }
 
-type AudioStateListener = (state: { 
-  isSpeaking: boolean; 
-  isListening: boolean; 
+export interface AudioState {
+  isSpeaking: boolean;
+  isListening: boolean;
   currentVoice: VoicePersona;
   interimTranscript: string;
-  volumeLevel: number; // 0 to 1 for visualizer
-}) => void;
+  volumeLevel: number; // 0 to 1 real-time frequency/amplitude for visualizer
+  frequencyData: number[]; // frequency bins for visualizer bars
+  engine: VoiceEngineMode;
+}
+
+type AudioStateListener = (state: AudioState) => void;
 
 class VoiceNarrationService {
   private currentAudio: HTMLAudioElement | null = null;
@@ -29,17 +34,29 @@ class VoiceNarrationService {
   private isListening = false;
   private interimTranscript = '';
   private volumeLevel = 0;
+  private frequencyData: number[] = new Array(12).fill(0);
   private recognition: any = null;
   private silenceTimer: any = null;
   private listeners: Set<AudioStateListener> = new Set();
+  
+  // Web Audio mastering & frequency analysis pipeline
   private audioCtx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
+  private gainNode: GainNode | null = null;
+  private audioSourceNode: MediaElementAudioSourceNode | null = null;
+  private animationFrameId: number | null = null;
+
+  // Client-side in-memory audio cache for 0ms replay of synthesized phrases
+  private clientAudioCache: Map<string, string> = new Map();
+  private readonly MAX_CLIENT_CACHE = 100;
 
   private settings: VoiceSettings = {
     voice: 'feminino',
-    speed: 1.05, // slightly more agile for real-time cashier experience
+    speed: 1.05,
     volume: 1.0,
     autoPlay: true,
-    engineMode: 'instant', // default to instant for zero-wait response
+    engineMode: 'neural', // Default to High-Fidelity Gemini TTS
     handsFree: false,
     soundEffects: true,
   };
@@ -71,54 +88,87 @@ class VoiceNarrationService {
 
   public subscribe(listener: AudioStateListener) {
     this.listeners.add(listener);
-    listener({ 
-      isSpeaking: this.isSpeaking, 
-      isListening: this.isListening, 
-      currentVoice: this.settings.voice,
-      interimTranscript: this.interimTranscript,
-      volumeLevel: this.volumeLevel,
-    });
+    listener(this.getStateSnapshot());
     return () => {
       this.listeners.delete(listener);
     };
   }
 
+  private getStateSnapshot(): AudioState {
+    return {
+      isSpeaking: this.isSpeaking,
+      isListening: this.isListening,
+      currentVoice: this.settings.voice,
+      interimTranscript: this.interimTranscript,
+      volumeLevel: this.volumeLevel,
+      frequencyData: [...this.frequencyData],
+      engine: this.settings.engineMode,
+    };
+  }
+
   private notifyState() {
+    const snapshot = this.getStateSnapshot();
     for (const listener of this.listeners) {
-      listener({ 
-        isSpeaking: this.isSpeaking, 
-        isListening: this.isListening, 
-        currentVoice: this.settings.voice,
-        interimTranscript: this.interimTranscript,
-        volumeLevel: this.volumeLevel,
-      });
+      listener(snapshot);
     }
   }
 
-  // Soft Web Audio cues (synthesizer chimes with 0 external network requests)
-  public playChime(type: 'start' | 'success' | 'stop') {
-    if (!this.settings.soundEffects || typeof window === 'undefined') return;
+  // Initialize or resume the Web Audio mastering context
+  private getAudioContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
+      if (!AudioContextClass) return null;
       if (!this.audioCtx) {
         this.audioCtx = new AudioContextClass();
+        
+        // Studio Mastering: Dynamics Compressor Node (broadcast clarity)
+        this.compressor = this.audioCtx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
+        this.compressor.knee.setValueAtTime(30, this.audioCtx.currentTime);
+        this.compressor.ratio.setValueAtTime(4, this.audioCtx.currentTime);
+        this.compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
+        this.compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+
+        // Real-time Analyser Node for visualizer
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 64;
+        this.analyser.smoothingTimeConstant = 0.8;
+
+        this.gainNode = this.audioCtx.createGain();
+
+        // Connect chain: Source -> Compressor -> Analyser -> Gain -> Destination
+        this.compressor.connect(this.analyser);
+        this.analyser.connect(this.gainNode);
+        this.gainNode.connect(this.audioCtx.destination);
       }
       if (this.audioCtx.state === 'suspended') {
         this.audioCtx.resume();
       }
+      return this.audioCtx;
+    } catch {
+      return null;
+    }
+  }
 
-      const now = this.audioCtx.currentTime;
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
+  // Soft high-tech acoustic cues via synthesized audio
+  public playChime(type: 'start' | 'success' | 'stop') {
+    if (!this.settings.soundEffects) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
+      gain.connect(ctx.destination);
 
       if (type === 'start') {
         // High-tech two-tone listening beep
         osc.type = 'sine';
         osc.frequency.setValueAtTime(540, now);
-        osc.frequency.exponentialRampToValueAtTime(820, now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(840, now + 0.1);
         gain.gain.setValueAtTime(0.04, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         osc.start(now);
@@ -129,7 +179,7 @@ class VoiceNarrationService {
         osc.frequency.setValueAtTime(440, now);
         osc.frequency.setValueAtTime(660, now + 0.08);
         osc.frequency.setValueAtTime(880, now + 0.16);
-        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.setValueAtTime(0.05, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
         osc.start(now);
         osc.stop(now + 0.3);
@@ -149,11 +199,11 @@ class VoiceNarrationService {
   }
 
   // Clean markdown and optimize for natural spoken Portuguese
-  private cleanTextForSpeech(raw: string): string {
+  public cleanTextForSpeech(raw: string): string {
     return raw
       .replace(/[*_#`~>\[\]]/g, '') // remove markdown symbols
       .replace(/https?:\/\/\S+/g, 'link')
-      // Humanize currency pronunciation
+      // Natural spoken currency in Brazilian Portuguese
       .replace(/R\$\s*(\d{1,3}(?:\.\d{3})*),(\d{2})/g, (_m, intPart, decPart) => {
         const cleanInt = intPart.replace(/\./g, '');
         return decPart === '00' ? `${cleanInt} reais` : `${cleanInt} reais e ${parseInt(decPart, 10)} centavos`;
@@ -162,17 +212,24 @@ class VoiceNarrationService {
         return decPart === '00' ? `${intPart} reais` : `${intPart} reais e ${parseInt(decPart, 10)} centavos`;
       })
       .replace(/R\$\s*(\d+)/g, '$1 reais')
+      .replace(/(\d+)%/g, '$1 por cento')
+      .replace(/(\d{1,2}):(\d{2})/g, '$1 horas e $2 minutos')
       // Natural spoken abbreviations
-      .replace(/\bPDV\b/gi, 'P.D.V.')
-      .replace(/\bCRM\b/gi, 'C.R.M.')
-      .replace(/\bIA\b/gi, 'I.A.')
+      .replace(/\bPDV\b/gi, 'P. D. V.')
+      .replace(/\bCRM\b/gi, 'C. R. M.')
+      .replace(/\bIA\b/gi, 'I. A.')
       .replace(/\bPIX\b/gi, 'Pix')
+      .replace(/\bNFC-e\b/gi, 'nota fiscal eletrônica')
       .replace(/\bWhatsApp\b/gi, 'WhatsApp')
       .replace(/\s+/g, ' ')
       .trim();
   }
 
   public stopSpeaking() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
     if (this.currentAudio) {
       this.currentAudio.pause();
       this.currentAudio.currentTime = 0;
@@ -183,10 +240,55 @@ class VoiceNarrationService {
     }
     this.isSpeaking = false;
     this.volumeLevel = 0;
+    this.frequencyData = new Array(12).fill(0);
     this.notifyState();
   }
 
-  // Speak immediately without delay
+  // Start real-time audio spectrum analysis loop
+  private startFrequencyAnalysis() {
+    if (!this.analyser) return;
+
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+    const update = () => {
+      if (!this.isSpeaking || !this.analyser) {
+        this.volumeLevel = 0;
+        this.frequencyData = new Array(12).fill(0);
+        this.notifyState();
+        return;
+      }
+
+      this.analyser.getByteFrequencyData(dataArray);
+
+      // Compute RMS volume (0.0 to 1.0)
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const avg = sum / dataArray.length;
+      this.volumeLevel = Math.min(1, Math.max(0, avg / 128));
+
+      // Compute 12 frequency bands for visualizer equalizer bars
+      const bands = 12;
+      const step = Math.floor(dataArray.length / bands);
+      const newFrequencies: number[] = [];
+      for (let b = 0; b < bands; b++) {
+        let bSum = 0;
+        for (let j = 0; j < step; j++) {
+          bSum += dataArray[b * step + j] || 0;
+        }
+        newFrequencies.push((bSum / step) / 255);
+      }
+      this.frequencyData = newFrequencies;
+      this.notifyState();
+
+      this.animationFrameId = requestAnimationFrame(update);
+    };
+
+    update();
+  }
+
+  // Speak with High-Fidelity Text-to-Speech
   public async speak(
     text: string,
     options?: {
@@ -194,6 +296,7 @@ class VoiceNarrationService {
       speed?: number;
       volume?: number;
       mode?: VoiceEngineMode;
+      style?: string;
       onStart?: () => void;
       onEnd?: () => void;
     }
@@ -206,23 +309,32 @@ class VoiceNarrationService {
     const speechText = this.cleanTextForSpeech(text);
     if (!speechText) return false;
 
-    // Stop previous audio
+    // Stop any existing playback
     this.stopSpeaking();
 
     this.isSpeaking = true;
-    this.volumeLevel = 0.8;
+    this.volumeLevel = 0.5;
     this.notifyState();
     options?.onStart?.();
 
-    // Mode 1: Instant Web Speech (0ms latency, zero wait for operator)
+    // Mode: Instant Web Speech (if explicitly selected)
     if (engineMode === 'instant') {
       return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
     }
 
-    // Mode 2: Neural Studio TTS with ultra-fast 1.2s fallback to Web Speech
+    // Mode: High-Fidelity Studio Neural TTS (Gemini 3.8 Flash Lite TTS 24kHz)
+    const cacheKey = `${selectedVoice}_${speechText.slice(0, 150).toLowerCase()}`;
+    const localCached = this.clientAudioCache.get(cacheKey);
+
+    // 1. FAST LOCAL CLIENT CACHE CHECK (0ms playback)
+    if (localCached) {
+      return await this.playBase64Audio(localCached, speed, volume, options?.onEnd);
+    }
+
+    // 2. SERVER TTS SYNTHESIS WITH SNAPPY 2.8s TIMEOUT
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 2800);
 
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
@@ -230,6 +342,7 @@ class VoiceNarrationService {
         body: JSON.stringify({
           text: speechText,
           voice: selectedVoice,
+          style: options?.style,
         }),
         signal: controller.signal,
       });
@@ -239,17 +352,25 @@ class VoiceNarrationService {
       if (response.ok) {
         const data = await response.json();
         if (data.audioBase64) {
+          // Cache in client memory
+          if (this.clientAudioCache.size >= this.MAX_CLIENT_CACHE) {
+            const firstKey = this.clientAudioCache.keys().next().value;
+            if (firstKey) this.clientAudioCache.delete(firstKey);
+          }
+          this.clientAudioCache.set(cacheKey, data.audioBase64);
+
           return await this.playBase64Audio(data.audioBase64, speed, volume, options?.onEnd);
         }
       }
-    } catch {
-      // Instant fallback to Web Speech with no disruption
+    } catch (e) {
+      console.warn('[VoiceNarration] Neural TTS exceeded timeout, switching smoothly to Web Speech', e);
     }
 
-    // Fast fallback to Web Speech
+    // Graceful seamless fallback to Web Speech with Brazilian Portuguese neural voice
     return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
   }
 
+  // Play High-Fidelity Base64 WAV Audio through Web Audio mastering pipeline
   private playBase64Audio(
     base64Data: string,
     speed: number,
@@ -260,46 +381,53 @@ class VoiceNarrationService {
       try {
         const audio = new Audio(`data:audio/wav;base64,${base64Data}`);
         this.currentAudio = audio;
-        audio.playbackRate = speed;
+        audio.playbackRate = Math.max(0.75, Math.min(1.5, speed));
         audio.volume = Math.max(0, Math.min(1, volume));
 
+        // Connect audio to Web Audio API mastering chain
+        try {
+          const ctx = this.getAudioContext();
+          if (ctx && this.compressor && !this.audioSourceNode) {
+            this.audioSourceNode = ctx.createMediaElementSource(audio);
+            this.audioSourceNode.connect(this.compressor);
+          }
+        } catch {
+          // Fallback to standard audio output if routing is already connected
+        }
+
+        audio.onplay = () => {
+          this.startFrequencyAnalysis();
+        };
+
         audio.onended = () => {
-          this.isSpeaking = false;
-          this.currentAudio = null;
-          this.volumeLevel = 0;
-          this.notifyState();
+          this.stopSpeaking();
           onEnd?.();
           resolve(true);
         };
 
-        audio.onerror = () => {
-          this.isSpeaking = false;
-          this.currentAudio = null;
-          this.volumeLevel = 0;
-          this.notifyState();
+        audio.onerror = (err) => {
+          console.warn('[Audio Playback Error]', err);
+          this.stopSpeaking();
           onEnd?.();
           resolve(false);
         };
 
-        audio.play().catch(() => {
-          this.isSpeaking = false;
-          this.currentAudio = null;
-          this.volumeLevel = 0;
-          this.notifyState();
+        audio.play().catch((playErr) => {
+          console.warn('[Audio Autoplay Blocked]', playErr);
+          this.stopSpeaking();
           onEnd?.();
           resolve(false);
         });
-      } catch {
-        this.isSpeaking = false;
-        this.currentAudio = null;
-        this.volumeLevel = 0;
-        this.notifyState();
+      } catch (err) {
+        console.warn('[Audio Playback Failed]', err);
+        this.stopSpeaking();
         onEnd?.();
         resolve(false);
       }
     });
   }
 
+  // Fallback to Web Speech Synthesis with Brazilian Portuguese neural voice heuristics
   public speakWithWebSpeech(
     text: string,
     voicePersona: VoicePersona,
@@ -347,20 +475,36 @@ class VoiceNarrationService {
         if (maleVoice) utterance.voice = maleVoice;
       }
 
+      // Simulated volume pulsing for visualizer during Web Speech
+      let pulseInterval: any = null;
+      utterance.onstart = () => {
+        let toggle = false;
+        pulseInterval = setInterval(() => {
+          toggle = !toggle;
+          this.volumeLevel = toggle ? 0.65 : 0.45;
+          this.frequencyData = this.frequencyData.map(() => Math.random() * 0.7);
+          this.notifyState();
+        }, 120);
+      };
+
       utterance.onend = () => {
+        if (pulseInterval) clearInterval(pulseInterval);
         this.isSpeaking = false;
         this.currentUtterance = null;
         this.volumeLevel = 0;
+        this.frequencyData = new Array(12).fill(0);
         this.notifyState();
         onEnd?.();
         resolve(true);
       };
 
       utterance.onerror = (err) => {
+        if (pulseInterval) clearInterval(pulseInterval);
         console.warn('[WebSpeech Error]', err);
         this.isSpeaking = false;
         this.currentUtterance = null;
         this.volumeLevel = 0;
+        this.frequencyData = new Array(12).fill(0);
         this.notifyState();
         onEnd?.();
         resolve(false);
@@ -392,8 +536,8 @@ class VoiceNarrationService {
     try {
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'pt-BR';
-      this.recognition.continuous = true; // allow continuous stream so speech isn't cut prematurely
-      this.recognition.interimResults = true; // live transcription as user speaks
+      this.recognition.continuous = true;
+      this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 1;
 
       let lastFinalTranscript = '';
@@ -442,11 +586,8 @@ class VoiceNarrationService {
         this.notifyState();
         callbacks.onInterim?.(currentFull);
 
-        // Instant turn-taking:
-        // If the browser already emitted a final result, finalize in 280ms
-        // If interim, wait 480ms of silence to trigger instant execution!
         if (currentFull.length > 1) {
-          const timeoutMs = hasFinal ? 280 : 480;
+          const timeoutMs = hasFinal ? 280 : 450;
           this.silenceTimer = setTimeout(() => {
             finalizeAndSend();
           }, timeoutMs);
