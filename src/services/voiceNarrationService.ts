@@ -1,16 +1,17 @@
 // Service for Neural Humanized Voice Narration in Portuguese (BR)
-// Supports both Instant Zero-Delay Web Speech and Gemini Neural TTS with automatic silence detection
+// Supports Instant Zero-Delay Web Speech with Natural Neural voices and Gemini TTS
 
 export type VoicePersona = 'feminino' | 'masculino';
 export type VoiceEngineMode = 'instant' | 'neural'; // 'instant' = 0ms latency, 'neural' = studio quality
 
 export interface VoiceSettings {
   voice: VoicePersona;
-  speed: number; // 0.8, 1.0, 1.25
+  speed: number; // 0.8 to 1.3
   volume: number; // 0 to 1
   autoPlay: boolean;
   engineMode: VoiceEngineMode;
-  handsFree: boolean; // Continuous listening for operator
+  handsFree: boolean; // Continuous conversational listening for operator
+  soundEffects: boolean; // Subtle audio cues
 }
 
 type AudioStateListener = (state: { 
@@ -18,6 +19,7 @@ type AudioStateListener = (state: {
   isListening: boolean; 
   currentVoice: VoicePersona;
   interimTranscript: string;
+  volumeLevel: number; // 0 to 1 for visualizer
 }) => void;
 
 class VoiceNarrationService {
@@ -26,9 +28,12 @@ class VoiceNarrationService {
   private isSpeaking = false;
   private isListening = false;
   private interimTranscript = '';
+  private volumeLevel = 0;
   private recognition: any = null;
   private silenceTimer: any = null;
   private listeners: Set<AudioStateListener> = new Set();
+  private audioCtx: AudioContext | null = null;
+
   private settings: VoiceSettings = {
     voice: 'feminino',
     speed: 1.05, // slightly more agile for real-time cashier experience
@@ -36,6 +41,7 @@ class VoiceNarrationService {
     autoPlay: true,
     engineMode: 'instant', // default to instant for zero-wait response
     handsFree: false,
+    soundEffects: true,
   };
 
   constructor() {
@@ -69,7 +75,8 @@ class VoiceNarrationService {
       isSpeaking: this.isSpeaking, 
       isListening: this.isListening, 
       currentVoice: this.settings.voice,
-      interimTranscript: this.interimTranscript
+      interimTranscript: this.interimTranscript,
+      volumeLevel: this.volumeLevel,
     });
     return () => {
       this.listeners.delete(listener);
@@ -82,18 +89,85 @@ class VoiceNarrationService {
         isSpeaking: this.isSpeaking, 
         isListening: this.isListening, 
         currentVoice: this.settings.voice,
-        interimTranscript: this.interimTranscript
+        interimTranscript: this.interimTranscript,
+        volumeLevel: this.volumeLevel,
       });
     }
   }
 
-  // Clean markdown for spoken pronunciation
+  // Soft Web Audio cues (synthesizer chimes with 0 external network requests)
+  public playChime(type: 'start' | 'success' | 'stop') {
+    if (!this.settings.soundEffects || typeof window === 'undefined') return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioContextClass();
+      }
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      if (type === 'start') {
+        // High-tech two-tone listening beep
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(540, now);
+        osc.frequency.exponentialRampToValueAtTime(820, now + 0.1);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } else if (type === 'success') {
+        // Warm action confirmation chord
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(660, now + 0.08);
+        osc.frequency.setValueAtTime(880, now + 0.16);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else {
+        // Soft stop tone
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.exponentialRampToValueAtTime(380, now + 0.1);
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+    } catch {
+      // Audio context may require user gesture on first interaction
+    }
+  }
+
+  // Clean markdown and optimize for natural spoken Portuguese
   private cleanTextForSpeech(raw: string): string {
     return raw
       .replace(/[*_#`~>\[\]]/g, '') // remove markdown symbols
       .replace(/https?:\/\/\S+/g, 'link')
-      .replace(/R\$\s*(\d+)[,.](\d{2})/g, '$1 reais e $2 centavos')
+      // Humanize currency pronunciation
+      .replace(/R\$\s*(\d{1,3}(?:\.\d{3})*),(\d{2})/g, (_m, intPart, decPart) => {
+        const cleanInt = intPart.replace(/\./g, '');
+        return decPart === '00' ? `${cleanInt} reais` : `${cleanInt} reais e ${parseInt(decPart, 10)} centavos`;
+      })
+      .replace(/R\$\s*(\d+)[,.](\d{2})/g, (_m, intPart, decPart) => {
+        return decPart === '00' ? `${intPart} reais` : `${intPart} reais e ${parseInt(decPart, 10)} centavos`;
+      })
       .replace(/R\$\s*(\d+)/g, '$1 reais')
+      // Natural spoken abbreviations
+      .replace(/\bPDV\b/gi, 'P.D.V.')
+      .replace(/\bCRM\b/gi, 'C.R.M.')
+      .replace(/\bIA\b/gi, 'I.A.')
+      .replace(/\bPIX\b/gi, 'Pix')
+      .replace(/\bWhatsApp\b/gi, 'WhatsApp')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -108,6 +182,7 @@ class VoiceNarrationService {
       window.speechSynthesis.cancel();
     }
     this.isSpeaking = false;
+    this.volumeLevel = 0;
     this.notifyState();
   }
 
@@ -135,18 +210,19 @@ class VoiceNarrationService {
     this.stopSpeaking();
 
     this.isSpeaking = true;
+    this.volumeLevel = 0.8;
     this.notifyState();
     options?.onStart?.();
 
-    // Mode 1: Instant Web Speech (0ms latency, zero wait for cashier)
+    // Mode 1: Instant Web Speech (0ms latency, zero wait for operator)
     if (engineMode === 'instant') {
       return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
     }
 
-    // Mode 2: Neural Studio TTS with ultra-fast 1.5s fallback to Web Speech
+    // Mode 2: Neural Studio TTS with ultra-fast 1.2s fallback to Web Speech
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
 
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
@@ -166,8 +242,8 @@ class VoiceNarrationService {
           return await this.playBase64Audio(data.audioBase64, speed, volume, options?.onEnd);
         }
       }
-    } catch (e) {
-      console.warn('[VoiceNarration] Neural TTS exceeded 1.5s, switching instantly to Web Speech', e);
+    } catch {
+      // Instant fallback to Web Speech with no disruption
     }
 
     // Fast fallback to Web Speech
@@ -190,31 +266,33 @@ class VoiceNarrationService {
         audio.onended = () => {
           this.isSpeaking = false;
           this.currentAudio = null;
+          this.volumeLevel = 0;
           this.notifyState();
           onEnd?.();
           resolve(true);
         };
 
-        audio.onerror = (err) => {
-          console.warn('[Audio Playback Error]', err);
+        audio.onerror = () => {
           this.isSpeaking = false;
           this.currentAudio = null;
+          this.volumeLevel = 0;
           this.notifyState();
           onEnd?.();
           resolve(false);
         };
 
-        audio.play().catch((playErr) => {
-          console.warn('[Audio Autoplay Blocked]', playErr);
+        audio.play().catch(() => {
           this.isSpeaking = false;
           this.currentAudio = null;
+          this.volumeLevel = 0;
           this.notifyState();
           onEnd?.();
           resolve(false);
         });
-      } catch (err) {
+      } catch {
         this.isSpeaking = false;
         this.currentAudio = null;
+        this.volumeLevel = 0;
         this.notifyState();
         onEnd?.();
         resolve(false);
@@ -232,6 +310,7 @@ class VoiceNarrationService {
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
         this.isSpeaking = false;
+        this.volumeLevel = 0;
         this.notifyState();
         onEnd?.();
         return resolve(false);
@@ -242,30 +321,36 @@ class VoiceNarrationService {
       const utterance = new SpeechSynthesisUtterance(text);
       this.currentUtterance = utterance;
       utterance.lang = 'pt-BR';
-      utterance.rate = Math.max(0.8, Math.min(1.4, speed));
+      utterance.rate = Math.max(0.85, Math.min(1.3, speed));
       utterance.volume = volume;
 
       const voices = window.speechSynthesis.getVoices();
-      const ptBrVoices = voices.filter(v => v.lang.replace('_', '-').toLowerCase().startsWith('pt'));
+      const ptBrVoices = voices.filter(v => {
+        const lang = v.lang.replace('_', '-').toLowerCase();
+        return lang.startsWith('pt-br') || lang.startsWith('pt');
+      });
 
       if (voicePersona === 'feminino') {
-        utterance.pitch = 1.08;
+        utterance.pitch = 1.04;
+        // Prioritize natural neural Brazilian female voices
         const femaleVoice = ptBrVoices.find(v => 
-          /francisca|maria|luciana|leticia|helena|camila|female|mulher|brasil/i.test(v.name)
+          /francisca|leticia|luciana|helena|camila|maria|brenda|yara|female|mulher|google português/i.test(v.name)
         ) || ptBrVoices[0];
         if (femaleVoice) utterance.voice = femaleVoice;
       } else {
         // Masculino
-        utterance.pitch = 0.88;
+        utterance.pitch = 0.94;
+        // Prioritize natural neural Brazilian male voices
         const maleVoice = ptBrVoices.find(v => 
-          /antonio|daniel|felipe|luciano|ricardo|male|homem|google português/i.test(v.name)
-        ) || ptBrVoices.find(v => !/francisca|maria|luciana|helena/i.test(v.name)) || ptBrVoices[0];
+          /antonio|daniel|felipe|fabio|ricardo|luciano|male|homem/i.test(v.name)
+        ) || ptBrVoices.find(v => !/francisca|leticia|luciana|helena|camila/i.test(v.name)) || ptBrVoices[0];
         if (maleVoice) utterance.voice = maleVoice;
       }
 
       utterance.onend = () => {
         this.isSpeaking = false;
         this.currentUtterance = null;
+        this.volumeLevel = 0;
         this.notifyState();
         onEnd?.();
         resolve(true);
@@ -275,6 +360,7 @@ class VoiceNarrationService {
         console.warn('[WebSpeech Error]', err);
         this.isSpeaking = false;
         this.currentUtterance = null;
+        this.volumeLevel = 0;
         this.notifyState();
         onEnd?.();
         resolve(false);
@@ -300,6 +386,7 @@ class VoiceNarrationService {
     }
 
     this.stopSpeaking();
+    this.playChime('start');
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     try {
@@ -316,8 +403,10 @@ class VoiceNarrationService {
         const toSend = (lastFinalTranscript + ' ' + activeInterim).trim();
         if (toSend && toSend.length > 1) {
           this.interimTranscript = '';
+          this.volumeLevel = 0;
           this.notifyState();
           this.stopListening();
+          this.playChime('success');
           callbacks.onResult(toSend);
         }
       };
@@ -325,19 +414,22 @@ class VoiceNarrationService {
       this.recognition.onstart = () => {
         this.isListening = true;
         this.interimTranscript = '';
+        this.volumeLevel = 0.5;
         this.notifyState();
       };
 
       this.recognition.onresult = (event: any) => {
-        // Reset silence timer on every new speech event
         if (this.silenceTimer) clearTimeout(this.silenceTimer);
 
         let interim = '';
+        let hasFinal = false;
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const res = event.results[i];
           const text = res[0].transcript;
           if (res.isFinal) {
             lastFinalTranscript += ' ' + text;
+            hasFinal = true;
           } else {
             interim += text;
           }
@@ -346,21 +438,26 @@ class VoiceNarrationService {
         activeInterim = interim;
         const currentFull = (lastFinalTranscript + ' ' + interim).trim();
         this.interimTranscript = currentFull;
+        this.volumeLevel = Math.min(1, 0.4 + (currentFull.length % 10) * 0.06);
         this.notifyState();
         callbacks.onInterim?.(currentFull);
 
-        // Immediate silence detection (600ms of silence triggers instant execution!)
-        if (currentFull.length > 2) {
+        // Instant turn-taking:
+        // If the browser already emitted a final result, finalize in 280ms
+        // If interim, wait 480ms of silence to trigger instant execution!
+        if (currentFull.length > 1) {
+          const timeoutMs = hasFinal ? 280 : 480;
           this.silenceTimer = setTimeout(() => {
             finalizeAndSend();
-          }, 650);
+          }, timeoutMs);
         }
       };
 
       this.recognition.onerror = (event: any) => {
-        console.warn('[SpeechRecognition Error]', event.error);
         if (event.error !== 'no-speech') {
+          console.warn('[SpeechRecognition Error]', event.error);
           this.isListening = false;
+          this.volumeLevel = 0;
           this.notifyState();
           callbacks.onError?.(event.error);
         }
@@ -369,6 +466,7 @@ class VoiceNarrationService {
       this.recognition.onend = () => {
         if (this.silenceTimer) clearTimeout(this.silenceTimer);
         this.isListening = false;
+        this.volumeLevel = 0;
         this.notifyState();
         callbacks.onEnd?.();
       };
@@ -378,6 +476,7 @@ class VoiceNarrationService {
     } catch (e) {
       console.warn('Failed to start speech recognition', e);
       this.isListening = false;
+      this.volumeLevel = 0;
       this.notifyState();
       return false;
     }
@@ -391,13 +490,14 @@ class VoiceNarrationService {
     if (this.recognition) {
       try {
         this.recognition.stop();
-      } catch (e) {
+      } catch {
         // ignore
       }
       this.recognition = null;
     }
     this.isListening = false;
     this.interimTranscript = '';
+    this.volumeLevel = 0;
     this.notifyState();
   }
 }

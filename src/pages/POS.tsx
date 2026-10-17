@@ -329,18 +329,38 @@ Responda APENAS com um arquivo JSON válido e nada mais:
     const handlePosOpenDrawer = () => {
       toast.success('💵 Gaveta do caixa acionada via Assistente Bella!');
     };
+    const handlePosSelectPayment = (e: Event) => {
+      const customEvent = e as CustomEvent<{ method: 'pix' | 'card' | 'cash' | 'split' }>;
+      if (customEvent.detail?.method) {
+        setPaymentMethod(customEvent.detail.method);
+        toast.info(`Forma de pagamento selecionada: ${customEvent.detail.method.toUpperCase()}`);
+      }
+    };
+    const handlePosCheckout = (e: Event) => {
+      const customEvent = e as CustomEvent<{ method?: 'pix' | 'card' | 'cash' | 'split' }>;
+      if (customEvent.detail?.method) {
+        setPaymentMethod(customEvent.detail.method);
+      }
+      setTimeout(() => {
+        handleCheckout();
+      }, 300);
+    };
 
     window.addEventListener('pos-add-item', handlePosAddItem);
     window.addEventListener('pos-clear-cart', handlePosClearCart);
     window.addEventListener('pos-open-drawer', handlePosOpenDrawer);
+    window.addEventListener('pos-select-payment', handlePosSelectPayment);
+    window.addEventListener('pos-checkout', handlePosCheckout);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pos-add-item', handlePosAddItem);
       window.removeEventListener('pos-clear-cart', handlePosClearCart);
       window.removeEventListener('pos-open-drawer', handlePosOpenDrawer);
+      window.removeEventListener('pos-select-payment', handlePosSelectPayment);
+      window.removeEventListener('pos-checkout', handlePosCheckout);
     };
-  }, [cart, isSuccess]);
+  }, [cart, isSuccess, paymentMethod, total]);
 
   const addToCart = (service: Service) => {
     setCart(prev => {

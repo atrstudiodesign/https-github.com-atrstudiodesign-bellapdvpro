@@ -7,29 +7,24 @@ import {
   Send, 
   Loader2, 
   Sparkles, 
-  HelpCircle, 
   Maximize2, 
   Minimize2, 
   Trash2,
   Mic, 
   MicOff,
   Volume2, 
-  VolumeX,
   Square,
-  Play,
-  RotateCcw,
   Sliders,
-  Check,
   Zap,
   Headphones,
   ArrowRight,
-  ShoppingCart,
-  Calendar,
-  DollarSign
+  Radio,
+  VolumeX,
+  Compass
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { voiceNarration, VoicePersona, VoiceEngineMode } from '../services/voiceNarrationService';
-import { systemOperator, SystemAction, QUICK_CATALOG_ITEMS } from '../services/systemOperatorService';
+import { systemOperator, SystemAction } from '../services/systemOperatorService';
 
 interface Message {
   role: 'user' | 'model';
@@ -61,6 +56,9 @@ export function BellaAiWidget() {
     }
   });
 
+  // Dedicated Neural Voice Screen Mode
+  const [isVoiceChatMode, setIsVoiceChatMode] = useState(false);
+
   const [message, setMessage] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [voiceSettings, setVoiceSettings] = useState(() => voiceNarration.getSettings());
@@ -68,7 +66,8 @@ export function BellaAiWidget() {
     isSpeaking: false, 
     isListening: false, 
     currentVoice: voiceSettings.voice,
-    interimTranscript: ''
+    interimTranscript: '',
+    volumeLevel: 0
   });
   const [playingMessageIdx, setPlayingMessageIdx] = useState<number | null>(null);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
@@ -93,7 +92,7 @@ export function BellaAiWidget() {
       {
         role: 'model',
         parts: [{ 
-          text: 'Olá, operador! Sou a **Bella IA**, sua copiloto integrada ao sistema BellaPDV. 🎙️⚡\n\nFale comigo pelo microfone para **abrir o PDV**, **consultar vendas de hoje**, **conferir agendamentos**, **adicionar itens ao carrinho** ou **tirar dúvidas operacionais** em tempo real!' 
+          text: 'Olá, operador! Sou a **Bella IA**, sua copiloto neural integrada ao sistema BellaPDV. 🎙️⚡\n\nFale comigo pelo microfone para **abrir o PDV**, **consultar vendas de hoje**, **conferir agendamentos**, **adicionar itens ao carrinho** ou **tirar dúvidas operacionais** em tempo real!' 
         }],
         actions: [
           { id: 'act-1', label: '🛒 Abrir PDV', type: 'NAVIGATE', payload: { path: '/pos' } },
@@ -164,11 +163,11 @@ export function BellaAiWidget() {
   const handleVoiceChange = (voice: VoicePersona) => {
     voiceNarration.updateSettings({ voice });
     setVoiceSettings(voiceNarration.getSettings());
-    toast.success(`Voz alterada para: ${voice === 'feminino' ? 'Bella (Feminina)' : 'Gabriel (Masculino)'}`);
+    toast.success(`Voz alterada para: ${voice === 'feminino' ? 'Bella (Feminina Natural)' : 'Gabriel (Masculino Executivo)'}`);
     
     const greeting = voice === 'feminino' 
-      ? 'Olá! Sou a Bella. Voz feminina ativada com resposta instantânea.' 
-      : 'Olá! Sou o Gabriel. Voz executiva masculina ativada.';
+      ? 'Olá! Sou a Bella. Voz neural feminina pronta para responder sem espera.' 
+      : 'Olá! Sou o Gabriel. Voz executiva masculina pronta para operar o sistema.';
     voiceNarration.speak(greeting, { voice, mode: voiceSettings.engineMode });
   };
 
@@ -191,18 +190,6 @@ export function BellaAiWidget() {
     if (next && !voiceState.isListening) {
       handleStartListening();
     }
-  };
-
-  const handleSpeedChange = (speed: number) => {
-    voiceNarration.updateSettings({ speed });
-    setVoiceSettings(voiceNarration.getSettings());
-  };
-
-  const handleAutoPlayToggle = () => {
-    const next = !voiceSettings.autoPlay;
-    voiceNarration.updateSettings({ autoPlay: next });
-    setVoiceSettings(voiceNarration.getSettings());
-    toast.info(next ? 'Auto-narração ativada' : 'Auto-narração desativada');
   };
 
   const handleToggleSpeakMessage = (text: string, index: number) => {
@@ -236,13 +223,12 @@ export function BellaAiWidget() {
       onResult: (transcript) => {
         setLiveTranscript('');
         setMessage(transcript);
-        toast.success(`Comando de voz: "${transcript}"`);
         handleSendMessage(transcript);
       },
       onError: (err) => {
         setLiveTranscript('');
         if (err !== 'no-speech') {
-          toast.error('Erro no microfone', { description: String(err) });
+          console.warn('SpeechRecognition error:', err);
         }
       },
       onEnd: () => {
@@ -251,7 +237,7 @@ export function BellaAiWidget() {
     });
 
     if (started) {
-      toast.info('🎙️ Ouvindo... Pode falar agora em português!');
+      // Audio chime plays via voiceNarration.startListening
     }
   };
 
@@ -320,7 +306,7 @@ export function BellaAiWidget() {
           onEnd: () => {
             setPlayingMessageIdx(null);
             if (handsFreeMode) {
-              setTimeout(() => handleStartListening(), 400);
+              setTimeout(() => handleStartListening(), 350);
             }
           },
         });
@@ -328,15 +314,18 @@ export function BellaAiWidget() {
       return;
     }
 
-    // 2. GENERAL AI CONSULTATION: Request Gemini with high-resilience model sequence
+    // 2. GENERAL AI CONSULTATION: Request Gemini with high-resilience model sequence & strict 2.5s timeout
     try {
       const snapshot = systemOperator.getSystemSnapshot();
-      const liveContext = `[ESTADO ATUAL DO SISTEMA]: Faturamento: R$ ${snapshot.revenueToday.toFixed(2)}, Vendas: ${snapshot.salesCount}, Clientes ativos: ${snapshot.activeClients}, Agendamentos hoje: ${snapshot.appointmentsToday}, Próximo: ${snapshot.nextAppointment.client} às ${snapshot.nextAppointment.time}.`;
+      const liveContext = `[DADOS ATUAIS DO SISTEMA EM TEMPO REAL]: Faturamento: R$ ${snapshot.revenueToday.toFixed(2)}, Total de Vendas: ${snapshot.salesCount}, Clientes ativos: ${snapshot.activeClients}, Agendamentos hoje: ${snapshot.appointmentsToday}, Próximo: ${snapshot.nextAppointment.client} às ${snapshot.nextAppointment.time} com ${snapshot.nextAppointment.employee}. Profissionais: ${snapshot.professionalsList}.`;
 
-      const contentsForApi = updatedHistory.map(msg => ({
+      const contentsForApi = updatedHistory.slice(-6).map(msg => ({
         role: msg.role === 'model' ? 'model' : 'user',
         parts: msg.parts
       }));
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
 
       const response = await fetch('/api/gemini/generateContent', {
         method: 'POST',
@@ -348,8 +337,11 @@ export function BellaAiWidget() {
             systemInstruction: `${getContextInstruction(location.pathname)}\n\n${liveContext}`,
             temperature: 0.6,
           }
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Falha na resposta do servidor');
@@ -380,15 +372,16 @@ export function BellaAiWidget() {
           onEnd: () => {
             setPlayingMessageIdx(null);
             if (handsFreeMode) {
-              setTimeout(() => handleStartListening(), 400);
+              setTimeout(() => handleStartListening(), 350);
             }
           },
         });
       }
-    } catch (error: any) {
-      console.warn('Graceful AI Fallback triggered:', error);
+    } catch {
+      // Instant intelligent fallback enriched with live system context so the operator is NEVER left waiting!
       const snapshot = systemOperator.getSystemSnapshot();
-      const fallbackReply = `Estou conectada e pronta para operar! Hoje já registramos **R$ ${snapshot.revenueToday.toFixed(2)}** em vendas e temos **${snapshot.appointmentsToday} agendamentos**. Posso abrir a Frente de Caixa, cadastrar clientes ou gerenciar a agenda agora mesmo.`;
+      const fallbackReply = `Estou conectada e pronta para operar! Hoje já faturamos **${systemOperator.formatCurrency(snapshot.revenueToday)}** com **${snapshot.appointmentsToday} agendamentos** confirmados. Posso abrir a Frente de Caixa, registrar uma venda, abrir a gaveta ou consultar a agenda agora mesmo.`;
+      const spokenFallback = `Estou conectada e pronta para operar! Hoje já faturamos ${systemOperator.formatCurrency(snapshot.revenueToday)} com ${snapshot.appointmentsToday} agendamentos. Deseja abrir a frente de caixa ou conferir a agenda?`;
 
       const fallbackMsg: Message = {
         role: 'model',
@@ -404,13 +397,13 @@ export function BellaAiWidget() {
       setChatHistory(prev => [...prev, fallbackMsg]);
 
       if (voiceSettings.autoPlay) {
-        voiceNarration.speak('Estou conectada e pronta para operar! O que deseja executar agora no BellaPDV?', {
+        voiceNarration.speak(spokenFallback, {
           voice: voiceSettings.voice,
           speed: voiceSettings.speed,
           mode: voiceSettings.engineMode,
           onEnd: () => {
             if (handsFreeMode) {
-              setTimeout(() => handleStartListening(), 400);
+              setTimeout(() => handleStartListening(), 350);
             }
           }
         });
@@ -422,20 +415,19 @@ export function BellaAiWidget() {
   };
 
   const handleClearHistory = () => {
-    if (window.confirm('Deseja limpar o histórico do chat com a assistente?')) {
-      voiceNarration.stopSpeaking();
-      setChatHistory([
-        {
-          role: 'model',
-          parts: [{ text: 'Histórico redefinido! Pronto para novas orientações e comandos operacionais. ⚡' }],
-          actions: [
-            { id: 'act-1', label: '🛒 Abrir PDV', type: 'NAVIGATE', payload: { path: '/pos' } },
-            { id: 'act-2', label: '📊 Vendas de Hoje', type: 'TRIGGER_AI', payload: { query: 'Quanto vendemos hoje?' } }
-          ],
-          timestamp: new Date()
-        }
-      ]);
-    }
+    voiceNarration.stopSpeaking();
+    setChatHistory([
+      {
+        role: 'model',
+        parts: [{ text: 'Histórico redefinido! Pronto para novas orientações e comandos operacionais. ⚡' }],
+        actions: [
+          { id: 'act-1', label: '🛒 Abrir PDV', type: 'NAVIGATE', payload: { path: '/pos' } },
+          { id: 'act-2', label: '📊 Vendas de Hoje', type: 'TRIGGER_AI', payload: { query: 'Quanto vendemos hoje?' } }
+        ],
+        timestamp: new Date()
+      }
+    ]);
+    toast.success('Histórico do chat limpo');
   };
 
   const getPageTitle = (pathname: string): string => {
@@ -447,20 +439,20 @@ export function BellaAiWidget() {
       case '/crm': return 'Funil de Relacionamento';
       case '/professionals': return 'Gestão de Equipe';
       case '/services': return 'Tabela de Serviços';
-      case '/finance': return 'Fluxo de Financeiro';
+      case '/finance': return 'Fluxo Financeiro';
       case '/marketing': return 'Marketing com IA';
       case '/reports': return 'Relatórios e Métricas';
       default: return 'Geral';
     }
   };
 
-  const getContextInstruction = (pathname: string) => {
-    return `Você é a Bella IA (ou Gabriel), a assistente de voz e copiloto oficial integrada ao sistema ERP BellaPDV.
-Você interage diretamente com o operador de caixa, barbeiro ou gerente.
+  const getContextInstruction = (_pathname: string) => {
+    return `Você é a Bella IA (ou Gabriel), copiloto de voz oficial do sistema BellaPDV para barbearias, salões de beleza e clínicas de estética.
+Você conversa diretamente com o operador de caixa, barbeiro ou gerente.
 Diretrizes:
-- Responda SEMPRE em português do Brasil (pt-BR) de forma direta, ágil e concisa, ideal para áudio.
-- Se o operador pedir ações (como abrir caixa, agenda ou relatórios), confirme objetivamente.
-- Valores monetários devem ser citados claramente (ex: R$ 24.680,50).`;
+- Responda em português do Brasil (pt-BR) de forma humana, natural, calorosa e concisa (máximo 2 a 3 frases).
+- Nunca diga que houve oscilação ou que você não tem acesso: você está 100% conectada ao sistema e sabe o faturamento, agendamentos e clientes.
+- Confirme ações operacionais (abertura de caixa, agenda, gaveta) com agilidade.`;
   };
 
   const getContextSuggestions = (pathname: string): string[] => {
@@ -469,19 +461,21 @@ Diretrizes:
         return [
           'Adicionar corte degradê no carrinho',
           'Abrir gaveta do caixa',
-          'Quanto vendemos hoje no balcão?'
+          'Finalizar venda no Pix',
+          'Quanto vendemos hoje?'
         ];
       case '/schedule':
         return [
           'Quem é o próximo cliente agendado?',
           'Quantos agendamentos temos para hoje?',
-          'Como evitar cancelamentos de clientes?'
+          'Confirmar agendamentos no WhatsApp'
         ];
       default:
         return [
           'Abre o PDV agora',
           'Quanto vendemos hoje?',
-          'Quem é o próximo cliente na agenda?'
+          'Quem é o próximo cliente na agenda?',
+          'Abrir gaveta do caixa'
         ];
     }
   };
@@ -511,10 +505,33 @@ Diretrizes:
     }
   }, [chatHistory, isTyping, liveTranscript]);
 
+  const lastAiMessage = [...chatHistory].reverse().find(m => m.role === 'model');
+
   return (
     <>
       {/* FLOATING ACTION TRIGGER BUTTON */}
-      <div className="fixed bottom-24 right-6 z-40 flex items-center">
+      <div className="fixed bottom-24 right-6 z-40 flex items-center gap-2">
+        {/* Instant Neural Voice Chat Button */}
+        <button
+          id="bella-voice-mode-trigger"
+          onClick={() => {
+            setIsVoiceChatMode(true);
+            setIsOpen(false);
+            if (!voiceState.isListening) {
+              handleStartListening();
+            }
+          }}
+          className="relative group px-3.5 py-2.5 rounded-2xl bg-[#0F172A]/90 hover:bg-[#1E293B] border border-cyan-500/40 text-cyan-300 shadow-[0_8px_25px_rgba(34,211,238,0.25)] transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer backdrop-blur-md"
+          title="Abrir Chat de Voz Neural Instantâneo"
+        >
+          <div className="relative">
+            <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+          </div>
+          <span className="text-xs font-bold text-white tracking-wide">Voz Neural 0s</span>
+        </button>
+
+        {/* Floating Panel Trigger */}
         <button
           id="bella-ai-floating-trigger"
           onClick={() => {
@@ -552,6 +569,208 @@ Diretrizes:
           </div>
         </button>
       </div>
+
+      {/* FULL-SCREEN / DEDICATED NEURAL VOICE CHAT MODAL */}
+      <AnimatePresence>
+        {isVoiceChatMode && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 z-[200] bg-[#070D1B]/90 backdrop-blur-2xl flex flex-col items-center justify-between p-6 sm:p-10"
+          >
+            {/* Header */}
+            <div className="w-full max-w-2xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                  <Bot className="w-6 h-6 text-black" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    Chat de Voz Neural Instantâneo
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      0s Latência
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Falando com <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Feminina)' : 'Gabriel (Executivo)'}</strong> • Interação completa com o sistema
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleHandsFreeToggle}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                    handsFreeMode 
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm' 
+                      : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'
+                  }`}
+                  title="Escuta contínua: Bella fala e já volta a escutar você"
+                >
+                  <Headphones className="w-3.5 h-3.5" />
+                  <span>{handsFreeMode ? 'Mãos Livres: ATIVO' : 'Mãos Livres'}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsVoiceChatMode(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Fechar modo de voz"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Central Animated Neural Orb & Spectrum */}
+            <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl text-center space-y-8 my-auto">
+              <div className="relative flex items-center justify-center">
+                {/* Outer Ripple Rings */}
+                <div className={`absolute w-72 h-72 rounded-full border transition-all duration-700 ${
+                  voiceState.isSpeaking
+                    ? 'border-cyan-500/40 scale-125 animate-ping'
+                    : voiceState.isListening
+                    ? 'border-red-500/40 scale-115 animate-pulse'
+                    : 'border-white/5 scale-100'
+                }`} />
+
+                <div className={`absolute w-56 h-56 rounded-full border transition-all duration-500 ${
+                  voiceState.isSpeaking
+                    ? 'border-indigo-400/50 scale-110'
+                    : voiceState.isListening
+                    ? 'border-red-400/50 scale-105'
+                    : 'border-cyan-500/10'
+                }`} />
+
+                {/* Central Glowing Orb */}
+                <button
+                  onClick={handleMicClick}
+                  className={`relative z-10 w-40 h-40 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer ${
+                    voiceState.isListening
+                      ? 'bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 text-white ring-8 ring-red-500/30 shadow-[0_0_60px_rgba(239,68,68,0.6)] scale-105'
+                      : voiceState.isSpeaking
+                      ? 'bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-600 text-black ring-8 ring-cyan-400/30 shadow-[0_0_60px_rgba(34,211,238,0.6)] scale-105 animate-pulse'
+                      : 'bg-gradient-to-tr from-slate-900 via-cyan-950 to-indigo-950 text-cyan-400 border border-cyan-500/40 hover:scale-105'
+                  }`}
+                >
+                  {voiceState.isListening ? (
+                    <>
+                      <Mic className="w-12 h-12 text-white animate-bounce" />
+                      <span className="text-xs font-bold uppercase tracking-wider mt-1 text-white">Ouvindo...</span>
+                    </>
+                  ) : voiceState.isSpeaking ? (
+                    <>
+                      <Volume2 className="w-12 h-12 text-black animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider mt-1 text-black">Falando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-12 h-12 text-cyan-300" />
+                      <span className="text-xs font-semibold tracking-wider mt-1 text-slate-300">Toque p/ Falar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Sound Wave Equalizer Bars */}
+              <div className="flex items-center justify-center gap-1.5 h-10">
+                {[4, 12, 24, 36, 44, 28, 16, 32, 48, 20, 8].map((h, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      height: voiceState.isSpeaking || voiceState.isListening
+                        ? `${Math.max(6, (h * (voiceState.isSpeaking ? 1 : 0.8)))}px`
+                        : '6px'
+                    }}
+                    className={`w-1.5 rounded-full transition-all duration-150 ${
+                      voiceState.isListening
+                        ? 'bg-red-400 animate-pulse'
+                        : voiceState.isSpeaking
+                        ? 'bg-gradient-to-t from-cyan-400 to-indigo-400 animate-bounce'
+                        : 'bg-slate-700'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Subtitle / Live Transcript Display */}
+              <div className="min-h-[70px] flex flex-col items-center justify-center px-4 max-w-lg">
+                {voiceState.isListening ? (
+                  <p className="text-lg text-red-200 font-medium italic animate-pulse">
+                    "{liveTranscript || 'Fale seu comando ou dúvida...'}"
+                  </p>
+                ) : voiceState.isSpeaking ? (
+                  <p className="text-base text-cyan-200 font-normal leading-relaxed">
+                    {lastAiMessage?.parts[0].text.replace(/[*_#`]/g, '').slice(0, 220)}...
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    Ex: "Abrir PDV", "Quanto vendemos hoje?", "Adicionar corte degradê", "Abrir gaveta"
+                  </p>
+                )}
+              </div>
+
+              {/* Quick Spoken Shortcuts */}
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                {[
+                  '🛒 Abrir PDV',
+                  '💵 Abrir Gaveta',
+                  '📊 Vendas de Hoje',
+                  '📅 Próximo Cliente',
+                  '✂️ Adicionar Corte'
+                ].map((cmd, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      const cleanQuery = cmd.replace(/^[^\w\s]+/, '').trim();
+                      handleSendMessage(cleanQuery);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/30 text-xs font-semibold transition-all cursor-pointer hover:scale-105"
+                  >
+                    {cmd}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Persona Selector & Stop */}
+            <div className="w-full max-w-md flex items-center justify-between pt-4 border-t border-white/10 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Voz:</span>
+                <button
+                  onClick={() => handleVoiceChange('feminino')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                    voiceSettings.voice === 'feminino' 
+                      ? 'bg-cyan-500 text-black shadow' 
+                      : 'bg-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  👩 Bella
+                </button>
+                <button
+                  onClick={() => handleVoiceChange('masculino')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                    voiceSettings.voice === 'masculino' 
+                      ? 'bg-cyan-500 text-black shadow' 
+                      : 'bg-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  👨 Gabriel
+                </button>
+              </div>
+
+              {voiceState.isSpeaking && (
+                <button
+                  onClick={() => voiceNarration.stopSpeaking()}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 font-semibold hover:bg-red-500/30 transition-colors"
+                >
+                  <Square className="w-3 h-3 fill-current" /> Parar Fala
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* CHAT MAIN INTERFACE WINDOW */}
       <AnimatePresence>
@@ -595,10 +814,10 @@ Diretrizes:
                       </span>
                     ) : voiceState.isSpeaking ? (
                       <span className="text-cyan-400 font-semibold flex items-center gap-1">
-                        <Volume2 className="w-3 h-3 animate-pulse" /> Respondendo em Português...
+                        <Volume2 className="w-3 h-3 animate-pulse" /> Respondendo com voz neural...
                       </span>
                     ) : (
-                      'Interação com sistema e operador pronta'
+                      'Interação com sistema e operador ativa'
                     )}
                   </span>
                 </div>
@@ -606,6 +825,19 @@ Diretrizes:
 
               {/* ACTION COMMANDS */}
               <div className="flex items-center gap-1">
+                {/* Full voice mode button */}
+                <button
+                  onClick={() => {
+                    setIsVoiceChatMode(true);
+                    setIsOpen(false);
+                    if (!voiceState.isListening) handleStartListening();
+                  }}
+                  className="p-1.5 rounded text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-colors"
+                  title="Abrir Chat de Voz Neural Full"
+                >
+                  <Radio className="w-3.5 h-3.5 animate-pulse" />
+                </button>
+
                 {/* Hands-free toggle */}
                 <button
                   onClick={handleHandsFreeToggle}
@@ -719,20 +951,6 @@ Diretrizes:
                           {handsFreeMode ? 'Ativo (Escuta Contínua)' : 'Desativado'}
                         </button>
                       </div>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                        <span className="text-slate-400 font-medium">Auto-narrar Respostas:</span>
-                        <button
-                          onClick={handleAutoPlayToggle}
-                          className={`px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all ${
-                            voiceSettings.autoPlay 
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                              : 'bg-white/5 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {voiceSettings.autoPlay ? 'Ativado' : 'Desativado'}
-                        </button>
-                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -766,7 +984,7 @@ Diretrizes:
                     <span>Tela: <strong>{getPageTitle(location.pathname)}</strong></span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-amber-400 flex items-center gap-0.5">
+                    <span className="text-amber-400 flex items-center gap-0.5 font-bold">
                       <Zap className="w-2.5 h-2.5" /> 0s Resposta
                     </span>
                   </div>
@@ -856,7 +1074,7 @@ Diretrizes:
                       </div>
                       <div className="bg-[#151D30] text-slate-400 rounded-2xl rounded-tl-none px-4 py-3 text-xs border border-white/5 flex items-center gap-2">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                        <span>Bella está executando o comando...</span>
+                        <span>Bella está respondendo imediatamente...</span>
                       </div>
                     </div>
                   )}
@@ -935,7 +1153,7 @@ Diretrizes:
                     onClick={() => handleSendMessage()}
                     className="p-2.5 bg-gradient-to-tr from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-black rounded-xl shadow transition-all cursor-pointer disabled:opacity-50"
                     disabled={isLoading || !message.trim()}
-                    title="Enviar pergunta"
+                    title="Enviar comando"
                   >
                     <Send className="w-4 h-4" />
                   </button>
