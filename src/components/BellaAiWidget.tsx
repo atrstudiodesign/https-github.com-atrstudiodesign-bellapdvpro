@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from '../lib/apiClient';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -340,7 +341,7 @@ export function BellaAiWidget() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-      const response = await fetch('/api/gemini/generateContent', {
+      const response = await authenticatedApiFetch('/api/gemini/generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
