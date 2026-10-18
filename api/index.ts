@@ -68,8 +68,49 @@ eventBus.on('SALE_CREATED', async (data) => {
 export const app = express();
 
 app.use(compression());
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    try {
+      const parsed = new URL(origin);
+      const allowed = parsed.protocol === 'https:' &&
+        (parsed.hostname === 'bellapdvpro.vercel.app' ||
+         parsed.hostname === req.hostname ||
+         parsed.hostname.startsWith('https-github-com-atrstudiodesign-bellapdvpro-') && parsed.hostname.endsWith('.vercel.app'));
+      return callback(null, allowed);
+    } catch { return callback(null, false); }
+  },
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id', 'x-gemini-key', 'x-asaas-key', 'x-asaas-token'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+}));
+app.use(express.json({ limit: '256kb' }));
+
+// Best-effort per-instance throttle; serverless instances do not share counters.
+// A distributed Redis/Upstash limiter is still required for strict global quotas.
+const apiThrottle = new Map<string, { count: number; reset: number }>();
+app.use(['/api/ai', '/api/gemini', '/api/auth'], (req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const key = ip + ':' + req.baseUrl;
+  const now = Date.now();
+  let bucket = apiThrottle.get(key);
+  if (!bucket || bucket.reset <= now) {
+    bucket = { count: 0, reset: now + 60000 };
+    apiThrottle.set(key, bucket);
+  }
+  const maxRequests = req.baseUrl === '/api/auth' ? 12 : 15;
+  res.setHeader('RateLimit-Limit', String(maxRequests));
+  res.setHeader('RateLimit-Remaining', String(Math.max(0, maxRequests - bucket.count - 1)));
+  if (bucket.count >= maxRequests) {
+    res.setHeader('Retry-After', String(Math.ceil((bucket.reset - now) / 1000)));
+    return res.status(429).json({ error: 'Muitas solicitações. Tente novamente mais tarde.' });
+  }
+  bucket.count += 1;
+  if (apiThrottle.size > 5000) {
+    for (const [k, v] of apiThrottle) if (v.reset <= now) apiThrottle.delete(k);
+  }
+  next();
+});
+
 
 // Verify Firebase ID tokens against Google's Secure Token signing certificates.
 // Never trust user-supplied roles, company IDs, or unverified JWT payloads.
