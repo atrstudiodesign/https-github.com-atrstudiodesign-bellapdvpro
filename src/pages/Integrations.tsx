@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from '../lib/apiClient';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap, UserCircle, QrCode, X } from 'lucide-react';
@@ -42,7 +43,7 @@ export default function Integrations() {
       }
       const toastId = toast.loading("Validando conta Asaas...");
       try {
-          const response = await fetch('/api/asaas/proxy', {
+          const response = await authenticatedApiFetch('/api/asaas/proxy', {
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',
