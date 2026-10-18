@@ -351,7 +351,7 @@ app.use('/api', async (req, res, next) => {
           }
 
           // 1. FAST IN-MEMORY CACHE CHECK (< 1ms instant zero-latency response)
-          const cacheKey = `${voice}_${cleanedText.slice(0, 150).toLowerCase()}`;
+          const cacheKey = `${voice}_${cleanedText.slice(0, 1000)}`;
           const cached = ttsAudioCache.get(cacheKey);
           if (cached) {
               return res.json({
@@ -386,7 +386,7 @@ app.use('/api', async (req, res, next) => {
           const styleDescription = style || defaultStyle;
 
           // Attempt with gemini-3.8-flash-lite-tts (ultra-fast low latency)
-          const modelsToTry = ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts'];
+          const modelsToTry = ['gemini-2.5-flash-preview-tts']; // SDK generateContent-compatible fallback
           let base64Audio: string | null = null;
           let lastErr: any = null;
 
