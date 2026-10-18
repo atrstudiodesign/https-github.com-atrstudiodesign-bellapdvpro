@@ -44,7 +44,7 @@ class IntegrationService {
                 console.log(`[IntegrationService] Company ${companyId} has no WhatsApp connected. Skipping message to ${data.to}`);
                 return;
             }
-            console.log(`[WHATSAPP API - Evolution / MetaCloud] -> Status: 200 OK | Session: ${company.whatsappSessionId} | To: ${data.to} | Mensagem: "${data.text}"`);
+            console.warn(`[WhatsApp] Envio não realizado: provedor de mensageria ainda não implementado para a empresa ${companyId}.`);
         }
     }
 }
@@ -183,15 +183,9 @@ app.use('/api', async (req, res, next) => {
       res.json(newAppointment);
   });
 
-  // Integrations: Conectar WhatsApp
-  app.post('/api/integrations/whatsapp/connect', (req, res) => {
-      const company = (req as any).company;
-      // Simula criação de sessão na Evolution API
-      const sessionId = `sess_${company.id}_${Date.now()}`;
-      company.whatsappSessionId = sessionId;
-      console.log(`[Evolution API] Sessão criada: ${sessionId}`);
-      
-      res.json({ success: true, sessionId, message: 'WhatsApp conectado com sucesso!' });
+  // A successful connection requires a real provider handshake; never fabricate a session ID.
+  app.post('/api/integrations/whatsapp/connect', (_req, res) => {
+    res.status(501).json({ error: 'Integração WhatsApp requer uma sessão real do provedor.' });
   });
 
   // Webhooks: Asaas Dunning / Billing
@@ -532,23 +526,9 @@ app.use('/api', async (req, res, next) => {
       }
   });
 
-  // Dashboard Stats
-  app.get('/api/dashboard/stats', (req, res) => {
-    res.json({
-        revenue: 24680.50,
-        appointments: 156,
-        activeClients: 1250,
-        averageTicket: 158.30,
-        revenueData: [
-            { name: 'Seg', uv: 4000 },
-            { name: 'Ter', uv: 3000 },
-            { name: 'Qua', uv: 2000 },
-            { name: 'Qui', uv: 2780 },
-            { name: 'Sex', uv: 1890 },
-            { name: 'Sáb', uv: 2390 },
-            { name: 'Dom', uv: 3490 },
-        ]
-    });
+  // Finance data cannot be returned until it is backed by verified tenant persistence.
+  app.get('/api/dashboard/stats', (_req, res) => {
+    res.status(501).json({ error: 'Indicadores financeiros não integrados. Nenhum valor simulado será retornado.' });
   });
 
   // --- SERVER INITIALIZATION (DEV & STANDALONE NODE) ---
