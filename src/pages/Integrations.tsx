@@ -4,10 +4,12 @@ import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap,
 import { motion, AnimatePresence } from 'motion/react';
 import { useApiKeysStore } from '../store/apiKeys';
 import { FeatureGate } from '../components/ui/FeatureGate';
+import { checkBellaSupabase } from '../lib/bellaSupabase';
 
 export default function Integrations() {
   const [whatsappStatus, setWhatsappStatus] = useState<'DISCONNECTED' | 'LOADING' | 'CONNECTED'>('DISCONNECTED');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [supabaseStatus, setSupabaseStatus] = useState('Não verificado');
   const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
   
   // Custom states for WhatsApp CRM dashboards
@@ -147,7 +149,21 @@ export default function Integrations() {
       <div className="flex-1 overflow-auto p-8">
         <div className="max-w-6xl mx-auto space-y-8">
             
-            {/* SAAS CORE */}
+            <div className="rounded-xl border border-cyan-500/30 bg-[#0C1627] p-4 flex flex-wrap items-center justify-between gap-3">
+            <div><h3 className="text-white font-semibold">Supabase — Banco Bella PDV Pro</h3>
+              <p className="text-slate-400 text-xs">{supabaseStatus}</p>
+              <p className="text-slate-500 text-xs">Conexão de leitura em paralelo. Firebase segue responsável pelo login e dados atuais.</p>
+            </div>
+            <button type="button" onClick={async () => {
+              setSupabaseStatus('Verificando...');
+              const result = await checkBellaSupabase();
+              setSupabaseStatus(result.message);
+              if (!result.connected) toast.error(result.message);
+            }} className="px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">
+              Testar conexão
+            </button>
+          </div>
+          {/* SAAS CORE */}
             <div>
                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><Box className="w-5 h-5 text-purple-400" /> Core SaaS</h2>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
