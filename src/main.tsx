@@ -1,7 +1,6 @@
 import { StrictMode, ReactNode, Suspense, lazy, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { SpeedInsights } from '@vercel/speed-insights/react';
 import App from './App.tsx';
 import Landing from './pages/Landing.tsx';
 import Login from './pages/Login.tsx';
@@ -148,6 +147,5 @@ createRoot(document.getElementById('root')!).render(
         </Routes>
       </Suspense>
     </BrowserRouter>
-    <SpeedInsights />
   </StrictMode>
 )
