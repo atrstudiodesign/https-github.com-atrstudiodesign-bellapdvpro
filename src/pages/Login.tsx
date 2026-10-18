@@ -29,6 +29,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { bellaSupabaseSignIn } from '../lib/bellaSupabase';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -41,7 +42,7 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
 
-  const { login, isAuthenticated } = useAuthStore();
+  const { login, loginSupabase, isAuthenticated } = useAuthStore();
   const { setNiche } = useNicheStore();
   const navigate = useNavigate();
 
@@ -173,6 +174,19 @@ export default function Login() {
     }
 
     setIsSubmitting(true);
+    if (!isRegister) {
+      try {
+        const identity = await bellaSupabaseSignIn(email, password);
+        loginSupabase(identity);
+        toast.success('Acesso Supabase autenticado.', { description: 'Empresa e permissões verificadas.' });
+        navigate('/', { replace: true });
+      } catch (error: any) {
+        toast.error(error?.message || 'Falha ao entrar pelo Supabase.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     try {
       let firebaseUser = auth.currentUser;
