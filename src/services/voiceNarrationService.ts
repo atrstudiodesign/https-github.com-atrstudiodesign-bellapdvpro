@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from '../lib/apiClient';
 // Service for High-Fidelity Humanized Voice Narration in Portuguese (BR)
 // Prioritizes ultra-natural Brazilian humanized voices with conversational inflection,
 // dynamic voice scoring, studio mastering, and low-latency audio processing.
@@ -430,7 +431,7 @@ class VoiceNarrationService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2600);
 
-      const response = await fetch('/api/ai/tts', {
+      const response = await authenticatedApiFetch('/api/ai/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
