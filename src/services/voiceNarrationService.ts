@@ -60,7 +60,7 @@ class VoiceNarrationService {
 
   // Default to Humanized voice with Jarvis (masculino) as primary assistant
   private settings: VoiceSettings = {
-    voice: 'masculino', // Jarvis by default
+    voice: 'feminino', // Bella natural voice by default
     speed: 1.04,
     volume: 1.0,
     autoPlay: true,
@@ -79,6 +79,8 @@ class VoiceNarrationService {
           parsed.engineMode = 'humanized';
         }
         this.settings = { ...this.settings, ...parsed };
+        // Earlier versions silently used robotic browser speech in 'humanized' mode.
+        if (this.settings.engineMode !== 'instant') this.settings.engineMode = 'humanized';
       }
     } catch (e) {
       console.warn('Could not load voice settings from localStorage', e);
@@ -428,7 +430,7 @@ class VoiceNarrationService {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), engineMode === 'humanized' ? 1700 : 4000);
+    const timeoutId = setTimeout(() => controller.abort(), engineMode === 'humanized' ? 6500 : 8000);
     try {
 
       const response = await authenticatedApiFetch('/api/ai/tts', {
