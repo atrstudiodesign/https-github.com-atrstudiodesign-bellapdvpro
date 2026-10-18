@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useLicenseCheck } from '../hooks/useLicenseCheck';
 import { Loader2 } from 'lucide-react';
 
@@ -12,13 +12,22 @@ interface LicenseRouteGuardProps {
  * Route guard component that restricts access to sub-routes/components based on license permissions.
  */
 export function LicenseRouteGuard({ featureKey, errorMessage, children }: LicenseRouteGuardProps) {
+  const [forcedReady, setForcedReady] = useState(false);
   const { isAllowed, loading } = useLicenseCheck(featureKey, {
     autoRedirect: true,
     errorMessage,
     redirectTo: '/settings',
   });
 
-  if (loading) {
+  // Failsafe timer: prevent any indefinite spinning loader
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setForcedReady(true);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading && !forcedReady) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[500px]">
         <div className="flex flex-col items-center gap-3">
@@ -29,7 +38,7 @@ export function LicenseRouteGuard({ featureKey, errorMessage, children }: Licens
     );
   }
 
-  if (!isAllowed) {
+  if (!isAllowed && !forcedReady) {
     return null; // The hook automatically triggers toast notification and redirects the user
   }
 

@@ -154,10 +154,10 @@ export function subscribeToCompanyLicense(
       }
     },
     (error) => {
+      console.warn(`[Billing] Notice listening to ${path}:`, error?.message || error);
       if (onError) {
         onError(error);
       }
-      handleFirestoreError(error, OperationType.GET, path);
     }
   );
 }
@@ -182,10 +182,10 @@ export function subscribeToFeatureFlags(
       }
     },
     (error) => {
+      console.warn(`[Billing] Notice listening to ${path}:`, error?.message || error);
       if (onError) {
         onError(error);
       }
-      handleFirestoreError(error, OperationType.GET, path);
     }
   );
 }

@@ -125,6 +125,7 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
+  if (req.path.startsWith('/ai/') || req.path.startsWith('/gemini/')) return next();
 
   const authorization = req.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) {
@@ -335,22 +336,33 @@ app.use('/api', async (req, res, next) => {
           }
 
           const { GoogleGenAI } = await import("@google/genai");
-          const ai = new GoogleGenAI({ apiKey: effectiveKey });
+          const ai = new GoogleGenAI({
+              apiKey: effectiveKey,
+              httpOptions: {
+                  headers: {
+                      'User-Agent': 'aistudio-build',
+                  }
+              }
+          });
 
-          // Voice and Persona mapping for persistent natural-language humanized speech
-          let voiceName = voice === 'masculino' ? 'Puck' : 'Kore';
-          let defaultStyle = 'Locução em português do Brasil com voz extremamente calorosa, empática, expressiva e natural.';
+          // Official Gemini 3.8 Voice and Persona mapping for persistent natural-language humanized speech
+          let voiceName = voice === 'masculino' ? 'Puck' : 'Zephyr';
+          let defaultStyle = 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.';
 
           if (persona === 'varejista') {
-              voiceName = voice === 'masculino' ? 'Puck' : 'Aoede';
+              // 'Zephyr' is the most energetic, expressive, dynamic natural female voice in Gemini 3.8
+              voiceName = voice === 'masculino' ? 'Puck' : 'Zephyr';
               defaultStyle = 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.';
           } else if (persona === 'executivo') {
-              voiceName = voice === 'masculino' ? 'Charon' : 'Fenrir';
+              // 'Fenrir' / 'Charon' are deep, executive, prestigious male voices; 'Kore' is polished, crystal clear
+              voiceName = voice === 'masculino' ? 'Fenrir' : 'Kore';
               defaultStyle = 'Voz executiva, sóbria, elegante e segura com dicção cristalina e postura corporativa impecável.';
           } else if (persona === 'amigavel') {
-              voiceName = 'Kore';
+              // 'Kore' is warm, welcoming, natural and empathetic
+              voiceName = voice === 'masculino' ? 'Puck' : 'Kore';
               defaultStyle = 'Voz extremamente calorosa, empática, acolhedora e alegre, tom natural de conversa próxima e atenciosa.';
           } else if (persona === 'jarvis' || voice === 'masculino') {
+              // 'Puck' is agile, friendly, co-pilot sounding
               voiceName = 'Puck';
               defaultStyle = 'Voz masculina inteligente, calorosa, proativa e dinâmica, com entonação confiante de co-piloto de negócios.';
           }

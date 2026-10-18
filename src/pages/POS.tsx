@@ -213,8 +213,8 @@ Responda APENAS com um arquivo JSON válido e nada mais:
       const replyText = data.speechResult || "Comando executado com sucesso.";
       toast.success(replyText, { id: "jarvis", duration: 4000 });
       
-      // Speak with Jarvis humanized Brazilian voice
-      voiceNarration.speak(replyText, { voice: 'masculino', mode: 'humanized' });
+      // Speak with Jarvis Gemini Neural Voice
+      voiceNarration.speak(replyText, { persona: 'jarvis', voice: 'masculino', mode: 'neural' });
 
       if (data.actions && Array.isArray(data.actions)) {
          let doCheckout = false;
@@ -245,7 +245,7 @@ Responda APENAS com um arquivo JSON válido e nada mais:
     } catch (err) {
       console.error(err);
       toast.error("Não entendi o comando ou ocorreu um erro.", { id: "jarvis" });
-      voiceNarration.speak("Desculpe, não consegui entender o comando.", { voice: 'masculino', mode: 'humanized' });
+      voiceNarration.speak("Desculpe, não consegui entender o comando.", { persona: 'jarvis', voice: 'masculino', mode: 'neural' });
     }
   };
 

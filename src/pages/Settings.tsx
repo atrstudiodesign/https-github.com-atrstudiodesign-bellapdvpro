@@ -48,7 +48,7 @@ export default function Settings() {
   const [voiceSpeed, setVoiceSpeed] = useState<number>(initialSettings.speed || 1.0);
   const [voiceVolume, setVoiceVolume] = useState<number>(initialSettings.volume ?? 1.0);
   const [soundEffects, setSoundEffects] = useState<boolean>(initialSettings.soundEffects ?? true);
-  const [engineMode, setEngineMode] = useState<VoiceEngineMode>(initialSettings.engineMode || 'humanized');
+  const [engineMode, setEngineMode] = useState<VoiceEngineMode>(initialSettings.engineMode || 'neural');
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [previewingPersona, setPreviewingPersona] = useState<BellaVoiceType | null>(null);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
@@ -508,12 +508,12 @@ export default function Settings() {
                    <div className="flex items-center justify-between mb-3">
                       <div>
                         <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-amber-400" /> Motor de Síntese
+                          <Zap className="w-4 h-4 text-purple-400" /> Motor de Síntese
                         </h4>
-                        <p className="text-xs text-slate-400">Selecione o motor de reprodução</p>
+                        <p className="text-xs text-slate-400">Selecione o motor de voz da assistente</p>
                       </div>
-                      <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        {engineMode === 'humanized' ? 'Humanizada BR' : 'Neural Studio'}
+                      <span className="text-[10px] uppercase font-bold text-purple-300 bg-purple-500/20 px-2.5 py-0.5 rounded border border-purple-500/30">
+                        {engineMode === 'neural' ? '✨ Nuvem Gemini Neural (Alta Fidelidade)' : 'Humanizada Local'}
                       </span>
                    </div>
 
@@ -521,9 +521,29 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => {
+                          setEngineMode('neural');
+                          voiceNarration.updateSettings({ engineMode: 'neural' });
+                          toast.success('Voz Neural Gemini Studio ativada!');
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all relative ${
+                          engineMode === 'neural'
+                            ? 'bg-purple-600/20 border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                         <div className="flex items-center justify-between mb-0.5">
+                           <p className="text-xs font-bold text-white">Nuvem Gemini TTS</p>
+                           <span className="text-[9px] bg-purple-500/30 text-purple-300 font-semibold px-1.5 py-0.5 rounded">Recomendado</span>
+                         </div>
+                         <p className="text-[11px] text-slate-400 leading-tight">Voz neural expressiva, quente e humana via Gemini 3.8</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
                           setEngineMode('humanized');
                           voiceNarration.updateSettings({ engineMode: 'humanized' });
-                          toast.success('Motor de Voz Humanizada Brasileira ativado!');
+                          toast.info('Modo de compatibilidade local ativado.');
                         }}
                         className={`p-3 rounded-xl border text-left transition-all ${
                           engineMode === 'humanized'
@@ -531,25 +551,8 @@ export default function Settings() {
                             : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
                         }`}
                       >
-                         <p className="text-xs font-bold text-white mb-0.5">Humanizada BR</p>
-                         <p className="text-[11px] text-slate-400 leading-tight">Ultra fluida, entonação calorosa e zero latência</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEngineMode('neural');
-                          voiceNarration.updateSettings({ engineMode: 'neural' });
-                          toast.success('Motor Nuvem Neural Gemini ativado!');
-                        }}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          engineMode === 'neural'
-                            ? 'bg-purple-600/20 border-purple-500 text-white'
-                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
-                        }`}
-                      >
-                         <p className="text-xs font-bold text-white mb-0.5">Nuvem Gemini TTS</p>
-                         <p className="text-[11px] text-slate-400 leading-tight">Estúdio com descrições naturais completas</p>
+                         <p className="text-xs font-bold text-white mb-0.5">Voz do Navegador</p>
+                         <p className="text-[11px] text-slate-400 leading-tight">Síntese padrão do dispositivo (modo offline)</p>
                       </button>
                    </div>
                 </div>
@@ -608,12 +611,13 @@ export default function Settings() {
                      onClick={() => {
                        handleSelectPersona('varejista');
                        setVoiceSpeed(1.10);
+                       setEngineMode('neural');
                        voiceNarration.updateSettings({
                          personaType: 'varejista',
                          speed: 1.10,
-                         engineMode: 'humanized'
+                         engineMode: 'neural'
                        });
-                       toast.info('Restaurado para Varejista (1.10x)');
+                       toast.info('Restaurado para Varejista Neural Gemini (1.10x)');
                      }}
                      className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors"
                    >

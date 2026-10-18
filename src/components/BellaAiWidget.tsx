@@ -181,16 +181,16 @@ export function BellaAiWidget() {
 
   const handleEngineModeToggle = () => {
     const nextMode: VoiceEngineMode = 
-      voiceSettings.engineMode === 'humanized' ? 'instant' : 
-      voiceSettings.engineMode === 'instant' ? 'neural' : 'humanized';
+      voiceSettings.engineMode === 'neural' ? 'humanized' : 
+      voiceSettings.engineMode === 'humanized' ? 'instant' : 'neural';
     voiceNarration.updateSettings({ engineMode: nextMode });
     setVoiceSettings(voiceNarration.getSettings());
     toast.success(
-      nextMode === 'humanized'
-        ? '✨ Voz Humanizada Natural ativada (Conversação fluida e acolhedora)'
-        : nextMode === 'instant'
-        ? '⚡ Modo Instantâneo 0s ativado'
-        : '🎙️ Modo Estúdio Neural ativado'
+      nextMode === 'neural'
+        ? '🎙️ Voz Neural Gemini 3.8 ativada (Áudio de alta fidelidade natural)'
+        : nextMode === 'humanized'
+        ? '✨ Voz Humanizada Local ativada'
+        : '⚡ Modo Instantâneo 0s ativado'
     );
   };
 
