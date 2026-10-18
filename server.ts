@@ -326,13 +326,13 @@ app.use(express.json());
           const { GoogleGenAI } = await import("@google/genai");
           const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
-          // Voice mapping for Portuguese neural humanized speech:
-          // 'feminino' -> 'Kore' (Warm, friendly, expressive Brazilian female voice)
-          // 'masculino' -> 'Fenrir' (Articulate, executive, natural Brazilian male voice)
-          const voiceName = voice === 'masculino' ? 'Fenrir' : 'Kore';
+          // Voice mapping for Portuguese humanized conversational speech:
+          // 'masculino' -> 'Puck' (Warm, friendly, natural conversational voice)
+          // 'feminino' -> 'Kore' (Warm, expressive Brazilian female voice)
+          const voiceName = voice === 'masculino' ? 'Puck' : 'Kore';
           const defaultStyle = voice === 'masculino'
-              ? 'Locução em português do Brasil com voz masculina confiante, elegante e atenciosa, tom profissional e expressivo, entonação fluida e natural de consultor de negócios.'
-              : 'Locução em português do Brasil com voz feminina acolhedora, humana e expressiva, tom amigável e caloroso de atendente profissional, entonação natural sem soar robótica.';
+              ? 'Locução em português do Brasil com voz masculina super humanizada, calorosa e descontraída, tom natural de conversa entre amigos e assistente pessoal de negócios, cadência fluida com pausas naturais e sem qualquer tom mecânico ou robótico.'
+              : 'Locução em português do Brasil com voz feminina extremamente calorosa, empática, expressiva e natural, tom conversacional e acolhedor sem soar mecânica ou artificial.';
 
           const styleDescription = style || defaultStyle;
 

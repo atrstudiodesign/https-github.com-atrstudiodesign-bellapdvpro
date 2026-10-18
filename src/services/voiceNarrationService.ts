@@ -1,13 +1,16 @@
 // Service for High-Fidelity Humanized Voice Narration in Portuguese (BR)
-// Integrates Gemini 3.8 Flash Lite TTS (24kHz studio audio) + Instant Web Speech fallback
-// Features client/server audio caching, Web Audio compressor mastering, and real-time frequency analysis
+// Prioritizes ultra-natural Brazilian humanized voices with conversational inflection,
+// dynamic voice scoring, studio mastering, and low-latency audio processing.
 
 export type VoicePersona = 'feminino' | 'masculino';
-export type VoiceEngineMode = 'neural' | 'instant'; // 'neural' = High-fidelity Gemini Studio TTS, 'instant' = Web Speech
+export type VoiceEngineMode = 'humanized' | 'instant' | 'neural'; 
+// 'humanized' = Natural Brazilian Humanized Voice (Warm, articulate, conversational - RECOMMENDED)
+// 'instant' = Instant Low-Latency Web Speech
+// 'neural' = Cloud Neural Studio TTS (Gemini)
 
 export interface VoiceSettings {
   voice: VoicePersona;
-  speed: number; // 0.8 to 1.3
+  speed: number; // 0.85 to 1.25
   volume: number; // 0 to 1
   autoPlay: boolean;
   engineMode: VoiceEngineMode;
@@ -47,16 +50,20 @@ class VoiceNarrationService {
   private audioSourceNode: MediaElementAudioSourceNode | null = null;
   private animationFrameId: number | null = null;
 
-  // Client-side in-memory audio cache for 0ms replay of synthesized phrases
+  // Cached browser voices
+  private availableVoices: SpeechSynthesisVoice[] = [];
+
+  // Client-side in-memory audio cache for 0ms replay
   private clientAudioCache: Map<string, string> = new Map();
   private readonly MAX_CLIENT_CACHE = 100;
 
+  // Default to Humanized voice with Jarvis (masculino) as primary assistant
   private settings: VoiceSettings = {
-    voice: 'feminino',
-    speed: 1.05,
+    voice: 'masculino', // Jarvis by default
+    speed: 1.0,
     volume: 1.0,
     autoPlay: true,
-    engineMode: 'neural', // Default to High-Fidelity Gemini TTS
+    engineMode: 'humanized', // Natural humanized speech
     handsFree: false,
     soundEffects: true,
   };
@@ -65,10 +72,31 @@ class VoiceNarrationService {
     try {
       const saved = localStorage.getItem('bella_voice_settings');
       if (saved) {
-        this.settings = { ...this.settings, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // If user was on old 'neural' mode that was perceived as robotic, upgrade to 'humanized'
+        if (parsed.engineMode === 'neural') {
+          parsed.engineMode = 'humanized';
+        }
+        this.settings = { ...this.settings, ...parsed };
       }
     } catch (e) {
       console.warn('Could not load voice settings from localStorage', e);
+    }
+
+    // Initialize speech synthesis voices eagerly
+    this.initVoices();
+  }
+
+  private initVoices() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const load = () => {
+      this.availableVoices = window.speechSynthesis.getVoices();
+    };
+
+    load();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = load;
     }
   }
 
@@ -113,7 +141,7 @@ class VoiceNarrationService {
     }
   }
 
-  // Initialize or resume the Web Audio mastering context
+  // Initialize or resume Web Audio mastering context
   private getAudioContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
     try {
@@ -122,13 +150,13 @@ class VoiceNarrationService {
       if (!this.audioCtx) {
         this.audioCtx = new AudioContextClass();
         
-        // Studio Mastering: Dynamics Compressor Node (broadcast clarity)
+        // Studio Mastering: Dynamics Compressor Node (warm broadcast clarity)
         this.compressor = this.audioCtx.createDynamicsCompressor();
-        this.compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
-        this.compressor.knee.setValueAtTime(30, this.audioCtx.currentTime);
-        this.compressor.ratio.setValueAtTime(4, this.audioCtx.currentTime);
-        this.compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
-        this.compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+        this.compressor.threshold.setValueAtTime(-22, this.audioCtx.currentTime);
+        this.compressor.knee.setValueAtTime(25, this.audioCtx.currentTime);
+        this.compressor.ratio.setValueAtTime(3.5, this.audioCtx.currentTime);
+        this.compressor.attack.setValueAtTime(0.005, this.audioCtx.currentTime);
+        this.compressor.release.setValueAtTime(0.20, this.audioCtx.currentTime);
 
         // Real-time Analyser Node for visualizer
         this.analyser = this.audioCtx.createAnalyser();
@@ -151,7 +179,7 @@ class VoiceNarrationService {
     }
   }
 
-  // Soft high-tech acoustic cues via synthesized audio
+  // Soft acoustic chimes for interactions
   public playChime(type: 'start' | 'success' | 'stop') {
     if (!this.settings.soundEffects) return;
     try {
@@ -167,8 +195,8 @@ class VoiceNarrationService {
       if (type === 'start') {
         // High-tech two-tone listening beep
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(540, now);
-        osc.frequency.exponentialRampToValueAtTime(840, now + 0.1);
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(780, now + 0.1);
         gain.gain.setValueAtTime(0.04, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         osc.start(now);
@@ -177,17 +205,17 @@ class VoiceNarrationService {
         // Warm action confirmation chord
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(440, now);
-        osc.frequency.setValueAtTime(660, now + 0.08);
+        osc.frequency.setValueAtTime(587, now + 0.08);
         osc.frequency.setValueAtTime(880, now + 0.16);
-        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.setValueAtTime(0.04, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
         osc.start(now);
         osc.stop(now + 0.3);
       } else {
         // Soft stop tone
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(620, now);
-        osc.frequency.exponentialRampToValueAtTime(380, now + 0.1);
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(360, now + 0.1);
         gain.gain.setValueAtTime(0.03, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.start(now);
@@ -198,11 +226,11 @@ class VoiceNarrationService {
     }
   }
 
-  // Clean markdown and optimize for natural spoken Portuguese
+  // Clean markdown and optimize text for natural spoken Portuguese
   public cleanTextForSpeech(raw: string): string {
     return raw
       .replace(/[*_#`~>\[\]]/g, '') // remove markdown symbols
-      .replace(/https?:\/\/\S+/g, 'link')
+      .replace(/https?:\/\/\S+/g, 'o link')
       // Natural spoken currency in Brazilian Portuguese
       .replace(/R\$\s*(\d{1,3}(?:\.\d{3})*),(\d{2})/g, (_m, intPart, decPart) => {
         const cleanInt = intPart.replace(/\./g, '');
@@ -214,13 +242,15 @@ class VoiceNarrationService {
       .replace(/R\$\s*(\d+)/g, '$1 reais')
       .replace(/(\d+)%/g, '$1 por cento')
       .replace(/(\d{1,2}):(\d{2})/g, '$1 horas e $2 minutos')
-      // Natural spoken abbreviations
-      .replace(/\bPDV\b/gi, 'P. D. V.')
-      .replace(/\bCRM\b/gi, 'C. R. M.')
-      .replace(/\bIA\b/gi, 'I. A.')
+      // Natural conversational transformations
+      .replace(/\bPDV\b/gi, 'frente de caixa')
+      .replace(/\bCRM\b/gi, 'gestão de clientes')
+      .replace(/\bIA\b/gi, 'inteligência artificial')
       .replace(/\bPIX\b/gi, 'Pix')
       .replace(/\bNFC-e\b/gi, 'nota fiscal eletrônica')
       .replace(/\bWhatsApp\b/gi, 'WhatsApp')
+      .replace(/\bOK\b/gi, 'Tudo certo')
+      .replace(/\bID\b/gi, 'código')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -244,7 +274,7 @@ class VoiceNarrationService {
     this.notifyState();
   }
 
-  // Start real-time audio spectrum analysis loop
+  // Real-time audio spectrum analysis loop
   private startFrequencyAnalysis() {
     if (!this.analyser) return;
 
@@ -288,7 +318,72 @@ class VoiceNarrationService {
     update();
   }
 
-  // Speak with High-Fidelity Text-to-Speech
+  // Find the highest-quality humanized Brazilian voice
+  private selectBestBrazilianVoice(isMasculine: boolean): SpeechSynthesisVoice | null {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+
+    let voices = this.availableVoices;
+    if (!voices || voices.length === 0) {
+      voices = window.speechSynthesis.getVoices();
+      this.availableVoices = voices;
+    }
+
+    if (!voices || voices.length === 0) return null;
+
+    // Filter Portuguese voices
+    const ptVoices = voices.filter((v) => {
+      const lang = v.lang.replace('_', '-').toLowerCase();
+      return lang.startsWith('pt');
+    });
+
+    if (ptVoices.length === 0) {
+      // Fallback to any voice
+      return voices[0] || null;
+    }
+
+    // Score voices for humanization and persona alignment
+    const scored = ptVoices.map((v) => {
+      let score = 0;
+      const name = v.name.toLowerCase();
+      const lang = v.lang.replace('_', '-').toLowerCase();
+
+      // Brazilian Portuguese preference
+      if (lang.startsWith('pt-br')) score += 50;
+
+      // Natural online voices (Edge & Windows Natural voices are extraordinarily human)
+      if (name.includes('natural')) score += 150;
+      if (name.includes('online')) score += 60;
+      if (name.includes('neural')) score += 70;
+      if (name.includes('google')) score += 50; // Google Brazilian voices are high quality
+
+      if (isMasculine) {
+        // JARVIS - Male Brazilian voices
+        if (/antonio|daniel|felipe|fabio|ricardo|luciano|thiago|nicolau|homem|male|mário/i.test(name)) {
+          score += 100;
+        }
+        // Penalize female voices for Jarvis
+        if (/francisca|leticia|luciana|helena|camila|maria|brenda|yara|female|mulher|vitória/i.test(name)) {
+          score -= 120;
+        }
+      } else {
+        // BELLA - Female Brazilian voices
+        if (/francisca|leticia|luciana|helena|camila|maria|brenda|yara|female|mulher|vitória/i.test(name)) {
+          score += 100;
+        }
+        // Penalize male voices for Bella
+        if (/antonio|daniel|felipe|fabio|ricardo|luciano|thiago|nicolau|homem|male|mário/i.test(name)) {
+          score -= 120;
+        }
+      }
+
+      return { voice: v, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0]?.voice || ptVoices[0];
+  }
+
+  // Speak with High-Fidelity Humanized Voice
   public async speak(
     text: string,
     options?: {
@@ -317,24 +412,23 @@ class VoiceNarrationService {
     this.notifyState();
     options?.onStart?.();
 
-    // Mode: Instant Web Speech (if explicitly selected)
-    if (engineMode === 'instant') {
+    // 1. DEFAULT & RECOMMENDED: Humanized Natural Voice Engine
+    // Produces the warmest, most natural conversational Brazilian Portuguese
+    if (engineMode === 'humanized' || engineMode === 'instant') {
       return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
     }
 
-    // Mode: High-Fidelity Studio Neural TTS (Gemini 3.8 Flash Lite TTS 24kHz)
+    // 2. ALTERNATIVE: Cloud Neural TTS (if specifically enabled)
     const cacheKey = `${selectedVoice}_${speechText.slice(0, 150).toLowerCase()}`;
     const localCached = this.clientAudioCache.get(cacheKey);
 
-    // 1. FAST LOCAL CLIENT CACHE CHECK (0ms playback)
     if (localCached) {
       return await this.playBase64Audio(localCached, speed, volume, options?.onEnd);
     }
 
-    // 2. SERVER TTS SYNTHESIS WITH SNAPPY 2.8s TIMEOUT
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2800);
+      const timeoutId = setTimeout(() => controller.abort(), 2600);
 
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
@@ -352,7 +446,6 @@ class VoiceNarrationService {
       if (response.ok) {
         const data = await response.json();
         if (data.audioBase64) {
-          // Cache in client memory
           if (this.clientAudioCache.size >= this.MAX_CLIENT_CACHE) {
             const firstKey = this.clientAudioCache.keys().next().value;
             if (firstKey) this.clientAudioCache.delete(firstKey);
@@ -363,14 +456,14 @@ class VoiceNarrationService {
         }
       }
     } catch (e) {
-      console.warn('[VoiceNarration] Neural TTS exceeded timeout, switching smoothly to Web Speech', e);
+      console.warn('[VoiceNarration] Neural TTS fallback to Humanized voice', e);
     }
 
-    // Graceful seamless fallback to Web Speech with Brazilian Portuguese neural voice
+    // Seamless fallback to humanized Brazilian voice
     return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
   }
 
-  // Play High-Fidelity Base64 WAV Audio through Web Audio mastering pipeline
+  // Play High-Fidelity Audio
   private playBase64Audio(
     base64Data: string,
     speed: number,
@@ -381,10 +474,9 @@ class VoiceNarrationService {
       try {
         const audio = new Audio(`data:audio/wav;base64,${base64Data}`);
         this.currentAudio = audio;
-        audio.playbackRate = Math.max(0.75, Math.min(1.5, speed));
+        audio.playbackRate = Math.max(0.75, Math.min(1.4, speed));
         audio.volume = Math.max(0, Math.min(1, volume));
 
-        // Connect audio to Web Audio API mastering chain
         try {
           const ctx = this.getAudioContext();
           if (ctx && this.compressor && !this.audioSourceNode) {
@@ -392,7 +484,7 @@ class VoiceNarrationService {
             this.audioSourceNode.connect(this.compressor);
           }
         } catch {
-          // Fallback to standard audio output if routing is already connected
+          // Fallback if routing already connected
         }
 
         audio.onplay = () => {
@@ -427,7 +519,7 @@ class VoiceNarrationService {
     });
   }
 
-  // Fallback to Web Speech Synthesis with Brazilian Portuguese neural voice heuristics
+  // Web Speech Synthesis with Calibrated Humanized Brazilian Voice
   public speakWithWebSpeech(
     text: string,
     voicePersona: VoicePersona,
@@ -449,42 +541,35 @@ class VoiceNarrationService {
       const utterance = new SpeechSynthesisUtterance(text);
       this.currentUtterance = utterance;
       utterance.lang = 'pt-BR';
-      utterance.rate = Math.max(0.85, Math.min(1.3, speed));
       utterance.volume = volume;
 
-      const voices = window.speechSynthesis.getVoices();
-      const ptBrVoices = voices.filter(v => {
-        const lang = v.lang.replace('_', '-').toLowerCase();
-        return lang.startsWith('pt-br') || lang.startsWith('pt');
-      });
-
-      if (voicePersona === 'feminino') {
-        utterance.pitch = 1.04;
-        // Prioritize natural neural Brazilian female voices
-        const femaleVoice = ptBrVoices.find(v => 
-          /francisca|leticia|luciana|helena|camila|maria|brenda|yara|female|mulher|google português/i.test(v.name)
-        ) || ptBrVoices[0];
-        if (femaleVoice) utterance.voice = femaleVoice;
-      } else {
-        // Masculino
-        utterance.pitch = 0.94;
-        // Prioritize natural neural Brazilian male voices
-        const maleVoice = ptBrVoices.find(v => 
-          /antonio|daniel|felipe|fabio|ricardo|luciano|male|homem/i.test(v.name)
-        ) || ptBrVoices.find(v => !/francisca|leticia|luciana|helena|camila/i.test(v.name)) || ptBrVoices[0];
-        if (maleVoice) utterance.voice = maleVoice;
+      const isMasculine = voicePersona === 'masculino';
+      const bestVoice = this.selectBestBrazilianVoice(isMasculine);
+      if (bestVoice) {
+        utterance.voice = bestVoice;
       }
 
-      // Simulated volume pulsing for visualizer during Web Speech
+      // Voice Calibration for Humanized Warmth
+      if (isMasculine) {
+        // JARVIS: Warm, articulate, confident baritone. Not robotic, not high-pitched.
+        utterance.pitch = 0.98;
+        utterance.rate = Math.max(0.92, Math.min(1.15, speed));
+      } else {
+        // BELLA: Warm, friendly, welcoming feminine tone.
+        utterance.pitch = 1.02;
+        utterance.rate = Math.max(0.95, Math.min(1.18, speed));
+      }
+
+      // Simulated volume pulsing for visualizer
       let pulseInterval: any = null;
       utterance.onstart = () => {
         let toggle = false;
         pulseInterval = setInterval(() => {
           toggle = !toggle;
-          this.volumeLevel = toggle ? 0.65 : 0.45;
-          this.frequencyData = this.frequencyData.map(() => Math.random() * 0.7);
+          this.volumeLevel = toggle ? 0.65 : 0.40;
+          this.frequencyData = this.frequencyData.map(() => 0.2 + Math.random() * 0.6);
           this.notifyState();
-        }, 120);
+        }, 110);
       };
 
       utterance.onend = () => {
@@ -514,110 +599,123 @@ class VoiceNarrationService {
     });
   }
 
-  // --- SPEECH RECOGNITION WITH ZERO DELAY & LIVE INTERIM ---
+  // Quick voice test
+  public testVoice(persona?: VoicePersona) {
+    const voiceToTest = persona || this.settings.voice;
+    const isJarvis = voiceToTest === 'masculino';
+    const sample = isJarvis
+      ? 'Olá! Sou o Jarvis, seu assistente inteligente no BellaPDV. Minha voz agora está muito mais humanizada e natural, pronta para ajudar você em qualquer comando.'
+      : 'Olá! Sou a Bella. Minha voz foi aprimorada para soar ainda mais humana, calorosa e agradável.';
+    return this.speak(sample, { voice: voiceToTest });
+  }
+
+  // Speech Recognition
   public isSpeechRecognitionSupported(): boolean {
     return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }
 
   public startListening(callbacks: {
-    onResult: (transcript: string) => void;
-    onInterim?: (interim: string) => void;
-    onError?: (error: any) => void;
+    onInterim?: (text: string) => void;
+    onFinal?: (text: string) => void;
+    onResult?: (text: string) => void;
     onEnd?: () => void;
+    onError?: (error: string) => void;
   }): boolean {
     if (!this.isSpeechRecognitionSupported()) {
+      callbacks.onError?.('Reconhecimento de voz não suportado neste navegador.');
       return false;
     }
 
     this.stopSpeaking();
-    this.playChime('start');
+    this.stopListening();
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'pt-BR';
       this.recognition.continuous = true;
       this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 1;
 
+      this.isListening = true;
+      this.interimTranscript = '';
+      this.volumeLevel = 0.3;
+      this.notifyState();
+
+      this.playChime('start');
+
       let lastFinalTranscript = '';
-      let activeInterim = '';
-
-      const finalizeAndSend = () => {
-        const toSend = (lastFinalTranscript + ' ' + activeInterim).trim();
-        if (toSend && toSend.length > 1) {
-          this.interimTranscript = '';
-          this.volumeLevel = 0;
-          this.notifyState();
-          this.stopListening();
-          this.playChime('success');
-          callbacks.onResult(toSend);
-        }
-      };
-
-      this.recognition.onstart = () => {
-        this.isListening = true;
-        this.interimTranscript = '';
-        this.volumeLevel = 0.5;
-        this.notifyState();
-      };
 
       this.recognition.onresult = (event: any) => {
-        if (this.silenceTimer) clearTimeout(this.silenceTimer);
-
         let interim = '';
-        let hasFinal = false;
+        let currentFinal = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const res = event.results[i];
-          const text = res[0].transcript;
-          if (res.isFinal) {
-            lastFinalTranscript += ' ' + text;
-            hasFinal = true;
+          const trans = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            currentFinal += trans;
           } else {
-            interim += text;
+            interim += trans;
           }
         }
 
-        activeInterim = interim;
-        const currentFull = (lastFinalTranscript + ' ' + interim).trim();
-        this.interimTranscript = currentFull;
-        this.volumeLevel = Math.min(1, 0.4 + (currentFull.length % 10) * 0.06);
+        const activeInterim = interim || currentFinal;
+        this.interimTranscript = activeInterim;
+        this.volumeLevel = 0.7;
         this.notifyState();
-        callbacks.onInterim?.(currentFull);
+        callbacks.onInterim?.(activeInterim);
 
-        if (currentFull.length > 1) {
-          const timeoutMs = hasFinal ? 280 : 450;
-          this.silenceTimer = setTimeout(() => {
-            finalizeAndSend();
-          }, timeoutMs);
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
+        }
+
+        // Snappy 480ms silence detection for fast response
+        this.silenceTimer = setTimeout(() => {
+          const toSend = (currentFinal || interim || lastFinalTranscript).trim();
+          if (toSend && toSend.length > 1) {
+            this.playChime('success');
+            callbacks.onFinal?.(toSend);
+            callbacks.onResult?.(toSend);
+            this.interimTranscript = '';
+            this.notifyState();
+          }
+        }, 480);
+
+        if (currentFinal) {
+          lastFinalTranscript = currentFinal;
         }
       };
 
       this.recognition.onerror = (event: any) => {
-        if (event.error !== 'no-speech') {
-          console.warn('[SpeechRecognition Error]', event.error);
-          this.isListening = false;
-          this.volumeLevel = 0;
-          this.notifyState();
-          callbacks.onError?.(event.error);
-        }
+        if (event.error === 'no-speech') return;
+        console.warn('[SpeechRec Error]', event.error);
+        callbacks.onError?.(event.error);
+        this.stopListening();
       };
 
       this.recognition.onend = () => {
-        if (this.silenceTimer) clearTimeout(this.silenceTimer);
-        this.isListening = false;
-        this.volumeLevel = 0;
-        this.notifyState();
         callbacks.onEnd?.();
+        if (this.settings.handsFree && this.isListening) {
+          try {
+            this.recognition?.start();
+          } catch {
+            this.isListening = false;
+            this.notifyState();
+          }
+        } else {
+          this.isListening = false;
+          this.volumeLevel = 0;
+          this.notifyState();
+        }
       };
 
       this.recognition.start();
       return true;
-    } catch (e) {
-      console.warn('Failed to start speech recognition', e);
+    } catch (e: any) {
+      console.error('[SpeechRec Init Error]', e);
+      callbacks.onError?.(e?.message || 'Falha ao iniciar microfone');
       this.isListening = false;
-      this.volumeLevel = 0;
       this.notifyState();
       return false;
     }
@@ -632,13 +730,14 @@ class VoiceNarrationService {
       try {
         this.recognition.stop();
       } catch {
-        // ignore
+        // already stopped
       }
       this.recognition = null;
     }
     this.isListening = false;
     this.interimTranscript = '';
     this.volumeLevel = 0;
+    this.playChime('stop');
     this.notifyState();
   }
 }

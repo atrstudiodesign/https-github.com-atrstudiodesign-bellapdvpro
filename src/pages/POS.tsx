@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { fiscalService } from '../services/fiscalService';
 import { whatsappService } from '../services/whatsappService';
+import { voiceNarration } from '../services/voiceNarrationService';
 
 interface Service {
   id: string;
@@ -209,7 +210,11 @@ Responda APENAS com um arquivo JSON válido e nada mais:
       const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const data = JSON.parse(jsonString);
 
-      toast.success(data.speechResult || "Comando executado.", { id: "jarvis", duration: 4000 });
+      const replyText = data.speechResult || "Comando executado com sucesso.";
+      toast.success(replyText, { id: "jarvis", duration: 4000 });
+      
+      // Speak with Jarvis humanized Brazilian voice
+      voiceNarration.speak(replyText, { voice: 'masculino', mode: 'humanized' });
 
       if (data.actions && Array.isArray(data.actions)) {
          let doCheckout = false;
@@ -240,6 +245,7 @@ Responda APENAS com um arquivo JSON válido e nada mais:
     } catch (err) {
       console.error(err);
       toast.error("Não entendi o comando ou ocorreu um erro.", { id: "jarvis" });
+      voiceNarration.speak("Desculpe, não consegui entender o comando.", { voice: 'masculino', mode: 'humanized' });
     }
   };
 
@@ -256,12 +262,14 @@ Responda APENAS com um arquivo JSON válido e nada mais:
 
     recognition.onstart = () => {
        setIsListening(true);
+       voiceNarration.playChime('start');
        toast("🎙️ Jarvis Ouvindo...", { id: 'jarvis-listening', duration: 10000 });
     };
 
     recognition.onresult = (event: any) => {
        const transcript = event.results[0][0].transcript;
        toast.dismiss('jarvis-listening');
+       voiceNarration.playChime('success');
        toast.success(`Entendido: "${transcript}"`);
        processJarvisCommand(transcript);
     };

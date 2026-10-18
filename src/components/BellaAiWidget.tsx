@@ -165,21 +165,32 @@ export function BellaAiWidget() {
   const handleVoiceChange = (voice: VoicePersona) => {
     voiceNarration.updateSettings({ voice });
     setVoiceSettings(voiceNarration.getSettings());
-    toast.success(`Voz alterada para: ${voice === 'feminino' ? 'Bella (Feminina Natural)' : 'Gabriel (Masculino Executivo)'}`);
+    const isJarvis = voice === 'masculino';
+    toast.success(`Voz alterada para: ${isJarvis ? 'Jarvis (Masculino Humanizado)' : 'Bella (Feminina Natural)'}`);
     
-    const greeting = voice === 'feminino' 
-      ? 'Olá! Sou a Bella. Voz neural feminina pronta para responder sem espera.' 
-      : 'Olá! Sou o Gabriel. Voz executiva masculina pronta para operar o sistema.';
+    const greeting = isJarvis 
+      ? 'Olá! Sou o Jarvis, com voz humanizada e natural. Estou pronto para ajudar você em todo o sistema.'
+      : 'Olá! Sou a Bella, sua assistente pessoal humanizada. Como posso ajudar você hoje?';
     voiceNarration.speak(greeting, { voice, mode: voiceSettings.engineMode });
   };
 
+  const handleTestVoice = () => {
+    voiceNarration.testVoice();
+    toast.info('Reproduzindo amostra da voz humanizada...');
+  };
+
   const handleEngineModeToggle = () => {
-    const nextMode: VoiceEngineMode = voiceSettings.engineMode === 'instant' ? 'neural' : 'instant';
+    const nextMode: VoiceEngineMode = 
+      voiceSettings.engineMode === 'humanized' ? 'instant' : 
+      voiceSettings.engineMode === 'instant' ? 'neural' : 'humanized';
     voiceNarration.updateSettings({ engineMode: nextMode });
     setVoiceSettings(voiceNarration.getSettings());
-    toast.success(nextMode === 'instant' 
-      ? '⚡ Modo Ultrarrápido ativado (Resposta Instantânea 0s)' 
-      : '🎙️ Modo Estúdio Neural ativado'
+    toast.success(
+      nextMode === 'humanized'
+        ? '✨ Voz Humanizada Natural ativada (Conversação fluida e acolhedora)'
+        : nextMode === 'instant'
+        ? '⚡ Modo Instantâneo 0s ativado'
+        : '🎙️ Modo Estúdio Neural ativado'
     );
   };
 
@@ -589,13 +600,13 @@ Diretrizes:
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    Chat de Voz Neural Instantâneo
+                    Chat de Voz Humanizado & Operador
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                       0s Latência
                     </span>
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Falando com <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Feminina)' : 'Gabriel (Executivo)'}</strong> • Interação completa com o sistema
+                    Falando com <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Feminina Natural)' : 'Jarvis (Masculino Humanizado)'}</strong> • Interação completa com o sistema
                   </p>
                 </div>
               </div>
@@ -760,7 +771,14 @@ Diretrizes:
                       : 'bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  👨 Gabriel
+                  🎙️ Jarvis
+                </button>
+                <button
+                  onClick={handleTestVoice}
+                  title="Ouvir teste de voz"
+                  className="px-2 py-1 rounded-lg font-medium text-[11px] bg-white/5 text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20 transition-all flex items-center gap-1"
+                >
+                  <Volume2 className="w-3 h-3" /> Testar
                 </button>
               </div>
 
@@ -809,7 +827,7 @@ Diretrizes:
                   <span className="text-sm font-semibold text-white tracking-wide flex items-center gap-1.5">
                     Assistente do Operador
                     <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.2 rounded font-mono font-medium">
-                      {voiceSettings.voice === 'feminino' ? 'Bella 👩' : 'Gabriel 👨'}
+                      {voiceSettings.voice === 'feminino' ? 'Bella 👩' : 'Jarvis 🎙️'}
                     </span>
                   </span>
                   <span className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -922,7 +940,7 @@ Diretrizes:
                                 : 'bg-white/5 text-slate-400 hover:text-white'
                             }`}
                           >
-                            👨 Gabriel
+                            🎙️ Jarvis
                           </button>
                         </div>
                       </div>
@@ -932,13 +950,25 @@ Diretrizes:
                         <button
                           onClick={handleEngineModeToggle}
                           className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
-                            voiceSettings.engineMode === 'instant' 
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' 
+                            voiceSettings.engineMode === 'humanized' 
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' 
+                              : voiceSettings.engineMode === 'instant'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                               : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
                           }`}
                         >
-                          <Zap className="w-3 h-3" />
-                          {voiceSettings.engineMode === 'instant' ? '⚡ 0s Instantâneo' : '🎙️ Estúdio Neural'}
+                          <Sparkles className="w-3 h-3" />
+                          {voiceSettings.engineMode === 'humanized' ? '✨ Humanizada Natural' : voiceSettings.engineMode === 'instant' ? '⚡ 0s Instantâneo' : '🎙️ Estúdio Neural'}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                        <span className="text-slate-300 font-medium">Amostra da Voz:</span>
+                        <button
+                          onClick={handleTestVoice}
+                          className="px-2.5 py-1 rounded text-[11px] font-semibold bg-white/5 text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/30 flex items-center gap-1 transition-all"
+                        >
+                          <Volume2 className="w-3 h-3" /> Testar Voz
                         </button>
                       </div>
 
@@ -975,11 +1005,11 @@ Diretrizes:
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[11px] font-medium text-white">
-                          Voz: <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Kore)' : 'Gabriel (Fenrir)'}</strong>
+                          Voz: <strong>{voiceSettings.voice === 'feminino' ? 'Bella (Natural)' : 'Jarvis (Humanizado)'}</strong>
                         </span>
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono font-bold flex items-center gap-1">
                           <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
-                          24kHz HD
+                          Humanizada
                         </span>
                       </div>
                     </div>
