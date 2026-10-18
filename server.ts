@@ -386,8 +386,9 @@ app.use('/api', async (req, res, next) => {
           const styleDescription = style || defaultStyle;
 
           // Attempt with gemini-3.8-flash-lite-tts (ultra-fast low latency)
-          const modelsToTry = ['gemini-2.5-flash-preview-tts']; // SDK generateContent-compatible fallback
+          const modelsToTry = ['gemini-2.5-flash-preview-tts'];
           let base64Audio: string | null = null;
+          let audioMimeType = 'audio/pcm;rate=24000';
           let lastErr: any = null;
 
           for (const ttsModel of modelsToTry) {
@@ -419,6 +420,7 @@ app.use('/api', async (req, res, next) => {
 
                   const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                   if (audioData) {
+                      audioMimeType = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || audioMimeType;
                       base64Audio = audioData;
                       break;
                   }
