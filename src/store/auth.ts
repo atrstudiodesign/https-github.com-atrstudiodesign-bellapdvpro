@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { auth, db } from '../lib/firebase';
-import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { subscribeToClients } from './clients';
 import { subscribeToCatalog } from './catalog';
 import { subscribeToAppointments } from './appointments';
@@ -32,7 +32,7 @@ interface AuthState {
 // Keep track of active subscriptions
 let unsubscribes: Array<() => void> = [];
 
-const DEFAULT_FEATURES = ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm', 'totem', 'marketing', 'loyalty'];
+const DEFAULT_FEATURES: string[] = ['pdv', 'agenda'];
 
 const getStoredUser = (): AuthUser | null => {
   try {
@@ -44,12 +44,12 @@ const getStoredUser = (): AuthUser | null => {
   }
 };
 
-const initialUser = getStoredUser();
+const initialUser = null; // A cached profile is never sufficient to authenticate a session.
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialUser,
   isAuthenticated: !!initialUser,
-  isAuthReady: !!initialUser,
+  isAuthReady: false,
   setUser: (user) => {
     if (user) {
       try {
@@ -73,17 +73,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasFeature: (feature: string) => {
     const user = get().user;
     if (!user) return false;
-    return user.planFeatures?.includes(feature) ?? true;
+    return user.planFeatures?.includes(feature) ?? false;
   },
   login: (userData: any, token?: string, company?: any) => {
     const fullUser: AuthUser = {
       id: userData?.id || auth.currentUser?.uid || 'u_admin',
       name: userData?.name || 'Administrador',
       email: userData?.email || 'admin@bellapdv.com',
-      role: 'admin',
-      companyId: company?.id || userData?.companyId || '1',
+      role: userData?.role === 'admin' ? 'admin' : 'client',
+      companyId: company?.id || userData?.companyId,
       avatar: userData?.avatar,
-      planFeatures: DEFAULT_FEATURES
+      planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
     };
 
     try {
@@ -123,34 +123,33 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
 
-  const cached = getStoredUser();
-
   if (firebaseUser) {
     // If user is anonymous, but we already have a cached logged-in user profile, attach that
-    const displayName = firebaseUser.displayName || cached?.name || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Administrador');
-    const email = firebaseUser.email || cached?.email || 'admin@bellapdv.com';
+    if (firebaseUser.isAnonymous) {
+      useAuthStore.getState().setUser(null);
+      return;
+    }
+    const displayName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
+    const email = firebaseUser.email || '';
 
+    let profile: Record<string, any> = {};
+    try {
+      const snapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (snapshot.exists()) profile = snapshot.data();
+    } catch (error) {
+      console.warn('Cannot retrieve authenticated profile:', error);
+    }
     const userData: AuthUser = {
       id: firebaseUser.uid,
       email: email,
       name: displayName,
-      role: 'admin',
-      companyId: cached?.companyId || '1',
-      avatar: firebaseUser.photoURL || cached?.avatar,
-      planFeatures: DEFAULT_FEATURES
+      role: profile.role === 'admin' && !firebaseUser.isAnonymous ? 'admin' : 'client',
+      companyId: typeof profile.companyId === 'string' ? profile.companyId : undefined,
+      avatar: firebaseUser.photoURL || undefined,
+      planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES
     };
 
     useAuthStore.getState().setUser(userData);
-
-    // Save/Update user profile in Firestore
-    try {
-      await setDoc(doc(db, 'users', firebaseUser.uid), {
-        ...userData,
-        lastLogin: new Date().toISOString(),
-      }, { merge: true });
-    } catch (err) {
-      console.warn('Could not save user profile to Firestore:', err);
-    }
 
     // Start real-time data subscriptions
     try {
@@ -165,18 +164,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
-    // No Firebase user. If there is a cached user in localStorage, connect Firebase anonymously
-    // so Firestore rules pass and session remains uninterrupted
-    if (cached) {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.warn('Anonymous reconnect error:', err);
-        useAuthStore.getState().setAuthReady(true);
-      }
-    } else {
-      useAuthStore.getState().setUser(null);
-    }
+    useAuthStore.getState().setUser(null);
   }
 });
 

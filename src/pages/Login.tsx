@@ -64,61 +64,14 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, [searchParams, isAuthenticated, navigate]);
 
-  // Fast 1-Click Demo Login
+  // Demo sessions must use an isolated backend and cannot inherit administrator permissions.
   const handleQuickDemoLogin = async () => {
-    setIsDemoLoading(true);
-    try {
-      // Connect to Firebase anonymously or with active user
-      let uid = 'u_demo_' + Date.now();
-      try {
-        const cred = await signInAnonymously(auth);
-        if (cred?.user?.uid) uid = cred.user.uid;
-      } catch (err) {
-        console.warn('Anonymous demo login error, continuing with local session:', err);
-      }
-
-      const demoUser = {
-        id: uid,
-        email: 'admin@bellapdv.com',
-        name: 'Administrador Demo',
-        role: 'admin' as const,
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm', 'totem', 'marketing', 'loyalty']
-      };
-
-      const demoCompany = {
-        id: '1',
-        name: 'Original Barbershop',
-        niche: 'barbershop'
-      };
-
-      // Save to Firestore
-      try {
-        await setDoc(doc(db, 'users', uid), {
-          ...demoUser,
-          lastLogin: new Date().toISOString(),
-        }, { merge: true });
-      } catch (e) {
-        console.warn('Could not save demo user in Firestore:', e);
-      }
-
-      setNiche('barbershop');
-      login(demoUser, 'token_demo_quick_123', demoCompany);
-      toast.success('Acesso Demo Liberado!', {
-        description: 'Bem-vindo ao BellaPDV com todas as funções desbloqueadas.',
-        duration: 4000
-      });
-      navigate('/');
-    } catch (error) {
-      console.error('Demo login error:', error);
-      toast.error('Erro ao acessar demonstração. Tente novamente.');
-    } finally {
-      setIsDemoLoading(false);
-    }
+    toast.error('Demonstração temporariamente indisponível até configurar o ambiente isolado.');
   };
 
   const fillTestCredentials = () => {
-    setEmail('admin@bellapdv.com');
-    setPassword('123456');
+    toast.info('Use credenciais reais cadastradas no Firebase Authentication.');
+    return;
     toast.info('Credenciais de teste preenchidas!', {
       description: 'Clique em "Entrar" para prosseguir.',
       duration: 3000
@@ -147,37 +100,14 @@ export default function Login() {
 
     try {
       let firebaseUser = auth.currentUser;
-      let uid = firebaseUser?.uid || 'u_' + Date.now();
+      let uid = firebaseUser?.uid || '';
 
       if (isRegister) {
         // --- REGISTRO ---
-        try {
-          const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-          firebaseUser = cred.user;
-          uid = cred.user.uid;
-          await updateProfile(cred.user, { displayName: companyName.trim() });
-        } catch (fbErr: any) {
-          console.warn('Firebase createUser error, trying fallback:', fbErr);
-          if (fbErr?.code === 'auth/email-already-in-use') {
-            try {
-              const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-              firebaseUser = cred.user;
-              uid = cred.user.uid;
-            } catch {
-              // fallback below
-            }
-          }
-          // If email-pass not allowed or network issue, sign in anonymously to keep Firebase valid
-          if (!firebaseUser) {
-            try {
-              const anonCred = await signInAnonymously(auth);
-              firebaseUser = anonCred.user;
-              uid = anonCred.user.uid;
-            } catch (anonErr) {
-              console.warn('Anonymous fallback error:', anonErr);
-            }
-          }
-        }
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        firebaseUser = cred.user;
+        uid = cred.user.uid;
+        await updateProfile(cred.user, { displayName: companyName.trim() });
 
         // Backend register sync
         let companyData = {
@@ -186,24 +116,13 @@ export default function Login() {
           niche: selectedNiche
         };
 
-        try {
-          const res = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), password, name: companyName.trim(), niche: selectedNiche })
-          });
-          const data = await res.json();
-          if (data?.company) companyData = data.company;
-        } catch (serverErr) {
-          console.warn('Server sync error on register:', serverErr);
-        }
-
+        // Persistent company provisioning must be handled by a verified backend.
         const newUser = {
           id: uid,
           email: email.trim(),
           name: companyName.trim() || email.trim().split('@')[0],
-          role: 'admin' as const,
-          planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm', 'totem', 'marketing', 'loyalty']
+          role: 'client' as const,
+          planFeatures: ['pdv', 'agenda']
         };
 
         try {
@@ -219,7 +138,7 @@ export default function Login() {
         }
 
         setNiche(selectedNiche);
-        login(newUser, 'token_registered_' + Date.now(), companyData);
+        login(newUser, undefined, companyData);
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
         });
@@ -227,39 +146,9 @@ export default function Login() {
 
       } else {
         // --- LOGIN ---
-        let loginSuccess = false;
-        try {
-          const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-          firebaseUser = cred.user;
-          uid = cred.user.uid;
-          loginSuccess = true;
-        } catch (fbErr: any) {
-          console.warn('Firebase signIn error:', fbErr?.code || fbErr);
-          
-          // If user not found, try to auto-create account for seamless dev onboarding
-          if (fbErr?.code === 'auth/user-not-found' || fbErr?.code === 'auth/invalid-credential') {
-            try {
-              const newCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-              firebaseUser = newCred.user;
-              uid = newCred.user.uid;
-              loginSuccess = true;
-            } catch {
-              // Continue to fallback
-            }
-          }
-
-          // Fallback to anonymous auth so firestore rules pass
-          if (!loginSuccess) {
-            try {
-              const anonCred = await signInAnonymously(auth);
-              firebaseUser = anonCred.user;
-              uid = anonCred.user.uid;
-              loginSuccess = true;
-            } catch (anonErr) {
-              console.warn('Anonymous auth fallback error:', anonErr);
-            }
-          }
-        }
+        const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+        firebaseUser = cred.user;
+        uid = cred.user.uid;
 
         // Server sync
         let companyData = {
@@ -268,24 +157,13 @@ export default function Login() {
           niche: 'barbershop'
         };
 
-        try {
-          const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), password })
-          });
-          const data = await res.json();
-          if (data?.company) companyData = data.company;
-        } catch (serverErr) {
-          console.warn('Server sync error on login:', serverErr);
-        }
-
+        // Do not call mock server authentication endpoints.
         const loggedUser = {
           id: uid,
           email: email.trim(),
           name: firebaseUser?.displayName || email.trim().split('@')[0] || 'Administrador',
-          role: 'admin' as const,
-          planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm', 'totem', 'marketing', 'loyalty']
+          role: 'client' as const,
+          planFeatures: ['pdv', 'agenda']
         };
 
         try {
@@ -301,7 +179,7 @@ export default function Login() {
           setNiche(companyData.niche as NicheType);
         }
 
-        login(loggedUser, 'token_login_' + Date.now(), companyData);
+        login(loggedUser, undefined, companyData);
         toast.success('Login realizado com sucesso!', {
           description: `Bem-vindo de volta, ${loggedUser.name}!`
         });
@@ -318,44 +196,21 @@ export default function Login() {
   const handleSocialAuth = async (provider: 'Google' | 'Apple' | 'Microsoft') => {
     setIsSubmitting(true);
     try {
-      let uid = 'u_' + provider.toLowerCase() + '_' + Date.now();
-      let displayName = `${provider} User`;
-      let userEmail = `${provider.toLowerCase()}@bellapdv.com`;
-
-      if (provider === 'Google') {
-        try {
-          const googleProvider = new GoogleAuthProvider();
-          const result = await signInWithPopup(auth, googleProvider);
-          if (result.user) {
-            uid = result.user.uid;
-            displayName = result.user.displayName || 'Usuário Google';
-            userEmail = result.user.email || userEmail;
-          }
-        } catch (popupErr: any) {
-          console.warn('Google popup blocked/failed, using safe fallback:', popupErr);
-          // Try anonymous
-          try {
-            const anon = await signInAnonymously(auth);
-            if (anon?.user) uid = anon.user.uid;
-          } catch {
-            // continue
-          }
-        }
-      } else {
-        try {
-          const anon = await signInAnonymously(auth);
-          if (anon?.user) uid = anon.user.uid;
-        } catch {
-          // continue
-        }
+      if (provider !== 'Google') {
+        toast.error('Provedor indisponível até configurar autenticação real.');
+        return;
       }
+      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const uid = result.user.uid;
+      const displayName = result.user.displayName || 'Usuário Google';
+      const userEmail = result.user.email || '';
 
       const socialUser = {
         id: uid,
         name: displayName,
         email: userEmail,
-        role: 'admin' as const,
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm', 'totem', 'marketing', 'loyalty']
+        role: 'client' as const,
+        planFeatures: ['pdv', 'agenda']
       };
 
       try {
@@ -369,7 +224,7 @@ export default function Login() {
       }
 
       setNiche(selectedNiche);
-      login(socialUser, 'token_social_' + Date.now(), {
+      login(socialUser, undefined, {
         id: '1',
         name: `${provider} Empresa`,
         niche: selectedNiche
@@ -519,7 +374,7 @@ export default function Login() {
                 onClick={fillTestCredentials}
                 className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1 bg-cyan-950/30 border border-cyan-800/40 px-2.5 py-1 rounded-full"
               >
-                <span>💡 Preencher teste: <strong>admin@bellapdv.com</strong> / <strong>123456</strong></span>
+                <span>Utilize seu acesso cadastrado no Firebase</span>
               </button>
             </div>
           )}

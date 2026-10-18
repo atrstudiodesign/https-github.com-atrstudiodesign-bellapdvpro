@@ -4,6 +4,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
+import { createVerify, X509Certificate } from 'node:crypto';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -68,98 +69,103 @@ app.use(compression());
 app.use(cors());
 app.use(express.json());
 
-// --- MIDDLEWARE: MULTI-TENANT & SOFT BLOCK ---
-  app.use('/api/*', (req, res, next) => {
-      // Ignora rotas públicas
-      if (req.path.includes('/auth') || req.path.includes('/webhooks')) return next();
-      
-      const companyId = req.headers['x-company-id'] || '1';
-      const company = companies.find(c => c.id === companyId);
-      
-      if (!company) {
-          return res.status(401).json({ error: 'Tenant não encontrado.' });
-      }
+// Verify Firebase ID tokens against Google's Secure Token signing certificates.
+// Never trust user-supplied roles, company IDs, or unverified JWT payloads.
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0731708491';
+const FIREBASE_CERT_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+let cachedCerts: Record<string, string> = {};
+let certsExpireAt = 0;
 
-      // Soft Block (Apenas bloqueia POST/PUT/DELETE se inadimplente)
-      if (company.status === 'blocked' && req.method !== 'GET') {
-          return res.status(403).json({ error: 'Assinatura bloqueada. Por favor, regularize no Asaas.' });
-      }
+async function getSigningCerts(): Promise<Record<string, string>> {
+  if (Date.now() < certsExpireAt && Object.keys(cachedCerts).length) return cachedCerts;
+  const response = await fetch(FIREBASE_CERT_URL, { signal: AbortSignal.timeout(7000) });
+  if (!response.ok) throw new Error('Firebase certificate endpoint unavailable');
+  const certs = await response.json();
+  if (!certs || typeof certs !== 'object') throw new Error('Invalid signing certificates');
+  const maxAge = /max-age=(\\d+)/i.exec(response.headers.get('cache-control') || '');
+  cachedCerts = certs as Record<string, string>;
+  certsExpireAt = Date.now() + Math.min(Number(maxAge?.[1] || 300), 3600) * 1000;
+  return cachedCerts;
+}
 
-      // Injeta company no request
-      (req as any).company = company;
-      next();
-  });
+function decodeJwtPart(encoded: string): any {
+  return JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+}
+
+async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>> {
+  if (token.length > 12000) throw new Error('Token too long');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Malformed token');
+  const header = decodeJwtPart(parts[0]);
+  const claims = decodeJwtPart(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string'
+    || claims.aud !== FIREBASE_PROJECT_ID
+    || claims.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`
+    || typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 128
+    || typeof claims.exp !== 'number' || claims.exp <= now
+    || typeof claims.iat !== 'number' || claims.iat > now
+    || typeof claims.auth_time !== 'number' || claims.auth_time > now) {
+    throw new Error('Invalid Firebase identity claims');
+  }
+  if (claims.firebase?.sign_in_provider === 'anonymous') throw new Error('Anonymous account not permitted');
+  const certificate = (await getSigningCerts())[header.kid];
+  if (!certificate) throw new Error('Unknown Firebase signing key');
+  const publicKey = new X509Certificate(certificate).publicKey;
+  const verifier = createVerify('RSA-SHA256');
+  verifier.update(parts[0] + '.' + parts[1]);
+  verifier.end();
+  if (!verifier.verify(publicKey, Buffer.from(parts[2], 'base64url'))) {
+    throw new Error('Invalid Firebase token signature');
+  }
+  return claims;
+}
+
+// Restrict API access to verified identities and server-issued custom tenant claims.
+app.use('/api', async (req, res, next) => {
+  if (req.path.startsWith('/webhooks/')) return next();
+  if (['/auth/login', '/auth/register'].includes(req.path)) return next();
+
+  const authorization = req.headers.authorization;
+  if (!authorization?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Firebase ID token obrigatório.' });
+  }
+  let claims: Record<string, any>;
+  try {
+    claims = await verifyFirebaseIdToken(authorization.slice(7));
+  } catch (error) {
+    console.warn('Rejected Firebase token:', error instanceof Error ? error.message : 'unknown');
+    return res.status(401).json({ error: 'Identidade não verificada.' });
+  }
+  (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true };
+  if (req.path === '/auth/me') return next();
+
+  // Tenant is assigned only from trusted, Firebase Admin-issued custom claims.
+  const companyId = claims.companyId;
+  if (typeof companyId !== 'string' || !companyId || companyId.length > 128) {
+    return res.status(403).json({ error: 'Empresa não provisionada na autenticação.' });
+  }
+  if (req.headers['x-company-id'] && req.headers['x-company-id'] !== companyId) {
+    return res.status(403).json({ error: 'Empresa não autorizada.' });
+  }
+  const company = companies.find(c => c.id === companyId);
+  if (!company) return res.status(403).json({ error: 'Empresa não encontrada no backend.' });
+  if (company.status === 'blocked' && !['GET', 'HEAD'].includes(req.method)) {
+    return res.status(403).json({ error: 'Assinatura bloqueada.' });
+  }
+  (req as any).company = company;
+  next();
+});
 
   // --- REST API ROUTES ---
   
-  // Auth
-  app.post('/api/auth/login', (req, res) => {
-    const { email } = req.body || {};
-    const company = companies[0] || {
-      id: '1',
-      name: 'Original Barbershop',
-      niche: 'barbershop',
-      plan: 'premium',
-      status: 'active'
-    };
-    
-    res.json({
-      success: true,
-      token: `jwt_token_${Date.now()}`,
-      user: {
-        id: 'u1',
-        companyId: company.id,
-        email: email || 'admin@bellapdv.com',
-        name: email ? (email.split('@')[0] || 'Administrador') : 'Administrador',
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company
-    });
-  });
-
-  app.post('/api/auth/register', (req, res) => {
-    const { email, name, niche } = req.body || {};
-    const newCompanyId = String(companies.length + 1);
-    const newCompany = {
-      id: newCompanyId,
-      name: name || 'Meu Negócio',
-      niche: niche || 'barbershop',
-      plan: 'premium',
-      asaasCustomerId: `cus_${Date.now()}`,
-      whatsappSessionId: null,
-      status: 'active'
-    };
-    companies.push(newCompany);
-
-    res.json({
-      success: true,
-      token: `jwt_token_${Date.now()}`,
-      user: {
-        id: `u_${newCompanyId}`,
-        companyId: newCompanyId,
-        email: email || 'usuario@bellapdv.com',
-        name: name || (email ? email.split('@')[0] : 'Administrador'),
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company: newCompany
-    });
+  // Mock authentication endpoints must never issue pseudo-tokens or administrative profiles.
+  app.all(['/api/auth/login', '/api/auth/register'], (_req, res) => {
+    res.status(410).json({ error: 'Autenticação legada desativada. Utilize Firebase Authentication.' });
   });
 
   app.get('/api/auth/me', (req, res) => {
-    const company = companies[0];
-    res.json({
-      user: {
-        id: 'u1',
-        companyId: company?.id || '1',
-        name: 'Administrador',
-        email: 'admin@bellapdv.com',
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company
-    });
+    res.json({ user: (req as any).firebaseUser });
   });
 
   // Appointments (Simula disparo de evento)
@@ -187,7 +193,11 @@ app.use(express.json());
 
   // Webhooks: Asaas Dunning / Billing
   app.post('/api/webhooks/asaas', (req, res) => {
-      const { customer, event, payment } = req.body;
+      const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+      const receivedToken = req.headers['asaas-access-token'];
+      if (!expectedToken) return res.status(503).json({ error: 'Webhook não configurado.' });
+      if (typeof receivedToken !== 'string' || receivedToken !== expectedToken) return res.sendStatus(401);
+      const { customer, event, payment } = req.body || {};
       console.log(`[ASAAS WEBHOOK] Recebido evento: ${event} do customer: ${customer}`);
 
       const company = companies.find(c => c.asaasCustomerId === customer);
