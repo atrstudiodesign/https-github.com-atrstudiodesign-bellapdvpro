@@ -35,22 +35,10 @@ let unsubscribes: Array<() => void> = [];
 
 const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
 
-const getStoredUser = (): AuthUser | null => {
-  try {
-    const raw = localStorage.getItem('bellapdv_auth_user');
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
-const initialUser = getStoredUser();
-
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: initialUser,
-  isAuthenticated: !!initialUser,
-  isAuthReady: !!initialUser,
+  user: null,
+  isAuthenticated: false,
+  isAuthReady: false,
   setUser: (user) => {
     if (user) {
       try {
@@ -76,30 +64,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     return user.planFeatures?.includes(feature) ?? false;
   },
-  login: (userData: any, token?: string, company?: any) => {
-    const fullUser: AuthUser = {
-      id: userData?.id || auth.currentUser?.uid || 'u_admin',
-      name: userData?.name || 'Administrador',
-      email: userData?.email || 'admin@bellapdv.com',
-      role: userData?.role === 'admin' ? 'admin' : 'client',
-      companyId: company?.id || userData?.companyId,
-      avatar: userData?.avatar,
-      planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
-    };
-
-    try {
-      localStorage.setItem('bellapdv_auth_user', JSON.stringify(fullUser));
-      localStorage.setItem('last_merchant_uid', fullUser.id);
-      if (token) localStorage.setItem('bellapdv_auth_token', token);
-    } catch (e) {
-      console.warn('Failed to save auth to localStorage', e);
-    }
-
-    set({ 
-      isAuthenticated: true, 
-      user: fullUser,
-      isAuthReady: true
-    });
+  // Compatibility method must not grant access without Firebase authentication.
+  login: () => {
+    console.warn('Direct login disabled. Use Firebase Authentication.');
   },
   logout: async () => {
     try {
@@ -126,27 +93,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
-      const stored = getStoredUser();
-      const anonUser: AuthUser = {
-        id: firebaseUser.uid,
-        email: stored?.email || 'demo@bellapdv.com',
-        name: stored?.name || 'Gestor Demo (BellaPDV)',
-        role: 'admin',
-        planFeatures: stored?.planFeatures || DEFAULT_FEATURES,
-        isDemo: true
-      };
-      useAuthStore.getState().setUser(anonUser);
-      try {
-        unsubscribes.push(
-          subscribeToClients(),
-          subscribeToCatalog(),
-          subscribeToAppointments(),
-          subscribeToTransactions(),
-          subscribeToQueue()
-        );
-      } catch (err) {
-        console.warn('Could not start Firestore subscriptions for demo:', err);
-      }
+      useAuthStore.getState().setUser(null);
       return;
     }
     const displayName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
@@ -159,12 +106,19 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     } catch (error) {
       console.warn('Cannot retrieve authenticated profile:', error);
     }
+    const claims = await firebaseUser.getIdTokenResult();
+    const companyId = typeof claims.claims.companyId === 'string' ? claims.claims.companyId : undefined;
+    const admin = claims.claims.admin === true;
+    if (!companyId && !admin) {
+      useAuthStore.getState().setUser(null);
+      return;
+    }
     const userData: AuthUser = {
       id: firebaseUser.uid,
       email: email,
       name: displayName,
-      role: profile.role === 'admin' ? 'admin' : 'client',
-      companyId: typeof profile.companyId === 'string' ? profile.companyId : undefined,
+      role: admin ? 'admin' : 'client',
+      companyId,
       avatar: firebaseUser.photoURL || undefined,
       planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
       isDemo: !!profile.isDemo
@@ -185,23 +139,6 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
-    // If no firebaseUser, check if a stored user (e.g. active demo session) exists in localStorage
-    const stored = getStoredUser();
-    if (stored) {
-      useAuthStore.getState().setUser(stored);
-      try {
-        unsubscribes.push(
-          subscribeToClients(),
-          subscribeToCatalog(),
-          subscribeToAppointments(),
-          subscribeToTransactions(),
-          subscribeToQueue()
-        );
-      } catch (err) {
-        console.warn('Could not start Firestore subscriptions:', err);
-      }
-      return;
-    }
     useAuthStore.getState().setUser(null);
   }
 });
