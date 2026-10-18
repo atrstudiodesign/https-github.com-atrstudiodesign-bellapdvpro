@@ -139,6 +139,10 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       planFeatures: trustedCompanyId && Array.isArray(claims.planFeatures) ? claims.planFeatures.filter((feature): feature is string => typeof feature === 'string') : DEFAULT_FEATURES
     };
 
+    if (!trustedCompanyId && !trustedAdmin) {
+      useAuthStore.getState().setUser(null);
+      return;
+    }
     useAuthStore.getState().setUser(userData);
 
     // Start real-time data subscriptions
