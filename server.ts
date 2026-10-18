@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate } from 'node:crypto';
+import { getCompany } from './server/firebaseCompany';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -148,8 +149,14 @@ app.use('/api', async (req, res, next) => {
   if (req.headers['x-company-id'] && req.headers['x-company-id'] !== companyId) {
     return res.status(403).json({ error: 'Empresa não autorizada.' });
   }
-  const company = companies.find(c => c.id === companyId);
-  if (!company) return res.status(403).json({ error: 'Empresa não encontrada no backend.' });
+  let company;
+  try {
+    company = await getCompany(companyId);
+  } catch (error) {
+    console.error('Unable to verify tenant persistence:', error instanceof Error ? error.message : 'unknown');
+    return res.status(503).json({ error: 'Serviço de empresas indisponível.' });
+  }
+  if (!company) return res.status(403).json({ error: 'Empresa não provisionada no Firestore.' });
   if (company.status === 'blocked' && !['GET', 'HEAD'].includes(req.method)) {
     return res.status(403).json({ error: 'Assinatura bloqueada.' });
   }
