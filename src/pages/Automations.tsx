@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAuthStore } from '../store/auth';
 import { toast } from 'sonner';
 import { ArrowRight, Box, Calendar, Clock, GitBranch, Play, Plus, Smartphone, Zap, X, Filter } from 'lucide-react';
 import { useNicheStore } from '../store/niche';
@@ -38,7 +39,29 @@ export default function Automations() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
   
-  const [flows, setFlows] = useState(INITIAL_FLOWS);
+  const owner = useAuthStore(state => state.user);
+  const draftStorageKey = owner?.companyId && owner?.id
+    ? `bella_automation_drafts_${owner.companyId}_${owner.id}`
+    : null;
+  // Worker execution is not implemented: keep these as local drafts, not active integrations.
+  const [flows, setFlows] = useState<typeof INITIAL_FLOWS>([]);
+  useEffect(() => {
+    if (!draftStorageKey) { setFlows([]); return; }
+    try {
+      const data = JSON.parse(localStorage.getItem(draftStorageKey) || '[]');
+      setFlows(Array.isArray(data) ? data.filter((f): f is typeof INITIAL_FLOWS[number] =>
+        typeof f?.id === 'string' && typeof f?.name === 'string' &&
+        typeof f?.trigger === 'string' && typeof f?.action === 'string'
+      ).map(f => ({ ...f, status: 'paused', stats: 0 })) : []);
+    } catch { setFlows([]); }
+  }, [draftStorageKey]);
+  const saveDrafts = (next: typeof INITIAL_FLOWS) => {
+    if (!draftStorageKey) { toast.error('Entre em uma empresa para salvar seus rascunhos.'); return; }
+    const safe = next.map(f => ({ ...f, status: 'paused', stats: 0 }));
+    try { localStorage.setItem(draftStorageKey, JSON.stringify(safe)); }
+    catch { toast.error('Falha ao salvar rascunhos neste navegador.'); return; }
+    setFlows(safe);
+  };
   const [viewMode, setViewMode] = useState<'list' | 'builder'>('list');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newFlow, setNewFlow] = useState({ name: '', trigger: 'Agenda (Marcada)', condition: 'Qualquer', action: 'Message WPP: Promoção 10%' });
@@ -61,30 +84,30 @@ export default function Automations() {
   };
 
   const saveVisualFlow = () => {
-      const toastId = toast.loading('Salvando pipeline visual...');
+      const toastId = toast.loading('Salvando rascunho do fluxo...');
       
       const triggerNode = builderNodes.find(n => n.type === 'trigger');
       const conditionNode = builderNodes.find(n => n.type === 'condition');
       const actionNode = builderNodes.find(n => n.type === 'action');
 
-      if (!triggerNode || !actionNode) {
+      if (!triggerNode || !actionNode || triggerNode.label === 'Selecionar Gatilho' || actionNode.label === 'Selecionar Ação') {
           toast.error('O fluxo precisa ter pelo menos um Gatilho e uma Ação.', { id: toastId });
           return;
       }
 
-      setTimeout(() => {
-          setFlows([...flows, { 
+      {
+          saveDrafts([...flows, { 
               id: Date.now().toString(), 
               name: builderFlowName || 'Novo Fluxo Visual', 
               trigger: triggerNode.label, 
               condition: conditionNode ? conditionNode.label : 'Qualquer', 
               action: actionNode.label, 
-              status: 'active', 
+              status: 'paused', 
               stats: 0 
           }]);
           setViewMode('list');
-          toast.success('Pipeline Visual Salvo!', { id: toastId, description: 'Fluxo ativo no worker.' });
-      }, 1500);
+          toast.success('Rascunho visual salvo neste navegador.', { id: toastId, description: 'O envio automático depende de um worker real.' });
+      }
   };
 
 
@@ -92,19 +115,18 @@ export default function Automations() {
     e.preventDefault();
     if(!newFlow.name) return;
     
-    const toastId = toast.loading('Publicando Automação no Worker...');
-    setTimeout(() => {
-      setFlows([...flows, { id: Date.now().toString(), name: newFlow.name, trigger: newFlow.trigger, condition: newFlow.condition, action: newFlow.action, status: 'active', stats: 0 }]);
+    const toastId = toast.loading('Salvando rascunho...');
+    {
+      saveDrafts([...flows, { id: Date.now().toString(), name: newFlow.name, trigger: newFlow.trigger, condition: newFlow.condition, action: newFlow.action, status: 'paused', stats: 0 }]);
       setIsModalOpen(false);
       setNewFlow({ name: '', trigger: 'Agenda (Marcada)', condition: 'Qualquer', action: 'Message WPP: Promoção 10%' });
-      toast.success('Worker Configurado!', { id: toastId, description: 'Sua automação já está ouvindo os eventos.' });
-    }, 2000);
+      toast.success('Rascunho salvo.', { id: toastId, description: 'Execução automática não configurada.' });
+    }
   };
 
 
-  const toggleStatus = (id: string) => {
-     setFlows(flows.map(f => f.id === id ? { ...f, status: f.status === 'active' ? 'paused' : 'active' } : f));
-     toast.success('Status da automação atualizado');
+  const toggleStatus = (_id: string) => {
+    toast.warning('Ainda não há worker conectado: os fluxos são apenas rascunhos.');
   };
 
   return (
@@ -124,7 +146,7 @@ export default function Automations() {
                className="bg-[#0C1627] border border-[#1A2C47] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
             >
                <div className="p-6 border-b border-[#1A2C47] flex items-center justify-between bg-[#09111D]">
-                 <h3 className="text-xl font-semibold text-white">Criar Nova Automação</h3>
+                 <h3 className="text-xl font-semibold text-white">Criar Rascunho de Automação</h3>
                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors">
                    <X className="w-5 h-5" />
                  </button>
@@ -186,7 +208,7 @@ export default function Automations() {
                
                <div className="p-6 border-t border-[#1A2C47] flex gap-3 bg-[#09111D]">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-transparent border border-[#1A2C47] text-slate-300 hover:bg-white/5 font-semibold rounded-xl transition-all">Cancelar</button>
-                  <button type="submit" form="new-flow-form" className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">Publicar Worker</button>
+                  <button type="submit" form="new-flow-form" className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">Salvar Rascunho</button>
                </div>
             </motion.div>
           </motion.div>
@@ -197,11 +219,11 @@ export default function Automations() {
       <div className="flex-none h-24 border-b border-[#1A2C47] px-8 flex items-center justify-between bg-[#0C1627] sticky top-0 z-20">
         <div>
           <h1 className="text-2xl font-display font-semibold text-white tracking-tight">Motor de Automações</h1>
-          <p className="text-sm text-slate-400 mt-1">Crie fluxos baseados em eventos no backend (Zapier-like).</p>
+          <p className="text-sm text-slate-400 mt-1">Crie e edite rascunhos locais. Execução e envios automáticos ainda não estão habilitados.</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-cyan-400 to-purple-500 hover:scale-105 transition-all text-black px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-[0_0_15px_rgba(34,211,238,0.3)]">
           <Plus className="w-4 h-4" />
-          Criar Automação
+          Criar Rascunho
         </button>
       </div>
 
@@ -215,8 +237,8 @@ export default function Automations() {
                     <Zap className="w-5 h-5" />
                  </div>
                  <h3 className="text-lg font-semibold text-white mb-1">Eventos Ativos</h3>
-                 <p className="text-sm text-slate-400 mb-4">Worker processando filas.</p>
-                 <div className="text-3xl font-display font-bold text-white">4.8k <span className="text-sm text-purple-400 font-sans">this month</span></div>
+                 <p className="text-sm text-slate-400 mb-4">Nenhum worker conectado ou execução verificada.</p>
+                 <div className="text-3xl font-display font-bold text-white">0 <span className="text-sm text-purple-400 font-sans">execuções confirmadas</span></div>
               </div>
 
               <div className="glass-card p-6 border-[#1A2C47]">
@@ -245,7 +267,7 @@ export default function Automations() {
                         <div className="flex-1 flex items-center gap-8">
                            <div className="flex flex-col">
                               <h3 className="text-white font-semibold text-lg">{flow.name}</h3>
-                              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Play className="w-3 h-3 text-emerald-400" /> Processou {flow.stats} vezes</p>
+                              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Play className="w-3 h-3 text-emerald-400" /> Rascunho · sem execuções</p>
                            </div>
 
                            <div className="flex flex-wrap items-center gap-2 bg-[#050B14] p-3 rounded-xl border border-white/5 px-4">
