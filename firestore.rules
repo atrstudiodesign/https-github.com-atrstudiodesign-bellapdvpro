@@ -10,18 +10,20 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'tramposshop@gmail.com';
+      return isSignedIn() && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client';
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'lastLogin']));
+      allow delete: if isAdmin();
     }
 
     match /clients/{clientId} {
       allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (isAdmin() || (resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId));
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
@@ -33,12 +35,14 @@ service cloud.firestore {
     }
 
     match /queue/{itemId} {
-      allow read, write: if true; // Public check-in and queue display
+      allow read: if isSignedIn() && (isAdmin() || resource.data.ownerId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.ownerId == request.auth.uid);
     }
 
     match /appointments/{appointmentId} {
       allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if true; // Allow public online bookings and totem kiosks to create appointments
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && request.resource.data.ownerId == request.auth.uid; // Public booking must use validated backend
       allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
@@ -52,22 +56,25 @@ service cloud.firestore {
 
     match /companies/{companyId} {
       allow read: if isSignedIn() && (companyId == request.auth.uid || isAdmin());
-      allow write: if isSignedIn() && (companyId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && companyId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && companyId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
+      allow delete: if isAdmin();
     }
 
     match /company_licenses/{licenseId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /feature_flags/{flagId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /push_tokens/{tokenId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if true; // Any device can write (create/update) its own push token registered payload
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid) && (request.method == 'delete' || request.resource.data.userId == resource.data.userId);
     }
   }
 }
