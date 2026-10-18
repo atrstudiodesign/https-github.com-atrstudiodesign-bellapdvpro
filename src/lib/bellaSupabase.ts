@@ -113,3 +113,14 @@ export async function bellaSupabaseRestore(): Promise<BellaSupabaseIdentity | nu
     return null;
   }
 }
+
+export async function bellaSupabaseResetPassword(email: string): Promise<void> {
+  if (!bellaSupabaseUrl || !publishableKey) throw new Error('Supabase não configurado.');
+  const response = await fetch(bellaSupabaseUrl + '/auth/v1/recover', {
+    method: 'POST',
+    headers: { apikey: publishableKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim() }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error('Não foi possível solicitar a recuperação. Verifique o e-mail configurado.');
+}

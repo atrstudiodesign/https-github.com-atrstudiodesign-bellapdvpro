@@ -136,6 +136,10 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     }
   }
   
+  // Firebase may fire after a successful Supabase login. Do not override it.
+  if (sessionStorage.getItem('bella_supabase_session') &&
+      useAuthStore.getState().user?.companyId &&
+      useAuthStore.getState().user?.id !== firebaseUser?.uid) return;
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
@@ -188,7 +192,6 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
-    // If no firebaseUser, check if a stored user (e.g. active demo session) exists in localStorage
     useAuthStore.getState().setUser(null);
   }
 });
