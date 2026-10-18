@@ -130,3 +130,34 @@ export async function assignCompanyClaims(userId: string, companyId: string): Pr
   });
   if (!response.ok) throw new Error(`Firebase Auth rejeitou vínculo (${response.status})`);
 }
+
+/** Creates a persistent tenant; id is generated server-side, never taken from user input. */
+export async function createCompanyRecord(ownerId: string, name: string, niche: string): Promise<CompanyRecord> {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(ownerId)) throw new Error('Proprietário inválido');
+  const cleanName = name.trim();
+  if (cleanName.length < 2 || cleanName.length > 120) throw new Error('Nome da empresa inválido');
+  const allowedNiches = ['barbershop', 'clinic', 'salon', 'spa', 'tattoo'];
+  if (!allowedNiches.includes(niche)) throw new Error('Segmento inválido');
+  const service = getServiceAccount();
+  const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
+  const parent = `projects/${encodeURIComponent(service.project_id)}/databases/${encodeURIComponent(databaseId)}/documents`;
+  const data = {
+    fields: {
+      ownerId: { stringValue: ownerId },
+      name: { stringValue: cleanName },
+      niche: { stringValue: niche },
+      status: { stringValue: 'active' },
+    },
+  };
+  const response = await fetch(`https://firestore.googleapis.com/v1/${parent}/companies`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await getAccessToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`Falha na criação da empresa (${response.status})`);
+  const document = await response.json() as { name?: string };
+  const id = document.name?.split('/').pop();
+  if (!id) throw new Error('Firestore não retornou ID');
+  return { id, ownerId, name: cleanName, niche, status: 'active' };
+}
