@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate } from 'node:crypto';
-import { getCompany, assignCompanyClaims } from './server/firebaseCompany';
+import { getCompany, assignCompanyClaims, createCompanyRecord } from './server/firebaseCompany';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -139,7 +139,7 @@ app.use('/api', async (req, res, next) => {
     return res.status(401).json({ error: 'Identidade não verificada.' });
   }
   (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true };
-  if (req.path === '/auth/me' || req.path === '/admin/assign-company') return next();
+  if (req.path === '/auth/me' || ['/admin/assign-company', '/admin/create-company'].includes(req.path)) return next();
 
   // Tenant is assigned only from trusted, Firebase Admin-issued custom claims.
   const companyId = claims.companyId;
@@ -190,6 +190,24 @@ app.use('/api', async (req, res, next) => {
     } catch (error) {
       console.error('Company assignment failed:', error instanceof Error ? error.message : 'unknown');
       return res.status(422).json({ error: 'Não foi possível vincular a empresa.' });
+    }
+  });
+
+  app.post('/api/admin/create-company', async (req, res) => {
+    const operator = (req as any).firebaseUser;
+    if (!operator?.admin) return res.status(403).json({ error: 'Operação exclusiva de administrador.' });
+    const { ownerId, name, niche } = req.body || {};
+    if (typeof ownerId !== 'string' || typeof name !== 'string' || typeof niche !== 'string') {
+      return res.status(400).json({ error: 'Proprietário, nome e segmento obrigatórios.' });
+    }
+    try {
+      const company = await createCompanyRecord(ownerId, name, niche);
+      // Explicit enrollment is separate: an administrator must verify the owner
+      // and call assign-company after reviewing the new company.
+      return res.status(201).json({ company, requiresOwnerAssignment: true });
+    } catch (error) {
+      console.error('Company provisioning error:', error instanceof Error ? error.message : 'unknown');
+      return res.status(422).json({ error: 'Não foi possível cadastrar a empresa.' });
     }
   });
 
