@@ -6,7 +6,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
-import { createVerify, X509Certificate } from 'node:crypto';
+import { createSign, createVerify, X509Certificate, randomUUID } from 'node:crypto';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -123,9 +123,117 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
   return claims;
 }
 
+
+type BellaFlow = { id:string; name:string; trigger:string; condition:string; action:string; status:'paused'|'active'; hour:number };
+const autoProject = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0731708491';
+const autoDb = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-508781f5-edff-4cd1-bffa-1334db3e7e39';
+const autoBase = 'https://firestore.googleapis.com/v1/projects/' + autoProject + '/databases/' + autoDb + '/documents/';
+let autoOAuthCache: {token:string; expires:number}|null = null;
+async function autoAccessToken():Promise<string> {
+  if (autoOAuthCache && autoOAuthCache.expires > Date.now()+60000) return autoOAuthCache.token;
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) throw new Error('Missing service account');
+  const key = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const now = Math.floor(Date.now()/1000);
+  const encode = (x:unknown) => Buffer.from(JSON.stringify(x)).toString('base64url');
+  const assertionParts = encode({alg:'RS256',typ:'JWT'})+'.'+encode({
+    iss:key.client_email,scope:'https://www.googleapis.com/auth/datastore',
+    aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600
+  });
+  const signer = createSign('RSA-SHA256'); signer.update(assertionParts); signer.end();
+  const assertion = assertionParts+'.'+signer.sign(key.private_key).toString('base64url');
+  const response = await fetch('https://oauth2.googleapis.com/token',{method:'POST',
+    headers:{'content-type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}),
+    signal:AbortSignal.timeout(10000)});
+  if (!response.ok) throw new Error('OAuth credentials rejected');
+  const result:any = await response.json();
+  autoOAuthCache={token:result.access_token,expires:Date.now()+(result.expires_in||3600)*1000};
+  return result.access_token;
+}
+async function autoFirestore(path:string,method='GET',body?:object,query=''):Promise<any> {
+  const authToken=await autoAccessToken();
+  const response=await fetch(autoBase+path+query,{method,
+    headers:{authorization:'Bearer '+authToken,'content-type':'application/json'},
+    body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){ const err:any=new Error('Firestore request failed');err.status=response.status;throw err; }
+  return data;
+}
+const autoId = (s:string) => /^[a-zA-Z0-9_-]{1,100}$/.test(s);
+const autoPath = (id:string) => 'bella_automation_tenants/'+encodeURIComponent(id);
+const autoEncode = (value:object) => ({fields:{payload:{stringValue:JSON.stringify(value)}}});
+const autoParse = (doc:any) => {try{return JSON.parse(doc?.fields?.payload?.stringValue||'{}')}catch{return {}}};
+async function autoTenant(req:any,res:any):Promise<string|null>{
+  const header=req.headers.authorization;
+  if(!header?.startsWith('Bearer ')){res.status(401).json({error:'Token obrigatório'});return null}
+  try{
+    const claims=await verifyFirebaseIdToken(header.slice(7));
+    if(typeof claims.companyId!=='string'||!autoId(claims.companyId)){res.status(403).json({error:'Empresa não provisionada'});return null}
+    return claims.companyId;
+  }catch{res.status(401).json({error:'Token inválido'});return null}
+}
+app.get('/api/automations/flows',async(req,res)=>{
+  const id=await autoTenant(req,res);if(!id)return;
+  try{const doc=await autoFirestore(autoPath(id));return res.json({flows:autoParse(doc).flows||[]})}
+  catch(e:any){if(e.status===404)return res.json({flows:[]});return res.status(503).json({error:'Persistência indisponível'})}
+});
+app.put('/api/automations/flows',async(req,res)=>{
+  const id=await autoTenant(req,res);if(!id)return;
+  const incoming=req.body?.flows;
+  if(!Array.isArray(incoming)||incoming.length>100)return res.status(400).json({error:'Fluxos inválidos'});
+  const flows:BellaFlow[]=[];
+  for(const item of incoming){
+    if(typeof item?.name!=='string'||!item.name.trim()||item.name.length>120||
+       typeof item.trigger!=='string'||item.trigger.length>120||
+       typeof item.action!=='string'||item.action.length>120)
+       return res.status(400).json({error:'Dados de automação inválidos'});
+    const idValue=typeof item.id==='string'&&autoId(item.id)?item.id:randomUUID();
+    flows.push({id:idValue,name:item.name.trim(),trigger:item.trigger,condition:String(item.condition||'Qualquer').slice(0,120),
+      action:item.action,status:'paused',hour:Number.isInteger(item.hour)&&item.hour>=0&&item.hour<=23?item.hour:10});
+  }
+  if(new Set(flows.map(x=>x.id)).size!==flows.length)return res.status(400).json({error:'IDs duplicados'});
+  try{
+    await autoFirestore(autoPath(id),'PATCH',autoEncode({companyId:id,flows,updatedAt:new Date().toISOString()}));
+    return res.json({flows,executionEnabled:false});
+  }catch{return res.status(503).json({error:'Falha ao salvar automações'})}
+});
+app.get('/api/automations/logs',async(req,res)=>{
+  const id=await autoTenant(req,res);if(!id)return;
+  try{
+    const docs=await autoFirestore(autoPath(id)+'/runs','GET',undefined,'?pageSize=100');
+    return res.json({logs:(docs.documents||[]).map((x:any)=>({id:x.name.split('/').pop(),...autoParse(x)}))});
+  }catch(e:any){if(e.status===404)return res.json({logs:[]});return res.status(503).json({error:'Logs indisponíveis'})}
+});
+// Requires Vercel CRON_SECRET. Every run is an idempotently claimed Firestore document.
+// No messaging is sent or claimed successful until the provider integration is implemented.
+app.get('/api/automations/cron',async(req,res)=>{
+  if(!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)
+    return res.status(401).json({error:'Não autorizado'});
+  try{
+    const tenants=await autoFirestore('bella_automation_tenants','GET',undefined,'?pageSize=100');
+    let queued=0;const day=new Date().toISOString().slice(0,10);
+    for(const tenant of tenants.documents||[]){
+      const data=autoParse(tenant),id=data.companyId;
+      if(!id||!autoId(id))continue;
+      for(const flow of data.flows||[]){
+        if(flow.status!=='active'||!autoId(flow.id))continue;
+        const runId=flow.id+'_'+day;
+        try{
+          await autoFirestore(autoPath(id)+'/runs','POST',
+            autoEncode({companyId:id,flowId:flow.id,day,status:'pending_integration',createdAt:new Date().toISOString()}),
+            '?documentId='+encodeURIComponent(runId));
+          queued++;
+        }catch(e:any){if(e.status!==409)throw e}
+      }
+    }
+    return res.json({queued,delivery:'pending_integration'});
+  }catch{return res.status(503).json({error:'Erro na execução agendada'})}
+});
+
 // Restrict API access to verified identities and server-issued custom tenant claims.
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
+  if (req.path.startsWith('/automations/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
   if (req.path.startsWith('/ai/') || req.path.startsWith('/gemini/')) return next();
 
