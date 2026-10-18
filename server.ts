@@ -312,7 +312,7 @@ app.use('/api', async (req, res, next) => {
           }
 
           // 1. FAST IN-MEMORY CACHE CHECK (< 1ms instant zero-latency response)
-          const cacheKey = `${persona || voice}_${cleanedText.slice(0, 150).toLowerCase()}`;
+          const cacheKey = `${persona || voice}_${cleanedText.slice(0, 1000)}`;
           const cached = ttsAudioCache.get(cacheKey);
           if (cached) {
               return res.json({
@@ -358,8 +358,9 @@ app.use('/api', async (req, res, next) => {
           const styleDescription = style || defaultStyle;
 
           // Attempt with gemini-3.8-flash-lite-tts (ultra-fast low latency)
-          const modelsToTry = ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts'];
+          const modelsToTry = ['gemini-2.5-flash-preview-tts'];
           let base64Audio: string | null = null;
+          let audioMimeType = 'audio/pcm;rate=24000';
           let lastErr: any = null;
 
           for (const ttsModel of modelsToTry) {
@@ -371,10 +372,7 @@ app.use('/api', async (req, res, next) => {
                               role: 'user',
                               parts: [
                                   {
-                                      text: cleanedText.slice(0, 1000),
-                                      speechMetadata: {
-                                          style: styleDescription,
-                                      },
+                                      text: `Fale exclusivamente em português do Brasil, com ritmo natural de conversa e pausas breves. ${styleDescription}\n\nTexto: ${cleanedText.slice(0, 1000)}`,
                                   },
                               ],
                           },
@@ -391,6 +389,7 @@ app.use('/api', async (req, res, next) => {
 
                   const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                   if (audioData) {
+                      audioMimeType = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || audioMimeType;
                       base64Audio = audioData;
                       break;
                   }
@@ -401,6 +400,24 @@ app.use('/api', async (req, res, next) => {
           }
 
           if (base64Audio) {
+              if (audioMimeType.startsWith('audio/pcm') || audioMimeType.startsWith('audio/L16')) {
+                  const pcm = Buffer.from(base64Audio, 'base64');
+                  const header = Buffer.alloc(44);
+                  header.write('RIFF', 0);
+                  header.writeUInt32LE(36 + pcm.length, 4);
+                  header.write('WAVE', 8);
+                  header.write('fmt ', 12);
+                  header.writeUInt32LE(16, 16);
+                  header.writeUInt16LE(1, 20);
+                  header.writeUInt16LE(1, 22);
+                  header.writeUInt32LE(24000, 24);
+                  header.writeUInt32LE(48000, 28);
+                  header.writeUInt16LE(2, 32);
+                  header.writeUInt16LE(16, 34);
+                  header.write('data', 36);
+                  header.writeUInt32LE(pcm.length, 40);
+                  base64Audio = Buffer.concat([header, pcm]).toString('base64');
+              }
               // Store in LRU cache
               if (ttsAudioCache.size >= MAX_TTS_CACHE) {
                   const oldestKey = ttsAudioCache.keys().next().value;

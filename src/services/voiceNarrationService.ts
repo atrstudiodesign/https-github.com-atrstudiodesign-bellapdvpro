@@ -614,12 +614,12 @@ class VoiceNarrationService {
 
     // 1. DEFAULT & RECOMMENDED: Humanized Natural Voice Engine
     // Produces the warmest, most natural conversational Brazilian Portuguese
-    if (engineMode === 'humanized' || engineMode === 'instant') {
+    if (engineMode === 'instant') {
       return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd, selectedPersona);
     }
 
     // 2. ALTERNATIVE: Cloud Neural TTS (if specifically enabled)
-    const cacheKey = `${selectedPersona}_${speechText.slice(0, 150).toLowerCase()}`;
+    const cacheKey = `${selectedPersona}_${speechText}`;
     const localCached = this.clientAudioCache.get(cacheKey);
 
     if (localCached) {
@@ -628,7 +628,7 @@ class VoiceNarrationService {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2600);
+      const timeoutId = setTimeout(() => controller.abort(), engineMode === 'humanized' ? 6500 : 8000);
 
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
