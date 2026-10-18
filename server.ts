@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate } from 'node:crypto';
-import { getCompany } from './server/firebaseCompany';
+import { getCompany, assignCompanyClaims } from './server/firebaseCompany';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -139,7 +139,7 @@ app.use('/api', async (req, res, next) => {
     return res.status(401).json({ error: 'Identidade não verificada.' });
   }
   (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true };
-  if (req.path === '/auth/me') return next();
+  if (req.path === '/auth/me' || req.path === '/admin/assign-company') return next();
 
   // Tenant is assigned only from trusted, Firebase Admin-issued custom claims.
   const companyId = claims.companyId;
@@ -173,6 +173,24 @@ app.use('/api', async (req, res, next) => {
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ user: (req as any).firebaseUser });
+  });
+
+  // Administrators may assign existing users to existing companies.
+  // This never grants admin role. Recipients must refresh their Firebase ID token.
+  app.post('/api/admin/assign-company', async (req, res) => {
+    const operator = (req as any).firebaseUser;
+    if (!operator?.admin) return res.status(403).json({ error: 'Operação exclusiva de administrador.' });
+    const { uid, companyId } = req.body || {};
+    if (typeof uid !== 'string' || typeof companyId !== 'string') {
+      return res.status(400).json({ error: 'UID e empresa são obrigatórios.' });
+    }
+    try {
+      await assignCompanyClaims(uid, companyId);
+      return res.json({ success: true, requiresTokenRefresh: true });
+    } catch (error) {
+      console.error('Company assignment failed:', error instanceof Error ? error.message : 'unknown');
+      return res.status(422).json({ error: 'Não foi possível vincular a empresa.' });
+    }
   });
 
   // Appointments (Simula disparo de evento)
