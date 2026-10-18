@@ -6,6 +6,7 @@ import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate } from 'node:crypto';
 import { getCompany, assignCompanyClaims, createCompanyRecord } from './server/firebaseCompany';
+import { createAppointment } from './server/firestoreOperations';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -211,16 +212,17 @@ app.use('/api', async (req, res, next) => {
     }
   });
 
-  // Appointments (Simula disparo de evento)
-  app.post('/api/appointments', (req, res) => {
+  // Appointments are persisted for the verified company, never in process memory.
+  app.post('/api/appointments', async (req, res) => {
+    try {
       const company = (req as any).company;
-      const newAppointment = { ...req.body, id: Date.now().toString(), companyId: company.id };
-      appointments.push(newAppointment);
-      
-      // DISPARA EVENTO (Arquitetura Event-driven)
-      eventBus.emit('APPOINTMENT_CREATED', newAppointment);
-
-      res.json(newAppointment);
+      const { clientName, clientPhone, serviceId, datetime } = req.body || {};
+      const appointment = await createAppointment(company.id, { clientName, clientPhone, serviceId, datetime });
+      return res.status(201).json(appointment);
+    } catch (error) {
+      console.error('Appointment persistence error:', error instanceof Error ? error.message : 'unknown');
+      return res.status(422).json({ error: 'Não foi possível salvar o agendamento.' });
+    }
   });
 
   // Integrations: Conectar WhatsApp
