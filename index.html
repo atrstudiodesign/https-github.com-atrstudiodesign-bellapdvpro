@@ -5,26 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>Bella PDV - O Sistema ERP & PDV Inteligente com IA</title>
     <script>
-      // Ignorar erros benignos de fechamento de WebSocket do HMR no iframe/proxy do AI Studio
-      window.addEventListener('error', function(e) {
-        if (e && e.message && (
-          e.message.includes('WebSocket') || 
-          e.message.includes('@vite/client') || 
-          e.message.includes('ws://') || 
-          e.message.includes('wss://')
-        )) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          return true;
-        }
-      }, true);
-      window.addEventListener('unhandledrejection', function(e) {
-        const msg = (e && e.reason && (e.reason.message || String(e.reason))) || '';
-        if (msg.includes('WebSocket') || msg.includes('@vite/client')) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        }
-      }, true);
+      // Ignorar avisos benignos de WebSocket do Vite HMR no ambiente proxy do AI Studio
+      (function() {
+        var origConsoleError = console.error;
+        console.error = function() {
+          var msg = '';
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            msg += ' ' + ((arg && (arg.message || arg.stack || String(arg))) || '');
+          }
+          if (msg.indexOf('WebSocket closed without opened') !== -1 || (msg.indexOf('WebSocket') !== -1 && msg.indexOf('@vite/client') !== -1)) {
+            return;
+          }
+          return origConsoleError.apply(console, arguments);
+        };
+
+        window.addEventListener('error', function(e) {
+          var msg = (e && (e.message || (e.error && e.error.message))) || '';
+          if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('@vite/client') !== -1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          var msg = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+          if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('@vite/client') !== -1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
     </script>
     
     <!-- Meta Tags para SEO Avançado -->

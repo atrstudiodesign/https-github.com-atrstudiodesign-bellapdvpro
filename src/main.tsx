@@ -36,7 +36,17 @@ const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isAuthReady } = useAuthStore();
+  
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#05070F] gap-3">
+        <Loader2 className="w-9 h-9 text-cyan-400 animate-spin" />
+        <p className="text-slate-400 text-xs font-medium tracking-wide">Carregando ambiente...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/landing" replace />;
   return <>{children}</>;
 }

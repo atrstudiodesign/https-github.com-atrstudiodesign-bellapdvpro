@@ -94,7 +94,72 @@ app.use(express.json());
   
   // Auth
   app.post('/api/auth/login', (req, res) => {
-    res.json({ token: 'mock-jwt-token-123', user: { id: 'u1', companyId: '1', name: 'Admin' } });
+    const { email } = req.body || {};
+    const company = companies[0] || {
+      id: '1',
+      name: 'Original Barbershop',
+      niche: 'barbershop',
+      plan: 'premium',
+      status: 'active'
+    };
+    
+    res.json({
+      success: true,
+      token: `jwt_token_${Date.now()}`,
+      user: {
+        id: 'u1',
+        companyId: company.id,
+        email: email || 'admin@bellapdv.com',
+        name: email ? (email.split('@')[0] || 'Administrador') : 'Administrador',
+        role: 'admin',
+        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
+      },
+      company
+    });
+  });
+
+  app.post('/api/auth/register', (req, res) => {
+    const { email, name, niche } = req.body || {};
+    const newCompanyId = String(companies.length + 1);
+    const newCompany = {
+      id: newCompanyId,
+      name: name || 'Meu Negócio',
+      niche: niche || 'barbershop',
+      plan: 'premium',
+      asaasCustomerId: `cus_${Date.now()}`,
+      whatsappSessionId: null,
+      status: 'active'
+    };
+    companies.push(newCompany);
+
+    res.json({
+      success: true,
+      token: `jwt_token_${Date.now()}`,
+      user: {
+        id: `u_${newCompanyId}`,
+        companyId: newCompanyId,
+        email: email || 'usuario@bellapdv.com',
+        name: name || (email ? email.split('@')[0] : 'Administrador'),
+        role: 'admin',
+        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
+      },
+      company: newCompany
+    });
+  });
+
+  app.get('/api/auth/me', (req, res) => {
+    const company = companies[0];
+    res.json({
+      user: {
+        id: 'u1',
+        companyId: company?.id || '1',
+        name: 'Administrador',
+        email: 'admin@bellapdv.com',
+        role: 'admin',
+        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
+      },
+      company
+    });
   });
 
   // Appointments (Simula disparo de evento)
