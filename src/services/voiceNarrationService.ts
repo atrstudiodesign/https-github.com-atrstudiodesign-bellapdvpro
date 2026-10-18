@@ -61,10 +61,10 @@ class VoiceNarrationService {
   // Default to Humanized voice with Jarvis (masculino) as primary assistant
   private settings: VoiceSettings = {
     voice: 'masculino', // Jarvis by default
-    speed: 1.0,
+    speed: 1.04,
     volume: 1.0,
     autoPlay: true,
-    engineMode: 'humanized', // Natural humanized speech
+    engineMode: 'humanized', // Prefer cloud humanized audio with fast browser fallback
     handsFree: false,
     soundEffects: true,
   };
@@ -415,21 +415,21 @@ class VoiceNarrationService {
 
     // 1. DEFAULT & RECOMMENDED: Humanized Natural Voice Engine
     // Produces the warmest, most natural conversational Brazilian Portuguese
-    if (engineMode === 'humanized' || engineMode === 'instant') {
+    if (engineMode === 'instant') {
       return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
     }
 
     // 2. ALTERNATIVE: Cloud Neural TTS (if specifically enabled)
-    const cacheKey = `${selectedVoice}_${speechText.slice(0, 150).toLowerCase()}`;
+    const cacheKey = `${selectedVoice}_${speechText}`;
     const localCached = this.clientAudioCache.get(cacheKey);
 
     if (localCached) {
       return await this.playBase64Audio(localCached, speed, volume, options?.onEnd);
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), engineMode === 'humanized' ? 1700 : 4000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2600);
 
       const response = await authenticatedApiFetch('/api/ai/tts', {
         method: 'POST',
@@ -442,7 +442,6 @@ class VoiceNarrationService {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -457,7 +456,9 @@ class VoiceNarrationService {
         }
       }
     } catch (e) {
-      console.warn('[VoiceNarration] Neural TTS fallback to Humanized voice', e);
+      console.warn('[VoiceNarration] Cloud TTS unavailable; switching to local voice', e);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // Seamless fallback to humanized Brazilian voice
