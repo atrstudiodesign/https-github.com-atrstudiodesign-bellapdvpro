@@ -323,6 +323,7 @@ app.use('/api', async (req, res, next) => {
                   persona,
                   voiceName: cached.voiceName,
                   cached: true,
+                  engine: "gemini",
                   fallback: false
               });
           }
@@ -332,7 +333,7 @@ app.use('/api', async (req, res, next) => {
           const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : key;
 
           if (!effectiveKey) {
-             return res.json({ fallback: true, message: "Sem chave Gemini configurada, utilizando fallback de voz do navegador." });
+             return res.json({ fallback: true, engine: "browser", fallbackReason: "gemini_key_missing", message: "Gemini TTS não configurado no servidor." });
           }
 
           const { GoogleGenAI } = await import("@google/genai");
@@ -448,12 +449,13 @@ app.use('/api', async (req, res, next) => {
                   voice,
                   voiceName,
                   cached: false,
+                  engine: "gemini",
                   fallback: false
               });
           }
 
           console.warn('[TTS Synthesis Fallbacks Exhausted]', lastErr?.message || lastErr);
-          return res.json({ fallback: true, message: "Fallback imediato para voz do navegador." });
+          return res.json({ fallback: true, engine: "browser", fallbackReason: "neural_generation_unavailable", message: "Síntese neural indisponível." });
       } catch (err: any) {
           console.warn('[TTS Proxy Error - Graceful Fallback to Web Speech]', err?.message || err);
           return res.json({ fallback: true, message: "Fallback imediato para voz do navegador." });
