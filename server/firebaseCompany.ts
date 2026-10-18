@@ -84,20 +84,49 @@ export async function getCompany(companyId: string): Promise<CompanyRecord | nul
   };
 }
 
-/** Privileged operator action. Caller must validate an admin Firebase ID token first. */
+/** Assign a tenant to an existing user without overwriting unrelated Firebase claims. */
 export async function assignCompanyClaims(userId: string, companyId: string): Promise<void> {
   if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId) || !/^[a-zA-Z0-9_-]{1,128}$/.test(companyId)) {
     throw new Error('Identificadores inválidos');
   }
   const company = await getCompany(companyId);
   if (!company) throw new Error('Empresa inexistente');
-  // This operation never grants global administrator rights or premium features.
+
+  const token = await getAccessToken();
   const { project_id } = getServiceAccount();
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(project_id)}/accounts:update`, {
+  const endpoint = `https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(project_id)}/accounts`;
+  const lookup = await fetch(endpoint + ':lookup', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${await getAccessToken()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ localId: userId, customAttributes: JSON.stringify({ companyId }) }),
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: [userId] }),
     signal: AbortSignal.timeout(8000),
   });
-  if (!response.ok) throw new Error(`Firebase Auth rejected tenant assignment (${response.status})`);
+  if (!lookup.ok) throw new Error(`Falha ao consultar usuário (${lookup.status})`);
+  const lookupBody = await lookup.json() as { users?: Array<{ localId?: string; customAttributes?: string; email?: string }> };
+  const target = lookupBody.users?.find(user => user.localId === userId);
+  if (!target) throw new Error('Usuário não encontrado');
+
+  let previous: Record<string, unknown> = {};
+  if (target.customAttributes) {
+    try { previous = JSON.parse(target.customAttributes); }
+    catch { throw new Error('Claims existentes inválidas; operação interrompida'); }
+    if (!previous || Array.isArray(previous) || typeof previous !== 'object') {
+      throw new Error('Formato de claims incompatível');
+    }
+  }
+  if (typeof previous.companyId === 'string' && previous.companyId !== companyId) {
+    throw new Error('Usuário já está associado a outra empresa; transferência exige fluxo específico');
+  }
+  if (previous.companyId === companyId) return;
+
+  const response = await fetch(endpoint + ':update', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      localId: userId,
+      customAttributes: JSON.stringify({ ...previous, companyId }),
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`Firebase Auth rejeitou vínculo (${response.status})`);
 }
