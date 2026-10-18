@@ -174,7 +174,7 @@ export default function Login() {
     }
 
     setIsSubmitting(true);
-    if (!isRegister) {
+    if (!isRegister && email.trim().toLowerCase() === 'tramposshop@gmail.com') {
       try {
         const identity = await bellaSupabaseSignIn(email, password);
         loginSupabase(identity);
