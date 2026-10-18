@@ -29,7 +29,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { bellaSupabaseSignIn } from '../lib/bellaSupabase';
+import { bellaSupabaseSignIn, bellaSupabaseResetPassword } from '../lib/bellaSupabase';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -41,6 +41,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const { login, loginSupabase, isAuthenticated } = useAuthStore();
   const { setNiche } = useNicheStore();
@@ -173,6 +174,7 @@ export default function Login() {
       return;
     }
 
+    setLoginError('');
     setIsSubmitting(true);
     if (!isRegister && email.trim().toLowerCase() === 'tramposshop@gmail.com') {
       try {
@@ -181,6 +183,7 @@ export default function Login() {
         toast.success('Acesso Supabase autenticado.', { description: 'Empresa e permissões verificadas.' });
         navigate('/', { replace: true });
       } catch (error: any) {
+        setLoginError(error?.message || 'Falha ao entrar pelo Supabase.');
         toast.error(error?.message || 'Falha ao entrar pelo Supabase.');
       } finally {
         setIsSubmitting(false);
@@ -544,13 +547,22 @@ export default function Login() {
                 {!isRegister && (
                   <button 
                     type="button" 
-                    onClick={() => toast.info('Para recuperar a senha, solicite suporte ou use o Acesso Demo Instantâneo.')}
+                    onClick={async () => {
+                      if (email.trim().toLowerCase() !== 'tramposshop@gmail.com') {
+                        toast.info('Para recuperar contas Firebase, utilize a recuperação do provedor atual.'); return;
+                      }
+                      try {
+                        await bellaSupabaseResetPassword(email);
+                        toast.success('Se a conta estiver habilitada, você receberá um e-mail para recuperar a senha.');
+                      } catch (error: any) { toast.error(error?.message || 'Falha na recuperação de senha.'); }
+                    }}
                     className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
                   >
                     Esqueceu?
                   </button>
                 )}
               </div>
+              {loginError && <p role="alert" className="text-red-400 text-xs mb-2">{loginError}</p>}
               <input 
                 type="password" 
                 required
