@@ -1,10 +1,8 @@
 import { useState } from 'react';
+import { useTransactionStore } from '../store/transactions';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area } from 'recharts';
 import { DollarSign, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Banknote, Filter, Layers, Sparkles, AlertTriangle, ShieldCheck, Zap, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-const mockTransactions: Array<{ id: string; desc: string; type: string; value: number; method: string; date: string }> = [];
-const mockCashFlow: Array<{ name: string; income: number; expense: number }> = [];
 
 export default function Finance() {
   const [period, setPeriod] = useState('7-days');
@@ -13,23 +11,52 @@ export default function Finance() {
   const [filterType, setFilterType] = useState('all');
   const [filterMethod, setFilterMethod] = useState('all');
 
-  const filteredTransactions = mockTransactions.filter(tx => {
-    let matchType = filterType === 'all' || tx.type === filterType;
-    let matchMethod = filterMethod === 'all' || tx.method.toLowerCase().includes(filterMethod.toLowerCase());
-    
-    // Quick mock period logic
-    let matchPeriod = true;
-    if (period === 'today' && !tx.date.includes('Hoje')) matchPeriod = false;
-    
-    return matchType && matchMethod && matchPeriod;
-  });
+  const transactions = useTransactionStore(state => state.transactions);
+  const isLoaded = useTransactionStore(state => state.isLoaded);
+  const now = new Date();
+  const inSelectedPeriod = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime()) || date > now) return false;
+    if (period === 'today') return date.toDateString() === now.toDateString();
+    if (period === '7-days') return date.getTime() >= now.getTime() - 7 * 86400000;
+    if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    if (period === 'last-month') {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return date.getFullYear() === lastMonth.getFullYear() && date.getMonth() === lastMonth.getMonth();
+    }
+    return false;
+  };
+  const completed = transactions.filter(tx => tx.status === 'completed' && inSelectedPeriod(tx.date));
+  const revenue = completed.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
+  const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const methods: Record<string, string> = { pix: 'PIX', card: 'Credit Card', cash: 'Cash', split: 'Split' };
+  const methodPercent = (method: string) => completed.length
+    ? Math.round(completed.filter(tx => tx.paymentMethod === method).length / completed.length * 100)
+    : 0;
+  const filteredTransactions = completed
+    .map(tx => ({
+      id: tx.id,
+      desc: `Venda - Ticket #${tx.id.slice(0, 8)}`,
+      type: 'income',
+      value: Number(tx.total) || 0,
+      method: methods[tx.paymentMethod] || tx.paymentMethod,
+      date: new Date(tx.date).toLocaleString('pt-BR')
+    }))
+    .filter(tx => (filterType === 'all' || tx.type === filterType) &&
+      (filterMethod === 'all' || tx.method.toLowerCase().includes(filterMethod.toLowerCase())));
+  const flowByDate = new Map<string, number>();
+  for (const tx of completed) {
+    const key = new Date(tx.date).toLocaleDateString('pt-BR');
+    flowByDate.set(key, (flowByDate.get(key) || 0) + (Number(tx.total) || 0));
+  }
+  const cashFlow = [...flowByDate.entries()].map(([name, income]) => ({ name, income }));
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto">
       <div className="flex items-end justify-between">
          <div>
             <h1 className="text-3xl font-display font-semibold tracking-tight text-white mb-1">Caixa e Financeiro</h1>
-            <p className="text-slate-400 text-sm">Dados financeiros ainda não integrados. Nenhum valor ilustrativo é apresentado como real.</p>
+            <p className="text-slate-400 text-sm">Receitas e vendas confirmadas do PDV. Despesas, saldo real e DRE aguardam integração.</p>
          </div>
          <select 
            value={period}
@@ -44,7 +71,7 @@ export default function Finance() {
       </div>
 
       <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-        Módulo financeiro em integração: receitas, despesas, fluxo de caixa, DRE e cobranças não estão homologados. Valores e relatórios não devem ser usados para decisões financeiras.
+        Receitas abaixo derivam das vendas concluídas carregadas do PDV. Despesas, saldos, lucros, DRE e cobranças ainda não são apurados; não use este painel como contabilidade oficial.
       </div>
 
       {/* TABS */}
@@ -103,7 +130,7 @@ export default function Finance() {
                     </div>
                  </div>
                  <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Receitas</h3>
-                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">Não apurado</p>
+                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">{isLoaded ? money(revenue) : 'Carregando...'}</p>
               </div>
 
               <div className="glass-card p-5 relative overflow-hidden group">
@@ -133,7 +160,7 @@ export default function Finance() {
                  <h3 className="text-lg font-semibold tracking-tight text-white mb-6">Fluxo de Caixa</h3>
                  <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={mockCashFlow} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                      <AreaChart data={cashFlow} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -166,21 +193,21 @@ export default function Finance() {
                            <Banknote className="w-5 h-5 text-emerald-400" />
                            <span className="text-white font-medium">PIX</span>
                         </div>
-                        <span className="text-slate-400 font-medium">—</span>
+                        <span className="text-slate-400 font-medium"> {methodPercent("pix")}%</span>
                      </div>
                      <div className="flex items-center justify-between p-3 rounded-lg bg-[#0C1627] border border-[#1A2C47]">
                         <div className="flex items-center gap-3">
                            <CreditCard className="w-5 h-5 text-blue-400" />
                            <span className="text-white font-medium">Cartão Crédito</span>
                         </div>
-                        <span className="text-slate-400 font-medium">—</span>
+                        <span className="text-slate-400 font-medium"> {methodPercent("card")}%</span>
                      </div>
                      <div className="flex items-center justify-between p-3 rounded-lg bg-[#0C1627] border border-[#1A2C47]">
                         <div className="flex items-center gap-3">
                            <DollarSign className="w-5 h-5 text-yellow-400" />
                            <span className="text-white font-medium">Dinheiro</span>
                         </div>
-                        <span className="text-slate-400 font-medium">—</span>
+                        <span className="text-slate-400 font-medium"> {methodPercent("cash")}%</span>
                      </div>
                   </div>
                </div>
@@ -225,6 +252,7 @@ export default function Finance() {
              </div>
 
              <div className="space-y-3">
+                {isLoaded && filteredTransactions.length === 0 && <p className="text-slate-400 text-sm">Nenhuma venda concluída encontrada neste período.</p>}
                 {filteredTransactions.map((tx) => (
                   <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-[#0C1627] border border-[#1A2C47] hover:border-[#253B5C] transition-colors">
                      <div className="flex items-center gap-4">
