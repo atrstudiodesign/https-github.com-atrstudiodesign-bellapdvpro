@@ -75,30 +75,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     return user.planFeatures?.includes(feature) ?? false;
   },
-  login: (userData: any, token?: string, company?: any) => {
-    const fullUser: AuthUser = {
-      id: auth.currentUser?.uid || '',
-      name: userData?.name || 'Administrador',
-      email: userData?.email || 'admin@bellapdv.com',
-      role: 'client', // UI callers cannot assign administrator permissions
-      companyId: undefined, // Tenant must originate from verified Firebase claims
-      avatar: userData?.avatar,
-      planFeatures: DEFAULT_FEATURES
-    };
-
-    try {
-      localStorage.setItem('bellapdv_auth_user', JSON.stringify(fullUser));
-      localStorage.setItem('last_merchant_uid', fullUser.id);
-      if (token) localStorage.setItem('bellapdv_auth_token', token);
-    } catch (e) {
-      console.warn('Failed to save auth to localStorage', e);
-    }
-
-    set({ 
-      isAuthenticated: true, 
-      user: fullUser,
-      isAuthReady: true
-    });
+  // This compatibility method never grants authentication; only onAuthStateChanged can.
+  login: () => {
+    console.warn('Direct login state mutation blocked; use Firebase Authentication.');
   },
   logout: async () => {
     try {
@@ -139,7 +118,14 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     } catch (error) {
       console.warn('Cannot retrieve authenticated profile:', error);
     }
-    const tokenResult = await firebaseUser.getIdTokenResult();
+    let tokenResult;
+    try {
+      tokenResult = await firebaseUser.getIdTokenResult();
+    } catch (error) {
+      console.error('Firebase token claims unavailable:', error);
+      useAuthStore.getState().setUser(null);
+      return;
+    }
     const claims = tokenResult.claims;
     const trustedCompanyId = typeof claims.companyId === 'string' && claims.companyId.length <= 128 ? claims.companyId : undefined;
     const trustedAdmin = claims.admin === true;
