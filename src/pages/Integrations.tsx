@@ -72,18 +72,14 @@ export default function Integrations() {
   };
 
   const handleConnectWhatsapp = async () => {
+     if (!evolutionUrl || !evolutionKey) {
+        toast.error('Configure URL e chave reais da Evolution API antes de conectar.');
+        setWhatsappStatus('DISCONNECTED');
+        return;
+     }
      setIsQrModalOpen(true);
      setWhatsappStatus('LOADING');
      setQrCodeBase64(null);
-
-     if (!evolutionUrl || !evolutionKey) {
-        toast.warning('Chaves da Evolution API não configuradas.', { description: 'Simulando conexão para demonstração.' });
-        // Falso QR code de simulação
-        setTimeout(() => {
-           setQrCodeBase64('https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BellaPDV-Auth-Demo');
-        }, 1000);
-        return;
-     }
 
      try {
        // Tenta obter conexão com a Evolution API Oficial
@@ -109,8 +105,7 @@ export default function Integrations() {
            if (data.base64) {
                setQrCodeBase64(data.base64);
            } else {
-               toast.success("Instância já parece estar conectada!");
-               simulateQrScan();
+               await verifyWhatsAppConnection();
            }
        }
      } catch (err: any) {
@@ -128,7 +123,7 @@ export default function Integrations() {
       return;
     }
     try {
-      const response = await fetch(`${evolutionUrl.replace(/\\/$/, '')}/instance/connectionState/BellaPDV-Oficial`, {
+      const response = await fetch(`${evolutionUrl.replace(/\/$/, '')}/instance/connectionState/BellaPDV-Oficial`, {
         headers: { apikey: evolutionKey },
       });
       if (!response.ok) throw new Error('Não foi possível consultar o estado real da instância.');
