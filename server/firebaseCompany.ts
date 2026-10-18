@@ -18,7 +18,7 @@ function encodeJson(value: object): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
   if (accessToken && Date.now() < accessToken.expiresAt) return accessToken.token;
   const service = getServiceAccount();
   const now = Math.floor(Date.now() / 1000);
@@ -82,4 +82,22 @@ export async function getCompany(companyId: string): Promise<CompanyRecord | nul
     asaasCustomerId: getString(fields, 'asaasCustomerId'),
     whatsappSessionId: getString(fields, 'whatsappSessionId'),
   };
+}
+
+/** Privileged operator action. Caller must validate an admin Firebase ID token first. */
+export async function assignCompanyClaims(userId: string, companyId: string): Promise<void> {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId) || !/^[a-zA-Z0-9_-]{1,128}$/.test(companyId)) {
+    throw new Error('Identificadores inválidos');
+  }
+  const company = await getCompany(companyId);
+  if (!company) throw new Error('Empresa inexistente');
+  // This operation never grants global administrator rights or premium features.
+  const { project_id } = getServiceAccount();
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(project_id)}/accounts:update`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await getAccessToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: userId, customAttributes: JSON.stringify({ companyId }) }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`Firebase Auth rejected tenant assignment (${response.status})`);
 }
