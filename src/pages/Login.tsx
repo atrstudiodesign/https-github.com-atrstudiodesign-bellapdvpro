@@ -24,7 +24,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  updateProfile 
+  updateProfile
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -73,142 +73,91 @@ export default function Login() {
 
   };
 
+  const checkProvisioning = async (user: import('firebase/auth').User) => {
+    const token = await user.getIdTokenResult(true);
+    const hasTenant = typeof token.claims.companyId === 'string' && token.claims.companyId.length > 0;
+    const isAdmin = token.claims.admin === true;
+    if (!hasTenant && !isAdmin) {
+      toast.warning('Conta autenticada, mas sua empresa ainda não foi liberada. Solicite a ativação ao administrador.');
+      return false;
+    }
+    return true;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       toast.error('Preencha o e-mail e a senha.');
       return;
     }
-
     if (password.length < 6) {
       toast.error('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
-
     if (isRegister && !companyName.trim()) {
       toast.error('Informe o nome da sua empresa.');
       return;
     }
-
     setIsSubmitting(true);
-
     try {
-      let firebaseUser = auth.currentUser;
-      let uid = firebaseUser?.uid || '';
-
       if (isRegister) {
-        // --- REGISTRO ---
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        firebaseUser = cred.user;
-        uid = cred.user.uid;
         await updateProfile(cred.user, { displayName: companyName.trim() });
-
-        // Backend register sync
-        let companyData = {
-          id: uid,
+        // This is a registration request, not a provisioned company.
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          id: cred.user.uid,
+          email: cred.user.email || email.trim(),
           name: companyName.trim(),
-          niche: selectedNiche
-        };
-
-        // Persistent company provisioning must be handled by a verified backend.
-        const newUser = {
-          id: uid,
-          email: email.trim(),
-          name: companyName.trim() || email.trim().split('@')[0],
-          role: 'client' as const,
-          planFeatures: ['pdv', 'agenda']
-        };
-
-        try {
-          await setDoc(doc(db, 'users', uid), {
-            ...newUser,
-            companyName: companyName.trim(),
-            niche: selectedNiche,
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString()
-          }, { merge: true });
-        } catch (docErr) {
-          console.warn('Firestore doc creation error:', docErr);
-        }
-
+          companyName: companyName.trim(),
+          niche: selectedNiche,
+          role: 'client',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString()
+        }, { merge: true });
         setNiche(selectedNiche);
-        // The Firebase auth-state listener grants access based on signed claims.
-        toast.success('Conta criada com sucesso!', {
-          description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
-        });
-        navigate('/');
-
+        toast.success('Conta cadastrada. A ativação da empresa depende do administrador.');
+        setIsRegister(false);
       } else {
-        // --- LOGIN ---
         const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-        firebaseUser = cred.user;
-        uid = cred.user.uid;
-
-        // Server sync
-        let companyData = {
-          id: '1',
-          name: 'BellaPDV Studio',
-          niche: 'barbershop'
-        };
-
-        // Do not call mock server authentication endpoints.
-        const loggedUser = {
-          id: uid,
-          email: email.trim(),
-          name: firebaseUser?.displayName || email.trim().split('@')[0] || 'Administrador',
-          role: 'client' as const,
-          planFeatures: ['pdv', 'agenda']
-        };
-
-        if (companyData.niche) {
-          setNiche(companyData.niche as NicheType);
+        if (await checkProvisioning(cred.user)) {
+          toast.success('Login autenticado com sucesso.');
+          navigate('/', { replace: true });
         }
-
-        // Auth-state listener, not the login form, establishes the authenticated session.
-        toast.success('Login realizado com sucesso!', {
-          description: `Bem-vindo de volta, ${loggedUser.name}!`
-        });
-        navigate('/');
       }
     } catch (error: any) {
-      console.error('Authentication fatal error:', error);
-      toast.error('Não foi possível entrar. Verifique os dados e tente novamente.');
+      console.error('Firebase authentication failed:', error);
+      const code = error?.code || '';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        toast.error('E-mail ou senha inválidos.');
+      } else if (code === 'auth/email-already-in-use') {
+        toast.error('Este e-mail já possui uma conta. Utilize Entrar.');
+      } else if (code === 'auth/popup-blocked') {
+        toast.error('O navegador bloqueou a janela do Google. Permita pop-ups.');
+      } else {
+        toast.error('Falha na autenticação. Verifique a conexão e a configuração do Firebase.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSocialAuth = async (provider: 'Google' | 'Apple' | 'Microsoft') => {
+    if (provider !== 'Google') {
+      toast.error('Este provedor de login ainda não está configurado.');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      if (provider !== 'Google') {
-        toast.error('Provedor indisponível até configurar autenticação real.');
-        return;
-      }
       const result = await signInWithPopup(auth, new GoogleAuthProvider());
-      const uid = result.user.uid;
-      const displayName = result.user.displayName || 'Usuário Google';
-      const userEmail = result.user.email || '';
-
-      const socialUser = {
-        id: uid,
-        name: displayName,
-        email: userEmail,
-        role: 'client' as const,
-        planFeatures: ['pdv', 'agenda']
-      };
-
-      setNiche(selectedNiche);
-      // The auth-state listener resolves the trusted identity and tenant.
-
-      toast.success(`Conectado com ${provider}!`, {
-        description: 'Bem-vindo ao painel BellaPDV.'
-      });
-      navigate('/');
-    } catch (error) {
-      console.error(`${provider} login error:`, error);
-      toast.error(`Erro ao autenticar com ${provider}.`);
+      if (await checkProvisioning(result.user)) {
+        toast.success('Login com Google autenticado.');
+        navigate('/', { replace: true });
+      }
+    } catch (error: any) {
+      console.error('Google sign-in failed:', error);
+      toast.error(error?.code === 'auth/popup-closed-by-user'
+        ? 'A janela de login do Google foi fechada.'
+        : 'Falha no login Google. Verifique o domínio autorizado e o provedor Firebase.');
     } finally {
       setIsSubmitting(false);
     }
