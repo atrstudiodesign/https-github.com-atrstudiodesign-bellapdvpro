@@ -646,6 +646,9 @@ class VoiceNarrationService {
 
       if (response.ok) {
         const data = await response.json();
+        if (data.fallback && data.fallbackReason) {
+          console.warn('[Bella TTS] Cloud voice fallback:', data.fallbackReason);
+        }
         if (data.audioBase64) {
           if (this.clientAudioCache.size >= this.MAX_CLIENT_CACHE) {
             const firstKey = this.clientAudioCache.keys().next().value;
