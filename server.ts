@@ -225,15 +225,9 @@ app.use('/api', async (req, res, next) => {
     }
   });
 
-  // Integrations: Conectar WhatsApp
-  app.post('/api/integrations/whatsapp/connect', (req, res) => {
-      const company = (req as any).company;
-      // Simula criação de sessão na Evolution API
-      const sessionId = `sess_${company.id}_${Date.now()}`;
-      company.whatsappSessionId = sessionId;
-      console.log(`[Evolution API] Sessão criada: ${sessionId}`);
-      
-      res.json({ success: true, sessionId, message: 'WhatsApp conectado com sucesso!' });
+  // WhatsApp is not connected until a real provider session is configured.
+  app.post('/api/integrations/whatsapp/connect', (_req, res) => {
+    res.status(501).json({ error: 'Integração WhatsApp indisponível: configurar provedor e credenciais reais.' });
   });
 
   // Webhooks: Asaas Dunning / Billing
@@ -533,23 +527,9 @@ app.use('/api', async (req, res, next) => {
       }
   });
 
-  // Dashboard Stats
-  app.get('/api/dashboard/stats', (req, res) => {
-    res.json({
-        revenue: 24680.50,
-        appointments: 156,
-        activeClients: 1250,
-        averageTicket: 158.30,
-        revenueData: [
-            { name: 'Seg', uv: 4000 },
-            { name: 'Ter', uv: 3000 },
-            { name: 'Qua', uv: 2000 },
-            { name: 'Qui', uv: 2780 },
-            { name: 'Sex', uv: 1890 },
-            { name: 'Sáb', uv: 2390 },
-            { name: 'Dom', uv: 3490 },
-        ]
-    });
+  // Never display fabricated production financial data.
+  app.get('/api/dashboard/stats', (_req, res) => {
+    res.status(501).json({ error: 'Relatório financeiro depende de agregação persistente ainda não implantada.' });
   });
 
   // --- SERVER INITIALIZATION (DEV & STANDALONE NODE) ---
