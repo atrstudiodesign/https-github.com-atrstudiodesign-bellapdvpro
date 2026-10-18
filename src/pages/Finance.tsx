@@ -3,24 +3,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { DollarSign, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Banknote, Filter, Layers, Sparkles, AlertTriangle, ShieldCheck, Zap, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const mockTransactions = [
-  { id: '1', desc: 'Venda - Ticket #001', type: 'income', value: 150.00, method: 'PIX', date: 'Hoje, 10:30' },
-  { id: '2', desc: 'Venda - Ticket #002', type: 'income', value: 85.50, method: 'Credit Card', date: 'Hoje, 11:15' },
-  { id: '3', desc: 'Pagamento Fornecedor (Produtos)', type: 'expense', value: 340.00, method: 'Bank Transfer', date: 'Hoje, 14:00' },
-  { id: '4', desc: 'Venda - Ticket #003', type: 'income', value: 210.00, method: 'PIX', date: 'Ontem, 09:20' },
-  { id: '5', desc: 'Venda - Ticket #004', type: 'income', value: 45.00, method: 'Cash', date: 'Ontem, 16:45' },
-  { id: '6', desc: 'Conta de Energia', type: 'expense', value: 250.00, method: 'Boleto', date: 'Ontem, 18:00' },
-];
-
-const mockCashFlow = [
-  { name: 'Seg', income: 4000, expense: 2400 },
-  { name: 'Ter', income: 3000, expense: 1398 },
-  { name: 'Qua', income: 2000, expense: 9800 },
-  { name: 'Qui', income: 2780, expense: 3908 },
-  { name: 'Sex', income: 1890, expense: 4800 },
-  { name: 'Sáb', income: 2390, expense: 3800 },
-  { name: 'Dom', income: 3490, expense: 4300 },
-];
+const mockTransactions: Array<{ id: string; desc: string; type: string; value: number; method: string; date: string }> = [];
+const mockCashFlow: Array<{ name: string; income: number; expense: number }> = [];
 
 export default function Finance() {
   const [period, setPeriod] = useState('7-days');
@@ -45,7 +29,7 @@ export default function Finance() {
       <div className="flex items-end justify-between">
          <div>
             <h1 className="text-3xl font-display font-semibold tracking-tight text-white mb-1">Caixa e Financeiro</h1>
-            <p className="text-slate-400 text-sm">Controle completo de fluxo de caixa, despesas e receitas.</p>
+            <p className="text-slate-400 text-sm">Dados financeiros ainda não integrados. Nenhum valor ilustrativo é apresentado como real.</p>
          </div>
          <select 
            value={period}
@@ -57,6 +41,10 @@ export default function Finance() {
            <option value="month">Este Mês</option>
            <option value="last-month">Mês Passado</option>
          </select>
+      </div>
+
+      <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+        Módulo financeiro em integração: receitas, despesas, fluxo de caixa, DRE e cobranças não estão homologados. Valores e relatórios não devem ser usados para decisões financeiras.
       </div>
 
       {/* TABS */}
@@ -105,7 +93,7 @@ export default function Finance() {
                     </div>
                  </div>
                  <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Saldo Atual</h3>
-                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">R$ 14.500,00</p>
+                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">Não apurado</p>
               </div>
 
               <div className="glass-card p-5 relative overflow-hidden group">
@@ -115,7 +103,7 @@ export default function Finance() {
                     </div>
                  </div>
                  <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Receitas</h3>
-                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">R$ 18.250,50</p>
+                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">Não apurado</p>
               </div>
 
               <div className="glass-card p-5 relative overflow-hidden group">
@@ -125,7 +113,7 @@ export default function Finance() {
                     </div>
                  </div>
                  <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Despesas</h3>
-                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">R$ 3.750,50</p>
+                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">Não apurado</p>
               </div>
 
               <div className="glass-card p-5 relative overflow-hidden group">
@@ -135,7 +123,7 @@ export default function Finance() {
                     </div>
                  </div>
                  <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Lucro Líquido</h3>
-                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">R$ 14.500,00</p>
+                 <p className="text-2xl font-semibold font-sans tracking-tight text-white">Não apurado</p>
               </div>
             </div>
 
@@ -178,21 +166,21 @@ export default function Finance() {
                            <Banknote className="w-5 h-5 text-emerald-400" />
                            <span className="text-white font-medium">PIX</span>
                         </div>
-                        <span className="text-slate-400 font-medium">65%</span>
+                        <span className="text-slate-400 font-medium">—</span>
                      </div>
                      <div className="flex items-center justify-between p-3 rounded-lg bg-[#0C1627] border border-[#1A2C47]">
                         <div className="flex items-center gap-3">
                            <CreditCard className="w-5 h-5 text-blue-400" />
                            <span className="text-white font-medium">Cartão Crédito</span>
                         </div>
-                        <span className="text-slate-400 font-medium">25%</span>
+                        <span className="text-slate-400 font-medium">—</span>
                      </div>
                      <div className="flex items-center justify-between p-3 rounded-lg bg-[#0C1627] border border-[#1A2C47]">
                         <div className="flex items-center gap-3">
                            <DollarSign className="w-5 h-5 text-yellow-400" />
                            <span className="text-white font-medium">Dinheiro</span>
                         </div>
-                        <span className="text-slate-400 font-medium">10%</span>
+                        <span className="text-slate-400 font-medium">—</span>
                      </div>
                   </div>
                </div>
@@ -271,8 +259,8 @@ export default function Finance() {
           >
              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold tracking-tight text-white">Demonstrativo de Resultado (DRE)</h3>
-                <button className="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                   Baixar PDF
+                <button disabled title="Relatório requer integração financeira." className="text-sm bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-medium cursor-not-allowed">
+                   PDF indisponível
                 </button>
              </div>
              
@@ -285,59 +273,59 @@ export default function Finance() {
                 {/* Receitas */}
                 <div className="grid grid-cols-12 p-4 border-b border-[#1A2C47] items-center bg-blue-500/5">
                    <div className="col-span-8 font-semibold text-white">1. Receita Operacional Bruta</div>
-                   <div className="col-span-4 text-right font-bold text-emerald-400">R$ 20.000,00</div>
+                   <div className="col-span-4 text-right font-bold text-emerald-400">Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Vendas de Serviços</div>
-                   <div className="col-span-4 text-right">R$ 15.000,00</div>
+                   <div className="col-span-4 text-right">Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Vendas de Produtos</div>
-                   <div className="col-span-4 text-right">R$ 5.000,00</div>
+                   <div className="col-span-4 text-right">Não apurado</div>
                 </div>
 
                 {/* Despesas Variáveis */}
                 <div className="grid grid-cols-12 p-4 border-b border-[#1A2C47] items-center bg-red-500/5 mt-4">
                    <div className="col-span-8 font-semibold text-white">2. Custos e Despesas Variáveis</div>
-                   <div className="col-span-4 text-right font-bold text-red-400">- R$ 5.000,00</div>
+                   <div className="col-span-4 text-right font-bold text-red-400">- Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Comissões</div>
-                   <div className="col-span-4 text-right">- R$ 3.000,00</div>
+                   <div className="col-span-4 text-right">- Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Taxas de Cartão</div>
-                   <div className="col-span-4 text-right">- R$ 2.000,00</div>
+                   <div className="col-span-4 text-right">- Não apurado</div>
                 </div>
 
                 {/* Margem de Contribuição */}
                 <div className="grid grid-cols-12 p-4 border-b border-[#1A2C47] items-center bg-cyan-500/10 mt-4">
                    <div className="col-span-8 font-bold text-white uppercase tracking-wider">3. Margem de Contribuição (1 - 2)</div>
-                   <div className="col-span-4 text-right font-bold text-cyan-400">R$ 15.000,00</div>
+                   <div className="col-span-4 text-right font-bold text-cyan-400">Não apurado</div>
                 </div>
 
                  {/* Despesas Fixas */}
                  <div className="grid grid-cols-12 p-4 border-b border-[#1A2C47] items-center bg-orange-500/5 mt-4">
                    <div className="col-span-8 font-semibold text-white">4. Despesas Fixas</div>
-                   <div className="col-span-4 text-right font-bold text-orange-400">- R$ 3.000,00</div>
+                   <div className="col-span-4 text-right font-bold text-orange-400">- Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Aluguel</div>
-                   <div className="col-span-4 text-right">- R$ 1.500,00</div>
+                   <div className="col-span-4 text-right">- Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Energia, Água, Internet</div>
-                   <div className="col-span-4 text-right">- R$ 1.000,00</div>
+                   <div className="col-span-4 text-right">- Não apurado</div>
                 </div>
                 <div className="grid grid-cols-12 p-3 pl-8 text-sm border-b border-[#1A2C47]/50 items-center bg-[#0C1627]/50">
                    <div className="col-span-8 text-slate-300">Marketing</div>
-                   <div className="col-span-4 text-right">- R$ 500,00</div>
+                   <div className="col-span-4 text-right">- Não apurado</div>
                 </div>
 
                 {/* Resultado Líquido */}
                 <div className="grid grid-cols-12 p-6 items-center bg-[#1A2C47] mt-4">
                    <div className="col-span-8 font-display text-xl font-bold text-white">5. Resultado Líquido</div>
-                   <div className="col-span-4 text-right font-display text-2xl font-bold text-emerald-400">R$ 12.000,00</div>
+                   <div className="col-span-4 text-right font-display text-2xl font-bold text-emerald-400">Não apurado</div>
                 </div>
              </div>
           </motion.div>

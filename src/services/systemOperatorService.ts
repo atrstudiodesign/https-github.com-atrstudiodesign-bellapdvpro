@@ -65,30 +65,30 @@ class SystemOperatorService {
     const clients = useClientStore.getState().clients;
     const professionals = useProfessionalStore.getState().professionals;
 
-    const totalRevenue = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
-    const completedSales = transactions.filter(t => t.status === 'completed').length;
+    const completedTransactions = transactions.filter(t => t.status === 'completed');
+    const totalRevenue = completedTransactions.reduce((acc, t) => acc + (t.total || 0), 0);
+    const completedSales = completedTransactions.length;
     const pendingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
-    const activeClientsCount = clients.length > 0 ? clients.length : 1250;
-    const activeProsCount = professionals.length > 0 ? professionals.length : 4;
+    const activeClientsCount = clients.length;
+    const activeProsCount = professionals.length;
 
     const sortedAppointments = [...appointments].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const nextAppt = sortedAppointments[0] || {
-      client: 'João Silva',
-      service: 'Corte Degradê + Barba',
-      time: '14:30',
-      employee: 'Marcos Barbeiro'
-    };
+    const nextAppt = sortedAppointments[0] || null;
+    const nextClient = nextAppt ? String((nextAppt as any).client || (nextAppt as any).clientName || 'cliente') : '';
+    const nextTime = nextAppt?.time || 'horário não informado';
+    const nextAppointmentNotice = nextAppt ? `O próximo atendimento é de ${nextClient} às ${nextTime}.` : 'Nenhum próximo agendamento disponível.';
 
     return {
-      revenueToday: totalRevenue > 0 ? totalRevenue : 24680.50,
-      salesCount: completedSales > 0 ? completedSales : 156,
-      averageTicket: totalRevenue > 0 && completedSales > 0 ? totalRevenue / completedSales : 158.30,
+      revenueToday: totalRevenue,
+      salesCount: completedSales,
+      averageTicket: completedSales > 0 ? totalRevenue / completedSales : 0,
       activeClients: activeClientsCount,
-      appointmentsToday: appointments.length > 0 ? appointments.length : 12,
+      appointmentsToday: appointments.length,
       pendingAppointments,
       professionalsCount: activeProsCount,
-      professionalsList: professionals.length > 0 ? professionals.map(p => p.name).join(', ') : 'Marcos, Lucas, Beatriz, Camila',
+      professionalsList: professionals.map(p => p.name).join(', '),
       nextAppointment: nextAppt,
+      nextAppointmentNotice,
     };
   }
 
@@ -192,8 +192,8 @@ class SystemOperatorService {
       if (navigate) navigate('/schedule');
       return {
         handled: true,
-        reply: `Abrindo sua **Agenda**! Hoje temos **${snapshot.appointmentsToday} agendamentos** confirmados. O próximo cliente é **${snapshot.nextAppointment.client}** às **${snapshot.nextAppointment.time}**.`,
-        spokenText: `Abrindo sua agenda! Hoje temos ${snapshot.appointmentsToday} agendamentos. O próximo cliente é ${snapshot.nextAppointment.client} às ${snapshot.nextAppointment.time}.`,
+        reply: `Abrindo sua **Agenda**! Hoje temos **${snapshot.appointmentsToday} agendamentos** confirmados. ${snapshot.nextAppointmentNotice}`,
+        spokenText: `Abrindo sua agenda! Hoje temos ${snapshot.appointmentsToday} agendamentos. ${snapshot.nextAppointmentNotice}`,
         actions: [
           { id: '1', label: '📅 Ver Agenda', type: 'NAVIGATE', payload: { path: '/schedule' } },
           { id: '2', label: '💬 Confirmar WhatsApp', type: 'NAVIGATE', payload: { path: '/schedule' } }
