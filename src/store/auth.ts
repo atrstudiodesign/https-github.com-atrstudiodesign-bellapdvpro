@@ -106,7 +106,14 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     } catch (error) {
       console.warn('Cannot retrieve authenticated profile:', error);
     }
-    const claims = await firebaseUser.getIdTokenResult();
+    let claims;
+    try {
+      claims = await firebaseUser.getIdTokenResult();
+    } catch (error) {
+      console.error('Unable to verify Firebase claims', error);
+      useAuthStore.getState().setUser(null);
+      return;
+    }
     const companyId = typeof claims.claims.companyId === 'string' ? claims.claims.companyId : undefined;
     const admin = claims.claims.admin === true;
     if (!companyId && !admin) {
