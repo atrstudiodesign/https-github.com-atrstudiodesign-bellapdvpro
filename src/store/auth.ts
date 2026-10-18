@@ -77,13 +77,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   login: (userData: any, token?: string, company?: any) => {
     const fullUser: AuthUser = {
-      id: userData?.id || auth.currentUser?.uid || 'u_admin',
+      id: auth.currentUser?.uid || '',
       name: userData?.name || 'Administrador',
       email: userData?.email || 'admin@bellapdv.com',
-      role: userData?.role === 'admin' ? 'admin' : 'client',
-      companyId: company?.id || userData?.companyId,
+      role: 'client', // UI callers cannot assign administrator permissions
+      companyId: undefined, // Tenant must originate from verified Firebase claims
       avatar: userData?.avatar,
-      planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
+      planFeatures: DEFAULT_FEATURES
     };
 
     try {
@@ -139,14 +139,18 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     } catch (error) {
       console.warn('Cannot retrieve authenticated profile:', error);
     }
+    const tokenResult = await firebaseUser.getIdTokenResult();
+    const claims = tokenResult.claims;
+    const trustedCompanyId = typeof claims.companyId === 'string' && claims.companyId.length <= 128 ? claims.companyId : undefined;
+    const trustedAdmin = claims.admin === true;
     const userData: AuthUser = {
       id: firebaseUser.uid,
       email: email,
       name: displayName,
-      role: profile.role === 'admin' && !firebaseUser.isAnonymous ? 'admin' : 'client',
-      companyId: typeof profile.companyId === 'string' ? profile.companyId : undefined,
+      role: trustedAdmin ? 'admin' : 'client',
+      companyId: trustedCompanyId,
       avatar: firebaseUser.photoURL || undefined,
-      planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES
+      planFeatures: trustedCompanyId && Array.isArray(claims.planFeatures) ? claims.planFeatures.filter((feature): feature is string => typeof feature === 'string') : DEFAULT_FEATURES
     };
 
     useAuthStore.getState().setUser(userData);
