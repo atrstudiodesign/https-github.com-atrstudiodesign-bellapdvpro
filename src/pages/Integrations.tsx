@@ -4,12 +4,15 @@ import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap,
 import { motion, AnimatePresence } from 'motion/react';
 import { useApiKeysStore } from '../store/apiKeys';
 import { FeatureGate } from '../components/ui/FeatureGate';
-import { checkBellaSupabase } from '../lib/bellaSupabase';
+import { checkBellaSupabase, testBellaSupabaseAuth } from '../lib/bellaSupabase';
 
 export default function Integrations() {
   const [whatsappStatus, setWhatsappStatus] = useState<'DISCONNECTED' | 'LOADING' | 'CONNECTED'>('DISCONNECTED');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [supabaseStatus, setSupabaseStatus] = useState('Não verificado');
+  const [supabaseEmail, setSupabaseEmail] = useState('');
+  const [supabasePassword, setSupabasePassword] = useState('');
+  const [supabaseAuthStatus, setSupabaseAuthStatus] = useState('Não verificado');
   const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
   
   // Custom states for WhatsApp CRM dashboards
@@ -162,6 +165,27 @@ export default function Integrations() {
             }} className="px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">
               Testar conexão
             </button>
+          </div>
+          <div className="rounded-xl border border-cyan-500/20 bg-[#0C1627] p-4 space-y-3">
+            <h3 className="text-white font-semibold">Homologar Supabase Auth (sem trocar login Firebase)</h3>
+            <p className="text-slate-400 text-xs">Valida credenciais do novo Supabase e permissões RLS por empresa. O teste não entra no Bella e não armazena senha ou sessão.</p>
+            <form className="flex flex-col md:flex-row gap-2" onSubmit={async (e) => {
+              e.preventDefault();
+              setSupabaseAuthStatus('Verificando...');
+              const result = await testBellaSupabaseAuth(supabaseEmail, supabasePassword);
+              setSupabasePassword('');
+              setSupabaseAuthStatus(result.message);
+              if (result.ok) toast.success(result.message); else toast.error(result.message);
+            }}>
+              <input aria-label="E-mail Supabase" type="email" autoComplete="username" required value={supabaseEmail}
+                onChange={e => setSupabaseEmail(e.target.value)} placeholder="E-mail cadastrado no Supabase"
+                className="flex-1 min-w-0 p-2 bg-[#09111D] text-white border border-slate-700 rounded-lg" />
+              <input aria-label="Senha Supabase" type="password" autoComplete="current-password" required value={supabasePassword}
+                onChange={e => setSupabasePassword(e.target.value)} placeholder="Senha Supabase"
+                className="flex-1 min-w-0 p-2 bg-[#09111D] text-white border border-slate-700 rounded-lg" />
+              <button type="submit" className="px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">Validar autenticação</button>
+            </form>
+            <p role="status" className="text-slate-300 text-xs">{supabaseAuthStatus}</p>
           </div>
           {/* SAAS CORE */}
             <div>
