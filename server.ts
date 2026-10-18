@@ -73,6 +73,11 @@ app.use(express.json());
       // Ignora rotas públicas
       if (req.path.includes('/auth') || req.path.includes('/webhooks')) return next();
       
+      // Tenant identity cannot be established from a client-controlled header.
+      // Fail closed until server-side Firebase token verification is deployed.
+      if (!req.path.includes('/auth') && !req.path.includes('/webhooks')) {
+        return res.status(503).json({ error: 'API empresarial suspensa até ativar autenticação validada no servidor.' });
+      }
       const companyId = req.headers['x-company-id'] || '1';
       const company = companies.find(c => c.id === companyId);
       
@@ -92,74 +97,9 @@ app.use(express.json());
 
   // --- REST API ROUTES ---
   
-  // Auth
-  app.post('/api/auth/login', (req, res) => {
-    const { email } = req.body || {};
-    const company = companies[0] || {
-      id: '1',
-      name: 'Original Barbershop',
-      niche: 'barbershop',
-      plan: 'premium',
-      status: 'active'
-    };
-    
-    res.json({
-      success: true,
-      token: `jwt_token_${Date.now()}`,
-      user: {
-        id: 'u1',
-        companyId: company.id,
-        email: email || 'admin@bellapdv.com',
-        name: email ? (email.split('@')[0] || 'Administrador') : 'Administrador',
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company
-    });
-  });
-
-  app.post('/api/auth/register', (req, res) => {
-    const { email, name, niche } = req.body || {};
-    const newCompanyId = String(companies.length + 1);
-    const newCompany = {
-      id: newCompanyId,
-      name: name || 'Meu Negócio',
-      niche: niche || 'barbershop',
-      plan: 'premium',
-      asaasCustomerId: `cus_${Date.now()}`,
-      whatsappSessionId: null,
-      status: 'active'
-    };
-    companies.push(newCompany);
-
-    res.json({
-      success: true,
-      token: `jwt_token_${Date.now()}`,
-      user: {
-        id: `u_${newCompanyId}`,
-        companyId: newCompanyId,
-        email: email || 'usuario@bellapdv.com',
-        name: name || (email ? email.split('@')[0] : 'Administrador'),
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company: newCompany
-    });
-  });
-
-  app.get('/api/auth/me', (req, res) => {
-    const company = companies[0];
-    res.json({
-      user: {
-        id: 'u1',
-        companyId: company?.id || '1',
-        name: 'Administrador',
-        email: 'admin@bellapdv.com',
-        role: 'admin',
-        planFeatures: ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm']
-      },
-      company
-    });
+  // Mock authentication endpoints must never issue pseudo-tokens or administrative profiles.
+  app.all(['/api/auth/login', '/api/auth/register', '/api/auth/me'], (_req, res) => {
+    res.status(410).json({ error: 'Autenticação legada desativada. Utilize Firebase Authentication.' });
   });
 
   // Appointments (Simula disparo de evento)
@@ -187,7 +127,11 @@ app.use(express.json());
 
   // Webhooks: Asaas Dunning / Billing
   app.post('/api/webhooks/asaas', (req, res) => {
-      const { customer, event, payment } = req.body;
+      const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+      const receivedToken = req.headers['asaas-access-token'];
+      if (!expectedToken) return res.status(503).json({ error: 'Webhook não configurado.' });
+      if (typeof receivedToken !== 'string' || receivedToken !== expectedToken) return res.sendStatus(401);
+      const { customer, event, payment } = req.body || {};
       console.log(`[ASAAS WEBHOOK] Recebido evento: ${event} do customer: ${customer}`);
 
       const company = companies.find(c => c.asaasCustomerId === customer);
