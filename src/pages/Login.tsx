@@ -24,7 +24,6 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  signInAnonymously,
   updateProfile 
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -71,11 +70,7 @@ export default function Login() {
 
   const fillTestCredentials = () => {
     toast.info('Use credenciais reais cadastradas no Firebase Authentication.');
-    return;
-    toast.info('Credenciais de teste preenchidas!', {
-      description: 'Clique em "Entrar" para prosseguir.',
-      duration: 3000
-    });
+
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -111,7 +106,7 @@ export default function Login() {
 
         // Backend register sync
         let companyData = {
-          id: '1',
+          id: uid,
           name: companyName.trim(),
           niche: selectedNiche
         };
@@ -138,7 +133,7 @@ export default function Login() {
         }
 
         setNiche(selectedNiche);
-        login(newUser, undefined, companyData);
+        // The Firebase auth-state listener grants access based on signed claims.
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
         });
@@ -166,20 +161,11 @@ export default function Login() {
           planFeatures: ['pdv', 'agenda']
         };
 
-        try {
-          await setDoc(doc(db, 'users', uid), {
-            ...loggedUser,
-            lastLogin: new Date().toISOString()
-          }, { merge: true });
-        } catch (docErr) {
-          console.warn('Firestore doc update error:', docErr);
-        }
-
         if (companyData.niche) {
           setNiche(companyData.niche as NicheType);
         }
 
-        login(loggedUser, undefined, companyData);
+        // Auth-state listener, not the login form, establishes the authenticated session.
         toast.success('Login realizado com sucesso!', {
           description: `Bem-vindo de volta, ${loggedUser.name}!`
         });
@@ -213,22 +199,8 @@ export default function Login() {
         planFeatures: ['pdv', 'agenda']
       };
 
-      try {
-        await setDoc(doc(db, 'users', uid), {
-          ...socialUser,
-          provider,
-          lastLogin: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) {
-        console.warn('Error saving social user:', err);
-      }
-
       setNiche(selectedNiche);
-      login(socialUser, undefined, {
-        id: '1',
-        name: `${provider} Empresa`,
-        niche: selectedNiche
-      });
+      // The auth-state listener resolves the trusted identity and tenant.
 
       toast.success(`Conectado com ${provider}!`, {
         description: 'Bem-vindo ao painel BellaPDV.'
