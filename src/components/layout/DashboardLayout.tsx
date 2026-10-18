@@ -346,7 +346,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                  <Logo size="sm" hideText={true} />
               </div>
 
-              {status === 'TRIAL' && (
+              {user?.isDemo && (
+                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-purple-500/15 text-cyan-300 rounded-full border border-cyan-500/30 font-medium text-xs shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    <span className="hidden sm:inline">Modo Demonstração (Acesso Completo)</span>
+                    <span className="sm:hidden">Modo Demo</span>
+                 </div>
+              )}
+
+              {status === 'TRIAL' && !user?.isDemo && (
                  <div className="flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 font-medium text-xs md:text-sm">
                     <Clock className="w-4 h-4 shrink-0" />
                     <span className="hidden xs:inline">Trial gratuito - <span className="font-semibold">0h 6m</span></span>

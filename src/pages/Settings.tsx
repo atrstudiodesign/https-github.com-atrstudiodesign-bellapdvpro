@@ -1,9 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
 import { useNicheStore } from '../store/niche';
-import { Scissors, HeartPulse, Sparkles, Activity, CreditCard, CheckCircle, Shield, Clock, X, ExternalLink, Bell, Mail } from 'lucide-react';
+import { 
+  CreditCard, 
+  CheckCircle, 
+  Shield, 
+  Clock, 
+  X, 
+  ExternalLink, 
+  Bell, 
+  Mail, 
+  Volume2, 
+  Play, 
+  Square, 
+  Save, 
+  Cloud, 
+  Sparkles, 
+  Bot, 
+  Sliders, 
+  Check, 
+  Radio,
+  Zap,
+  RotateCcw
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { 
+  voiceNarration, 
+  BELLA_VOICE_PERSONAS, 
+  BellaVoiceType, 
+  VoiceEngineMode 
+} from '../services/voiceNarrationService';
+import { auth } from '../lib/firebase';
 
 export default function Settings() {
   const { user } = useAuthStore();
@@ -13,6 +41,39 @@ export default function Settings() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [wppAuto, setWppAuto] = useState(true);
   const [emailAuto, setEmailAuto] = useState(false);
+
+  // --- Voice Settings State ---
+  const initialSettings = voiceNarration.getSettings();
+  const [selectedPersona, setSelectedPersona] = useState<BellaVoiceType>(initialSettings.personaType || 'varejista');
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(initialSettings.speed || 1.0);
+  const [voiceVolume, setVoiceVolume] = useState<number>(initialSettings.volume ?? 1.0);
+  const [soundEffects, setSoundEffects] = useState<boolean>(initialSettings.soundEffects ?? true);
+  const [engineMode, setEngineMode] = useState<VoiceEngineMode>(initialSettings.engineMode || 'humanized');
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [previewingPersona, setPreviewingPersona] = useState<BellaVoiceType | null>(null);
+  const [isSavingVoice, setIsSavingVoice] = useState(false);
+  const [voiceSavedSuccess, setVoiceSavedSuccess] = useState(false);
+
+  // Load user settings from Firebase on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadVoicePrefs = async () => {
+      const uid = user?.id || (auth.currentUser ? auth.currentUser.uid : null);
+      if (uid) {
+        await voiceNarration.loadFromFirebase(uid);
+        if (isMounted) {
+          const loaded = voiceNarration.getSettings();
+          setSelectedPersona(loaded.personaType);
+          setVoiceSpeed(loaded.speed);
+          setVoiceVolume(loaded.volume);
+          setSoundEffects(loaded.soundEffects);
+          setEngineMode(loaded.engineMode);
+        }
+      }
+    };
+    loadVoicePrefs();
+    return () => { isMounted = false; };
+  }, [user]);
 
   const toggleWpp = () => {
      setWppAuto(!wppAuto);
@@ -44,8 +105,81 @@ export default function Settings() {
     setSelectedPlan(null);
   };
 
+  // Select persona and update default speed for that persona
+  const handleSelectPersona = (p: BellaVoiceType) => {
+    setSelectedPersona(p);
+    const cfg = BELLA_VOICE_PERSONAS[p];
+    voiceNarration.updateSettings({
+      personaType: p,
+      voice: cfg.gender,
+      speed: cfg.recommendedSpeed,
+    });
+    setVoiceSpeed(cfg.recommendedSpeed);
+    toast.info(`Persona "${cfg.name}" selecionada`, {
+      description: cfg.description,
+      duration: 3000
+    });
+  };
+
+  // Preview voice narration
+  const handlePreviewVoice = async (p?: BellaVoiceType) => {
+    const personaToTest = p || selectedPersona;
+    if (isPlayingPreview) {
+      voiceNarration.stopSpeaking();
+      setIsPlayingPreview(false);
+      setPreviewingPersona(null);
+      return;
+    }
+
+    setIsPlayingPreview(true);
+    setPreviewingPersona(personaToTest);
+    try {
+      await voiceNarration.previewVoice(personaToTest, voiceSpeed);
+    } catch (e) {
+      console.warn('Preview error:', e);
+    } finally {
+      setIsPlayingPreview(false);
+      setPreviewingPersona(null);
+    }
+  };
+
+  // Save voice settings to Firebase Firestore
+  const handleSaveVoicePreferences = async () => {
+    setIsSavingVoice(true);
+    try {
+      voiceNarration.updateSettings({
+        personaType: selectedPersona,
+        speed: voiceSpeed,
+        volume: voiceVolume,
+        soundEffects,
+        engineMode,
+      });
+
+      const uid = user?.id || (auth.currentUser ? auth.currentUser.uid : 'anon_operador');
+      const success = await voiceNarration.saveToFirebase(uid);
+
+      if (success) {
+        setVoiceSavedSuccess(true);
+        setTimeout(() => setVoiceSavedSuccess(false), 3500);
+        toast.success('Preferências de voz salvas no Firebase!', {
+          description: `Persona "${BELLA_VOICE_PERSONAS[selectedPersona].name}" e velocidade ${voiceSpeed.toFixed(2)}x sincronizadas na nuvem.`,
+          duration: 4000
+        });
+      } else {
+        toast.success('Preferências salvas localmente!', {
+          description: 'Configurações ativas no navegador.',
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar preferências de voz.');
+    } finally {
+      setIsSavingVoice(false);
+    }
+  };
+
   return (
-    <div className="max-w-5xl mx-auto flex flex-col gap-10 relative">
+    <div className="max-w-5xl mx-auto flex flex-col gap-10 relative pb-12">
        
        <AnimatePresence>
           {selectedPlan && (
@@ -101,8 +235,413 @@ export default function Settings() {
        <div>
           <h1 className="text-3xl font-display font-semibold tracking-tight text-white">Configurações Avançadas</h1>
           <p className="text-slate-400 mt-2 text-lg">
-             Gerencie as configurações do Bella PDV, nicho de atuação e detalhes da sua assinatura.
+             Gerencie as configurações do Bella PDV, nicho de atuação, preferências de voz e detalhes da sua assinatura.
           </p>
+       </div>
+
+       {/* ========================================================================= */}
+       {/* BELLA IA & JARVIS VOCAL PERSONAS & SPEED CONFIGURATION (SAVED IN FIREBASE) */}
+       {/* ========================================================================= */}
+       <div className="glass-card p-0 border border-blue-500/30 overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.12)]">
+          {/* Card Top Header */}
+          <div className="bg-gradient-to-r from-[#0D1C34] via-[#0C1627] to-[#12112C] p-6 border-b border-[#1A2C47] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+             <div className="flex items-center gap-3">
+               <div className="p-3 bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-400/40 text-blue-400 rounded-2xl shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                 <Bot className="w-7 h-7" />
+               </div>
+               <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-white">Voz & Persona da Bella IA e Jarvis</h2>
+                    <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Nuvem Firebase
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-400">
+                    Selecione a persona vocal, ajuste a velocidade da fala e salve as preferências diretamente no Firebase para toda a equipe.
+                  </p>
+               </div>
+             </div>
+
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={() => handlePreviewVoice()}
+                 className={`px-4 py-2.5 rounded-xl border text-sm font-semibold flex items-center gap-2 transition-all ${
+                   isPlayingPreview 
+                     ? 'bg-amber-500 text-gray-950 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse'
+                     : 'bg-[#0C1627] text-blue-400 border-blue-500/40 hover:bg-blue-500/10 hover:border-blue-400'
+                 }`}
+               >
+                 {isPlayingPreview ? (
+                   <>
+                     <Square className="w-4 h-4 fill-current" />
+                     <span>Parar Áudio</span>
+                   </>
+                 ) : (
+                   <>
+                     <Play className="w-4 h-4 fill-current" />
+                     <span>Testar Voz Atual</span>
+                   </>
+                 )}
+               </button>
+
+               <button
+                 onClick={handleSaveVoicePreferences}
+                 disabled={isSavingVoice}
+                 className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all disabled:opacity-50"
+               >
+                 {isSavingVoice ? (
+                   <>
+                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                     <span>Salvando...</span>
+                   </>
+                 ) : voiceSavedSuccess ? (
+                   <>
+                     <Check className="w-4 h-4 text-emerald-300" />
+                     <span>Salvo no Firebase!</span>
+                   </>
+                 ) : (
+                   <>
+                     <Cloud className="w-4 h-4" />
+                     <span>Salvar no Firebase</span>
+                   </>
+                 )}
+               </button>
+             </div>
+          </div>
+
+          <div className="p-8 space-y-8">
+             {/* 1. SELEÇÃO DE PERSONAS VOCAIS */}
+             <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                      <Volume2 className="w-5 h-5 text-blue-400" /> Escolha o Estilo Vocal da Bella IA
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Vozes humanizadas com entonação expressiva, sem som mecânico ou robótico.
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                    Ativa: <span className="text-white font-semibold">{BELLA_VOICE_PERSONAS[selectedPersona].name}</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {(Object.keys(BELLA_VOICE_PERSONAS) as BellaVoiceType[]).map((pKey) => {
+                    const persona = BELLA_VOICE_PERSONAS[pKey];
+                    const isSelected = selectedPersona === pKey;
+                    const isPreviewingThis = isPlayingPreview && previewingPersona === pKey;
+
+                    return (
+                      <div
+                        key={pKey}
+                        onClick={() => handleSelectPersona(pKey)}
+                        className={`relative rounded-2xl p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected 
+                            ? 'bg-gradient-to-b from-blue-900/40 via-[#0C1627] to-[#0A1220] border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.25)] ring-1 ring-blue-400' 
+                            : 'bg-[#0C1627]/70 border-[#1A2C47] hover:border-[#2A446E] hover:bg-[#0E1A30]'
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-3 right-3 bg-blue-500 text-white rounded-full p-1 shadow">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                              pKey === 'varejista' 
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                                : pKey === 'executivo'
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                : pKey === 'amigavel'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            }`}>
+                              {persona.gender === 'feminino' ? 'Voz Feminina' : 'Voz Masculina'}
+                            </span>
+                            {pKey === 'varejista' && (
+                              <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                Animado / Comercial
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-lg font-bold text-white mb-1 flex items-center gap-1.5">
+                            {persona.name}
+                          </h4>
+                          <p className="text-xs text-slate-400 mb-3 font-medium">
+                            {persona.subtitle}
+                          </p>
+
+                          {/* Persona Natural Prompt Box */}
+                          <div className="bg-[#050B14]/80 border border-white/5 rounded-xl p-2.5 text-xs text-slate-300 italic mb-4 leading-relaxed">
+                            "{persona.naturalPrompt}"
+                          </div>
+
+                          {/* Tags */}
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {persona.tags.map((tag, idx) => (
+                              <span key={idx} className="text-[10px] bg-white/5 border border-white/10 text-slate-400 px-2 py-0.5 rounded-md">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Card Action */}
+                        <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePreviewVoice(pKey);
+                            }}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                              isPreviewingThis 
+                                ? 'bg-amber-500 text-gray-900 font-bold'
+                                : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                            }`}
+                          >
+                            {isPreviewingThis ? (
+                              <>
+                                <Square className="w-3 h-3 fill-current" />
+                                <span>Ouvindo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>Ouvir Amostra</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+             </div>
+
+             {/* 2. CONTROLE DE VELOCIDADE DA FALA */}
+             <div className="bg-[#0C1627] p-6 rounded-2xl border border-[#1A2C47]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                   <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                        <Sliders className="w-5 h-5" />
+                      </div>
+                      <div>
+                         <h3 className="text-base font-semibold text-white">Velocidade da Fala (Cadência do Atendimento)</h3>
+                         <p className="text-xs text-slate-400">
+                           Ajuste a velocidade das narrações automáticas de fechamento de caixa, lembretes e respostas da assistente.
+                         </p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold font-mono text-blue-400">
+                        {voiceSpeed.toFixed(2)}x
+                      </span>
+                      <span className="text-xs text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
+                        {voiceSpeed < 0.95 ? 'Pausado / Calmo' : voiceSpeed > 1.15 ? 'Ultra Rápido' : voiceSpeed > 1.05 ? 'Enérgico / Comercial' : 'Natural'}
+                      </span>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <input
+                     type="range"
+                     min="0.85"
+                     max="1.30"
+                     step="0.05"
+                     value={voiceSpeed}
+                     onChange={(e) => {
+                       const val = parseFloat(e.target.value);
+                       setVoiceSpeed(val);
+                       voiceNarration.updateSettings({ speed: val });
+                     }}
+                     className="w-full h-2.5 bg-[#050B14] rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none"
+                   />
+
+                   <div className="flex items-center justify-between text-xs text-slate-500">
+                     <span>0.85x (Pausado)</span>
+                     <span>1.00x (Equilibrado)</span>
+                     <span>1.10x (Dinâmico / PDV)</span>
+                     <span>1.30x (Acelerado)</span>
+                   </div>
+
+                   {/* Quick Speed Preset Buttons */}
+                   <div className="flex flex-wrap gap-2 pt-2">
+                     <span className="text-xs text-slate-400 self-center mr-1">Atalhos rápidos:</span>
+                     {[
+                       { label: '0.90x Sóbrio', val: 0.90 },
+                       { label: '1.00x Padrão', val: 1.00 },
+                       { label: '1.05x Conversacional', val: 1.05 },
+                       { label: '1.10x Enérgico', val: 1.10 },
+                       { label: '1.20x Comercial', val: 1.20 },
+                     ].map((item) => (
+                       <button
+                         key={item.val}
+                         type="button"
+                         onClick={() => {
+                           setVoiceSpeed(item.val);
+                           voiceNarration.updateSettings({ speed: item.val });
+                           toast.info(`Velocidade ajustada para ${item.val.toFixed(2)}x`);
+                         }}
+                         className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                           Math.abs(voiceSpeed - item.val) < 0.02
+                             ? 'bg-blue-600 text-white border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                             : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                         }`}
+                       >
+                         {item.label}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+             </div>
+
+             {/* 3. MOTOR VOCAL & EFEITOS SONOROS */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Engine Selector */}
+                <div className="bg-[#0C1627] p-5 rounded-2xl border border-[#1A2C47]">
+                   <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-amber-400" /> Motor de Síntese
+                        </h4>
+                        <p className="text-xs text-slate-400">Selecione o motor de reprodução</p>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        {engineMode === 'humanized' ? 'Humanizada BR' : 'Neural Studio'}
+                      </span>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEngineMode('humanized');
+                          voiceNarration.updateSettings({ engineMode: 'humanized' });
+                          toast.success('Motor de Voz Humanizada Brasileira ativado!');
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          engineMode === 'humanized'
+                            ? 'bg-blue-600/20 border-blue-500 text-white'
+                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                         <p className="text-xs font-bold text-white mb-0.5">Humanizada BR</p>
+                         <p className="text-[11px] text-slate-400 leading-tight">Ultra fluida, entonação calorosa e zero latência</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEngineMode('neural');
+                          voiceNarration.updateSettings({ engineMode: 'neural' });
+                          toast.success('Motor Nuvem Neural Gemini ativado!');
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          engineMode === 'neural'
+                            ? 'bg-purple-600/20 border-purple-500 text-white'
+                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                         <p className="text-xs font-bold text-white mb-0.5">Nuvem Gemini TTS</p>
+                         <p className="text-[11px] text-slate-400 leading-tight">Estúdio com descrições naturais completas</p>
+                      </button>
+                   </div>
+                </div>
+
+                {/* Sound Effects & Volume */}
+                <div className="bg-[#0C1627] p-5 rounded-2xl border border-[#1A2C47] flex flex-col justify-between">
+                   <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                          <Radio className="w-4 h-4 text-cyan-400" /> Sinais & Feedback Acústico
+                        </h4>
+                        <p className="text-xs text-slate-400">Beeps e acordes harmônicos de confirmação no PDV</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !soundEffects;
+                          setSoundEffects(nextVal);
+                          voiceNarration.updateSettings({ soundEffects: nextVal });
+                          if (nextVal) voiceNarration.playChime('success');
+                          toast.success(nextVal ? 'Efeitos sonoros ativados' : 'Efeitos sonoros desativados');
+                        }}
+                        className={`w-12 h-6 ${soundEffects ? 'bg-blue-600' : 'bg-slate-700'} rounded-full relative cursor-pointer flex items-center px-1 transition-colors duration-200`}
+                      >
+                         <div className={`w-4 h-4 bg-white rounded-full transition-all duration-200 ${soundEffects ? 'ml-auto' : 'ml-0'}`} />
+                      </button>
+                   </div>
+
+                   <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs text-slate-400">
+                      <span>Volume de Narração: {Math.round(voiceVolume * 100)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newVol = voiceVolume === 1 ? 0.7 : 1;
+                          setVoiceVolume(newVol);
+                          voiceNarration.updateSettings({ volume: newVol });
+                        }}
+                        className="text-blue-400 hover:underline"
+                      >
+                        Alternar Volume
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* Bottom Save Action Bar */}
+             <div className="pt-4 border-t border-[#1A2C47] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                   <Shield className="w-4 h-4 text-emerald-400" />
+                   <span>Suas preferências serão sincronizadas no Firebase Firestore sob a coleção <code className="text-blue-400">voice_settings</code>.</span>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                   <button
+                     type="button"
+                     onClick={() => {
+                       handleSelectPersona('varejista');
+                       setVoiceSpeed(1.10);
+                       voiceNarration.updateSettings({
+                         personaType: 'varejista',
+                         speed: 1.10,
+                         engineMode: 'humanized'
+                       });
+                       toast.info('Restaurado para Varejista (1.10x)');
+                     }}
+                     className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors"
+                   >
+                     <RotateCcw className="w-4 h-4" />
+                     <span>Restaurar Padrão</span>
+                   </button>
+
+                   <button
+                     type="button"
+                     onClick={handleSaveVoicePreferences}
+                     disabled={isSavingVoice}
+                     className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all disabled:opacity-50"
+                   >
+                     {isSavingVoice ? (
+                       <>
+                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                         <span>Gravando no Firebase...</span>
+                       </>
+                     ) : (
+                       <>
+                         <Save className="w-4 h-4" />
+                         <span>Salvar Preferências no Firebase</span>
+                       </>
+                     )}
+                   </button>
+                </div>
+             </div>
+          </div>
        </div>
 
        {/* BILLING & PLANS SECTION */}
@@ -331,5 +870,5 @@ export default function Settings() {
        </div>
 
     </div>
-  )
+  );
 }

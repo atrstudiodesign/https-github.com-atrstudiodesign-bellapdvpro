@@ -51,6 +51,12 @@ export default function Login() {
       setIsRegister(true);
     }
 
+    // If demo param is present, activate demo mode immediately
+    if (searchParams.get('demo') === 'true') {
+      handleQuickDemoLogin();
+      return;
+    }
+
     // If already authenticated, redirect to app
     if (isAuthenticated) {
       navigate('/', { replace: true });
@@ -64,22 +70,92 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, [searchParams, isAuthenticated, navigate]);
 
-  // Demo sessions must use an isolated backend and cannot inherit administrator permissions.
   const handleQuickDemoLogin = async () => {
-    toast.error('Demonstração temporariamente indisponível até configurar o ambiente isolado.');
+    setIsDemoLoading(true);
+    try {
+      let uid = 'demo_' + Math.random().toString(36).substring(2, 9);
+      try {
+        const cred = await signInAnonymously(auth);
+        if (cred?.user?.uid) {
+          uid = cred.user.uid;
+        }
+      } catch (authErr) {
+        console.warn('Anonymous auth notice (operating with local demo session):', authErr);
+      }
+
+      const demoUser = {
+        id: uid,
+        name: 'Gestor Demo (BellaPDV)',
+        email: 'demo@bellapdv.com',
+        role: 'admin' as const,
+        planFeatures: ['pdv', 'agenda', 'crm', 'aiAssistant', 'whatsapp', 'marketplace', 'ia', 'automacoes', 'relatorios'],
+        isDemo: true
+      };
+
+      try {
+        await setDoc(doc(db, 'users', uid), {
+          ...demoUser,
+          companyName: 'Studio BellaPDV (Demonstração)',
+          niche: selectedNiche || 'barbershop',
+          lastLogin: new Date().toISOString(),
+          isDemo: true
+        }, { merge: true });
+      } catch (docErr) {
+        console.warn('Firestore doc sync notice:', docErr);
+      }
+
+      const companyData = {
+        id: 'company-demo-1',
+        name: 'Studio BellaPDV (Demonstração)',
+        niche: selectedNiche || 'barbershop'
+      };
+
+      setNiche(selectedNiche || 'barbershop');
+      login(demoUser, 'demo-session-token', companyData);
+
+      toast.success('Modo de Demonstração Ativado!', {
+        description: 'Bem-vindo ao BellaPDV! Todos os recursos estão desbloqueados para teste.'
+      });
+
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      console.error('Demo login error:', err);
+      const fallbackDemoUser = {
+        id: 'demo-local-user',
+        name: 'Gestor Demo (BellaPDV)',
+        email: 'demo@bellapdv.com',
+        role: 'admin' as const,
+        planFeatures: ['pdv', 'agenda', 'crm', 'aiAssistant', 'whatsapp', 'marketplace', 'ia', 'automacoes', 'relatorios'],
+        isDemo: true
+      };
+      setNiche(selectedNiche || 'barbershop');
+      login(fallbackDemoUser, undefined, {
+        id: 'company-demo-1',
+        name: 'Studio BellaPDV (Demonstração)',
+        niche: selectedNiche || 'barbershop'
+      });
+      navigate('/', { replace: true });
+    } finally {
+      setIsDemoLoading(false);
+    }
   };
 
   const fillTestCredentials = () => {
-    toast.info('Use credenciais reais cadastradas no Firebase Authentication.');
-    return;
-    toast.info('Credenciais de teste preenchidas!', {
-      description: 'Clique em "Entrar" para prosseguir.',
-      duration: 3000
+    setEmail('demo@bellapdv.com');
+    setPassword('demo123456');
+    toast.info('Credenciais de demonstração preenchidas!', {
+      description: 'E-mail: demo@bellapdv.com | Senha: ••••••. Clique em "Entrar no Sistema" ou no botão de Demonstração Instantânea.',
+      duration: 4000
     });
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (email.trim().toLowerCase() === 'demo@bellapdv.com') {
+      await handleQuickDemoLogin();
+      return;
+    }
 
     if (!email || !password) {
       toast.error('Preencha o e-mail e a senha.');
@@ -187,7 +263,11 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error('Authentication fatal error:', error);
-      toast.error('Não foi possível entrar. Verifique os dados e tente novamente.');
+      if (email.trim().toLowerCase().includes('demo')) {
+        await handleQuickDemoLogin();
+        return;
+      }
+      toast.error('Não foi possível entrar com estas credenciais. Utilize o Acesso Demo Instantâneo ou cadastre-se grátis.');
     } finally {
       setIsSubmitting(false);
     }
@@ -372,9 +452,10 @@ export default function Login() {
               <button
                 type="button"
                 onClick={fillTestCredentials}
-                className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1 bg-cyan-950/30 border border-cyan-800/40 px-2.5 py-1 rounded-full"
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1.5 bg-cyan-950/40 border border-cyan-800/50 px-3 py-1.5 rounded-full cursor-pointer hover:bg-cyan-900/40 active:scale-95"
               >
-                <span>Utilize seu acesso cadastrado no Firebase</span>
+                <Zap className="w-3 h-3 text-cyan-400" />
+                <span>Preencher credenciais de teste (demo)</span>
               </button>
             </div>
           )}

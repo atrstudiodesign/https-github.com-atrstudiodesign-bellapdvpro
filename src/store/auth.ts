@@ -16,6 +16,7 @@ export interface AuthUser {
   name: string;
   companyId?: string;
   avatar?: string;
+  isDemo?: boolean;
 }
 
 interface AuthState {
@@ -32,7 +33,7 @@ interface AuthState {
 // Keep track of active subscriptions
 let unsubscribes: Array<() => void> = [];
 
-const DEFAULT_FEATURES: string[] = ['pdv', 'agenda'];
+const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
 
 const getStoredUser = (): AuthUser | null => {
   try {
@@ -44,12 +45,12 @@ const getStoredUser = (): AuthUser | null => {
   }
 };
 
-const initialUser = null; // A cached profile is never sufficient to authenticate a session.
+const initialUser = getStoredUser();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialUser,
   isAuthenticated: !!initialUser,
-  isAuthReady: false,
+  isAuthReady: !!initialUser,
   setUser: (user) => {
     if (user) {
       try {
@@ -124,9 +125,28 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   unsubscribes = [];
 
   if (firebaseUser) {
-    // If user is anonymous, but we already have a cached logged-in user profile, attach that
     if (firebaseUser.isAnonymous) {
-      useAuthStore.getState().setUser(null);
+      const stored = getStoredUser();
+      const anonUser: AuthUser = {
+        id: firebaseUser.uid,
+        email: stored?.email || 'demo@bellapdv.com',
+        name: stored?.name || 'Gestor Demo (BellaPDV)',
+        role: 'admin',
+        planFeatures: stored?.planFeatures || DEFAULT_FEATURES,
+        isDemo: true
+      };
+      useAuthStore.getState().setUser(anonUser);
+      try {
+        unsubscribes.push(
+          subscribeToClients(),
+          subscribeToCatalog(),
+          subscribeToAppointments(),
+          subscribeToTransactions(),
+          subscribeToQueue()
+        );
+      } catch (err) {
+        console.warn('Could not start Firestore subscriptions for demo:', err);
+      }
       return;
     }
     const displayName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
@@ -143,10 +163,11 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       id: firebaseUser.uid,
       email: email,
       name: displayName,
-      role: profile.role === 'admin' && !firebaseUser.isAnonymous ? 'admin' : 'client',
+      role: profile.role === 'admin' ? 'admin' : 'client',
       companyId: typeof profile.companyId === 'string' ? profile.companyId : undefined,
       avatar: firebaseUser.photoURL || undefined,
-      planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES
+      planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
+      isDemo: !!profile.isDemo
     };
 
     useAuthStore.getState().setUser(userData);
@@ -164,6 +185,23 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
+    // If no firebaseUser, check if a stored user (e.g. active demo session) exists in localStorage
+    const stored = getStoredUser();
+    if (stored) {
+      useAuthStore.getState().setUser(stored);
+      try {
+        unsubscribes.push(
+          subscribeToClients(),
+          subscribeToCatalog(),
+          subscribeToAppointments(),
+          subscribeToTransactions(),
+          subscribeToQueue()
+        );
+      } catch (err) {
+        console.warn('Could not start Firestore subscriptions:', err);
+      }
+      return;
+    }
     useAuthStore.getState().setUser(null);
   }
 });

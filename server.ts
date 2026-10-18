@@ -301,7 +301,7 @@ app.use('/api', async (req, res, next) => {
   // --- HIGH-FIDELITY NEURAL TTS API (Voz Humanizada de Baixa Latência) ---
   app.post('/api/ai/tts', async (req, res) => {
       try {
-          const { text, voice = 'feminino', style } = req.body;
+          const { text, voice = 'feminino', style, persona } = req.body;
           if (!text || typeof text !== 'string') {
              return res.status(400).json({ error: "Texto para narração é obrigatório." });
           }
@@ -312,13 +312,14 @@ app.use('/api', async (req, res, next) => {
           }
 
           // 1. FAST IN-MEMORY CACHE CHECK (< 1ms instant zero-latency response)
-          const cacheKey = `${voice}_${cleanedText.slice(0, 150).toLowerCase()}`;
+          const cacheKey = `${persona || voice}_${cleanedText.slice(0, 150).toLowerCase()}`;
           const cached = ttsAudioCache.get(cacheKey);
           if (cached) {
               return res.json({
                   audioBase64: cached.audioBase64,
                   format: cached.format,
                   voice,
+                  persona,
                   voiceName: cached.voiceName,
                   cached: true,
                   fallback: false
@@ -336,13 +337,23 @@ app.use('/api', async (req, res, next) => {
           const { GoogleGenAI } = await import("@google/genai");
           const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
-          // Voice mapping for Portuguese humanized conversational speech:
-          // 'masculino' -> 'Puck' (Warm, friendly, natural conversational voice)
-          // 'feminino' -> 'Kore' (Warm, expressive Brazilian female voice)
-          const voiceName = voice === 'masculino' ? 'Puck' : 'Kore';
-          const defaultStyle = voice === 'masculino'
-              ? 'Locução em português do Brasil com voz masculina super humanizada, calorosa e descontraída, tom natural de conversa entre amigos e assistente pessoal de negócios, cadência fluida com pausas naturais e sem qualquer tom mecânico ou robótico.'
-              : 'Locução em português do Brasil com voz feminina extremamente calorosa, empática, expressiva e natural, tom conversacional e acolhedor sem soar mecânica ou artificial.';
+          // Voice and Persona mapping for persistent natural-language humanized speech
+          let voiceName = voice === 'masculino' ? 'Puck' : 'Kore';
+          let defaultStyle = 'Locução em português do Brasil com voz extremamente calorosa, empática, expressiva e natural.';
+
+          if (persona === 'varejista') {
+              voiceName = voice === 'masculino' ? 'Puck' : 'Aoede';
+              defaultStyle = 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.';
+          } else if (persona === 'executivo') {
+              voiceName = voice === 'masculino' ? 'Charon' : 'Fenrir';
+              defaultStyle = 'Voz executiva, sóbria, elegante e segura com dicção cristalina e postura corporativa impecável.';
+          } else if (persona === 'amigavel') {
+              voiceName = 'Kore';
+              defaultStyle = 'Voz extremamente calorosa, empática, acolhedora e alegre, tom natural de conversa próxima e atenciosa.';
+          } else if (persona === 'jarvis' || voice === 'masculino') {
+              voiceName = 'Puck';
+              defaultStyle = 'Voz masculina inteligente, calorosa, proativa e dinâmica, com entonação confiante de co-piloto de negócios.';
+          }
 
           const styleDescription = style || defaultStyle;
 

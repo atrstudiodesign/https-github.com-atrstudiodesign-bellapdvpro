@@ -77,7 +77,7 @@ export default function Landing() {
              <button onClick={() => navigate('/login?signup=true')} className="w-full sm:w-auto px-8 py-4 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-full transition-all shadow-[0_0_40px_rgba(34,211,238,0.3)] hover:shadow-[0_0_60px_rgba(34,211,238,0.5)] hover:-translate-y-1 flex items-center justify-center gap-2">
                🚀 COMEÇAR TESTE GRATUITO DE 14 DIAS
              </button>
-             <button onClick={() => navigate('/login')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/10 transition-all flex items-center justify-center gap-2">
+             <button onClick={() => navigate('/login?demo=true')} className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/10 transition-all flex items-center justify-center gap-2">
                <Play className="w-5 h-5 fill-current" /> Ver Demonstração
              </button>
            </FadeIn>

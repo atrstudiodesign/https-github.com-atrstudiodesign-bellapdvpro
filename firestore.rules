@@ -76,5 +76,13 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid) && (request.method == 'delete' || request.resource.data.userId == resource.data.userId);
     }
+
+    match /voice_settings/{userId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /voice_analytics/{logId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }

@@ -4,24 +4,89 @@
 
 export type VoicePersona = 'feminino' | 'masculino';
 export type VoiceEngineMode = 'humanized' | 'instant' | 'neural'; 
-// 'humanized' = Natural Brazilian Humanized Voice (Warm, articulate, conversational - RECOMMENDED)
-// 'instant' = Instant Low-Latency Web Speech
-// 'neural' = Cloud Neural Studio TTS (Gemini)
+export type BellaVoiceType = 'executivo' | 'varejista' | 'amigavel' | 'jarvis';
+
+export interface PersonaConfig {
+  id: BellaVoiceType;
+  name: string;
+  subtitle: string;
+  description: string;
+  naturalPrompt: string;
+  gender: VoicePersona;
+  recommendedSpeed: number;
+  pitch: number;
+  rateMultiplier: number;
+  tags: string[];
+}
+
+export const BELLA_VOICE_PERSONAS: Record<BellaVoiceType, PersonaConfig> = {
+  varejista: {
+    id: 'varejista',
+    name: 'Varejista / Animado',
+    subtitle: 'Comercial, enérgica e dinâmica',
+    description: 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.',
+    naturalPrompt: 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.',
+    gender: 'feminino',
+    recommendedSpeed: 1.10,
+    pitch: 1.08,
+    rateMultiplier: 1.08,
+    tags: ['Vendas', 'Promoções', 'Metas batidas', 'Comercial']
+  },
+  executivo: {
+    id: 'executivo',
+    name: 'Executivo',
+    subtitle: 'Sóbria, polida e segura',
+    description: 'Voz executiva, sóbria, elegante e segura com dicção cristalina e postura corporativa impecável.',
+    naturalPrompt: 'Voz executiva, sóbria, elegante e segura com dicção cristalina e postura corporativa impecável.',
+    gender: 'masculino',
+    recommendedSpeed: 0.98,
+    pitch: 0.96,
+    rateMultiplier: 0.96,
+    tags: ['Reuniões', 'Relatórios', 'Corporativo', 'Decisões']
+  },
+  amigavel: {
+    id: 'amigavel',
+    name: 'Amigável',
+    subtitle: 'Calorosa, empática e acolhedora',
+    description: 'Voz extremamente calorosa, empática, acolhedora e alegre, tom natural de conversa próxima e atenciosa.',
+    naturalPrompt: 'Voz extremamente calorosa, empática, acolhedora e alegre, tom natural de conversa próxima e atenciosa.',
+    gender: 'feminino',
+    recommendedSpeed: 1.00,
+    pitch: 1.04,
+    rateMultiplier: 1.00,
+    tags: ['Atendimento', 'Fidelização', 'Recepção', 'Boas-vindas']
+  },
+  jarvis: {
+    id: 'jarvis',
+    name: 'Jarvis Humanizado',
+    subtitle: 'Barítono moderno, resolutivo e ágil',
+    description: 'Voz masculina inteligente, calorosa, proativa e dinâmica, com entonação confiante de co-piloto de negócios.',
+    naturalPrompt: 'Voz masculina inteligente, calorosa, proativa e dinâmica, com entonação confiante de co-piloto de negócios.',
+    gender: 'masculino',
+    recommendedSpeed: 1.02,
+    pitch: 0.98,
+    rateMultiplier: 1.02,
+    tags: ['Comandos de Voz', 'Operação Ágil', 'Caixa', 'Atalhos']
+  }
+};
 
 export interface VoiceSettings {
   voice: VoicePersona;
-  speed: number; // 0.85 to 1.25
+  personaType: BellaVoiceType;
+  speed: number; // 0.85 to 1.30
   volume: number; // 0 to 1
   autoPlay: boolean;
   engineMode: VoiceEngineMode;
   handsFree: boolean; // Continuous conversational listening for operator
   soundEffects: boolean; // Subtle audio cues
+  naturalDescription?: string;
 }
 
 export interface AudioState {
   isSpeaking: boolean;
   isListening: boolean;
   currentVoice: VoicePersona;
+  currentPersona: BellaVoiceType;
   interimTranscript: string;
   volumeLevel: number; // 0 to 1 real-time frequency/amplitude for visualizer
   frequencyData: number[]; // frequency bins for visualizer bars
@@ -57,15 +122,17 @@ class VoiceNarrationService {
   private clientAudioCache: Map<string, string> = new Map();
   private readonly MAX_CLIENT_CACHE = 100;
 
-  // Default to Humanized voice with Jarvis (masculino) as primary assistant
+  // Default to Humanized voice with Varejista / Animado persona for commercial and high energy
   private settings: VoiceSettings = {
-    voice: 'masculino', // Jarvis by default
+    voice: 'feminino',
+    personaType: 'varejista',
     speed: 1.0,
     volume: 1.0,
     autoPlay: true,
     engineMode: 'humanized', // Natural humanized speech
     handsFree: false,
     soundEffects: true,
+    naturalDescription: 'Voz enérgica, calorosa, expressiva e dinâmica, com entonação empolgada.',
   };
 
   constructor() {
@@ -73,9 +140,11 @@ class VoiceNarrationService {
       const saved = localStorage.getItem('bella_voice_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // If user was on old 'neural' mode that was perceived as robotic, upgrade to 'humanized'
         if (parsed.engineMode === 'neural') {
           parsed.engineMode = 'humanized';
+        }
+        if (!parsed.personaType) {
+          parsed.personaType = parsed.voice === 'masculino' ? 'jarvis' : 'varejista';
         }
         this.settings = { ...this.settings, ...parsed };
       }
@@ -106,12 +175,135 @@ class VoiceNarrationService {
 
   public updateSettings(partial: Partial<VoiceSettings>) {
     this.settings = { ...this.settings, ...partial };
+    // Synchronize gender with persona if personaType changed
+    if (partial.personaType && BELLA_VOICE_PERSONAS[partial.personaType]) {
+      const cfg = BELLA_VOICE_PERSONAS[partial.personaType];
+      this.settings.voice = cfg.gender;
+      this.settings.naturalDescription = cfg.naturalPrompt;
+    }
     try {
       localStorage.setItem('bella_voice_settings', JSON.stringify(this.settings));
     } catch (e) {
       console.warn('Could not save voice settings to localStorage', e);
     }
     this.notifyState();
+  }
+
+  // Persist to Firebase Firestore
+  public async saveToFirebase(userId: string): Promise<boolean> {
+    try {
+      const { db } = await import('../lib/firebase');
+      const { doc, setDoc, collection, addDoc } = await import('firebase/firestore');
+
+      const personaConfig = BELLA_VOICE_PERSONAS[this.settings.personaType] || BELLA_VOICE_PERSONAS.varejista;
+      const payload = {
+        userId,
+        personaType: this.settings.personaType,
+        personaName: personaConfig.name,
+        naturalDescription: personaConfig.naturalPrompt,
+        speed: this.settings.speed,
+        volume: this.settings.volume,
+        voice: personaConfig.gender,
+        engineMode: this.settings.engineMode,
+        soundEffects: this.settings.soundEffects,
+        handsFree: this.settings.handsFree,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, 'voice_settings', userId), payload, { merge: true });
+
+      // Record analytic event for usage trends report
+      await addDoc(collection(db, 'voice_analytics'), {
+        userId,
+        persona: this.settings.personaType,
+        personaName: personaConfig.name,
+        speed: this.settings.speed,
+        timestamp: new Date().toISOString(),
+        action: 'save_settings'
+      });
+
+      return true;
+    } catch (e) {
+      console.warn('[VoiceNarration] Error saving to Firebase:', e);
+      return false;
+    }
+  }
+
+  // Load from Firebase Firestore
+  public async loadFromFirebase(userId: string): Promise<boolean> {
+    try {
+      const { db } = await import('../lib/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const snap = await getDoc(doc(db, 'voice_settings', userId));
+      if (snap.exists()) {
+        const data = snap.data();
+        this.updateSettings({
+          personaType: data.personaType || 'varejista',
+          speed: data.speed ?? 1.0,
+          volume: data.volume ?? 1.0,
+          voice: data.voice || 'feminino',
+          engineMode: data.engineMode || 'humanized',
+          soundEffects: data.soundEffects ?? true,
+          handsFree: data.handsFree ?? false,
+          naturalDescription: data.naturalDescription || '',
+        });
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[VoiceNarration] Error loading from Firebase:', e);
+      return false;
+    }
+  }
+
+  // Log usage for analytics trend tracking
+  public async logVoiceUsage(personaType: BellaVoiceType, contextText?: string) {
+    try {
+      const { db } = await import('../lib/firebase');
+      const { collection, addDoc } = await import('firebase/firestore');
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      const personaConfig = BELLA_VOICE_PERSONAS[personaType] || BELLA_VOICE_PERSONAS.varejista;
+      await addDoc(collection(db, 'voice_analytics'), {
+        userId: user?.uid || 'anonymous',
+        userEmail: user?.email || 'equipe@bellapdv.com',
+        persona: personaType,
+        personaName: personaConfig.name,
+        speed: this.settings.speed,
+        timestamp: new Date().toISOString(),
+        context: contextText?.slice(0, 100) || 'narration'
+      });
+    } catch (e) {
+      // Non-blocking telemetry
+    }
+  }
+
+  // Interactive Voice Preview for Settings and Tests
+  public async previewVoice(personaType: BellaVoiceType, speed?: number) {
+    const testPhrases: Record<BellaVoiceType, string> = {
+      varejista: "Venda aprovada! Batemos 120% da meta de hoje no caixa! Vamos para cima com energia total!",
+      executivo: "Resumo financeiro consolidado: margem operacional em alta e fluxo de caixa estabilizado com sucesso.",
+      amigavel: "Olá! Seja muito bem-vindo ao BellaPDV. Como posso ajudar a cuidar do seu negócio hoje?",
+      jarvis: "Sistemas operacionais prontos. Comandos de voz ativos e sincronizados com a frente de caixa."
+    };
+    const phrase = testPhrases[personaType] || "Olá! Esta é uma demonstração da voz da Bella IA.";
+    const personaConfig = BELLA_VOICE_PERSONAS[personaType];
+    return this.speak(phrase, {
+      persona: personaType,
+      voice: personaConfig.gender,
+      speed: speed ?? this.settings.speed,
+    });
+  }
+
+  public testVoice() {
+    return this.previewVoice(this.settings.personaType, this.settings.speed);
+  }
+
+  public isSpeechRecognitionSupported(): boolean {
+    if (typeof window === 'undefined') return false;
+    return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
   }
 
   public subscribe(listener: AudioStateListener) {
@@ -127,6 +319,7 @@ class VoiceNarrationService {
       isSpeaking: this.isSpeaking,
       isListening: this.isListening,
       currentVoice: this.settings.voice,
+      currentPersona: this.settings.personaType,
       interimTranscript: this.interimTranscript,
       volumeLevel: this.volumeLevel,
       frequencyData: [...this.frequencyData],
@@ -388,6 +581,7 @@ class VoiceNarrationService {
     text: string,
     options?: {
       voice?: VoicePersona;
+      persona?: BellaVoiceType;
       speed?: number;
       volume?: number;
       mode?: VoiceEngineMode;
@@ -396,13 +590,19 @@ class VoiceNarrationService {
       onEnd?: () => void;
     }
   ): Promise<boolean> {
-    const selectedVoice = options?.voice || this.settings.voice;
+    const selectedPersona = options?.persona || this.settings.personaType;
+    const personaConfig = BELLA_VOICE_PERSONAS[selectedPersona] || BELLA_VOICE_PERSONAS.varejista;
+    const selectedVoice = options?.voice || personaConfig.gender || this.settings.voice;
     const speed = options?.speed ?? this.settings.speed;
     const volume = options?.volume ?? this.settings.volume;
     const engineMode = options?.mode ?? this.settings.engineMode;
+    const styleDescription = options?.style || personaConfig.naturalPrompt;
 
     const speechText = this.cleanTextForSpeech(text);
     if (!speechText) return false;
+
+    // Track usage non-blockingly
+    this.logVoiceUsage(selectedPersona, speechText);
 
     // Stop any existing playback
     this.stopSpeaking();
@@ -415,11 +615,11 @@ class VoiceNarrationService {
     // 1. DEFAULT & RECOMMENDED: Humanized Natural Voice Engine
     // Produces the warmest, most natural conversational Brazilian Portuguese
     if (engineMode === 'humanized' || engineMode === 'instant') {
-      return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
+      return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd, selectedPersona);
     }
 
     // 2. ALTERNATIVE: Cloud Neural TTS (if specifically enabled)
-    const cacheKey = `${selectedVoice}_${speechText.slice(0, 150).toLowerCase()}`;
+    const cacheKey = `${selectedPersona}_${speechText.slice(0, 150).toLowerCase()}`;
     const localCached = this.clientAudioCache.get(cacheKey);
 
     if (localCached) {
@@ -436,7 +636,8 @@ class VoiceNarrationService {
         body: JSON.stringify({
           text: speechText,
           voice: selectedVoice,
-          style: options?.style,
+          persona: selectedPersona,
+          style: styleDescription,
         }),
         signal: controller.signal,
       });
@@ -460,7 +661,7 @@ class VoiceNarrationService {
     }
 
     // Seamless fallback to humanized Brazilian voice
-    return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd);
+    return this.speakWithWebSpeech(speechText, selectedVoice, speed, volume, options?.onEnd, selectedPersona);
   }
 
   // Play High-Fidelity Audio
@@ -525,7 +726,8 @@ class VoiceNarrationService {
     voicePersona: VoicePersona,
     speed: number,
     volume: number,
-    onEnd?: () => void
+    onEnd?: () => void,
+    personaType?: BellaVoiceType
   ): Promise<boolean> {
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -543,22 +745,17 @@ class VoiceNarrationService {
       utterance.lang = 'pt-BR';
       utterance.volume = volume;
 
-      const isMasculine = voicePersona === 'masculino';
+      const persona = personaType || this.settings.personaType;
+      const personaConfig = BELLA_VOICE_PERSONAS[persona] || BELLA_VOICE_PERSONAS.varejista;
+      const isMasculine = personaConfig.gender === 'masculino' || voicePersona === 'masculino';
       const bestVoice = this.selectBestBrazilianVoice(isMasculine);
       if (bestVoice) {
         utterance.voice = bestVoice;
       }
 
-      // Voice Calibration for Humanized Warmth
-      if (isMasculine) {
-        // JARVIS: Warm, articulate, confident baritone. Not robotic, not high-pitched.
-        utterance.pitch = 0.98;
-        utterance.rate = Math.max(0.92, Math.min(1.15, speed));
-      } else {
-        // BELLA: Warm, friendly, welcoming feminine tone.
-        utterance.pitch = 1.02;
-        utterance.rate = Math.max(0.95, Math.min(1.18, speed));
-      }
+      // Voice Calibration for Humanized Warmth and Specific Persona
+      utterance.pitch = personaConfig.pitch;
+      utterance.rate = Math.max(0.85, Math.min(1.35, speed * personaConfig.rateMultiplier));
 
       // Simulated volume pulsing for visualizer
       let pulseInterval: any = null;
@@ -589,7 +786,6 @@ class VoiceNarrationService {
         this.isSpeaking = false;
         this.currentUtterance = null;
         this.volumeLevel = 0;
-        this.frequencyData = new Array(12).fill(0);
         this.notifyState();
         onEnd?.();
         resolve(false);
@@ -599,84 +795,62 @@ class VoiceNarrationService {
     });
   }
 
-  // Quick voice test
-  public testVoice(persona?: VoicePersona) {
-    const voiceToTest = persona || this.settings.voice;
-    const isJarvis = voiceToTest === 'masculino';
-    const sample = isJarvis
-      ? 'Olá! Sou o Jarvis, seu assistente inteligente no BellaPDV. Minha voz agora está muito mais humanizada e natural, pronta para ajudar você em qualquer comando.'
-      : 'Olá! Sou a Bella. Minha voz foi aprimorada para soar ainda mais humana, calorosa e agradável.';
-    return this.speak(sample, { voice: voiceToTest });
-  }
-
-  // Speech Recognition
-  public isSpeechRecognitionSupported(): boolean {
-    return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
-  }
-
+  // --- Voice Command Recognition Engine ---
   public startListening(callbacks: {
-    onInterim?: (text: string) => void;
-    onFinal?: (text: string) => void;
-    onResult?: (text: string) => void;
-    onEnd?: () => void;
+    onInterim?: (interim: string) => void;
+    onResult?: (transcript: string) => void;
     onError?: (error: string) => void;
+    onEnd?: () => void;
   }): boolean {
-    if (!this.isSpeechRecognitionSupported()) {
+    if (typeof window === 'undefined') return false;
+
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
       callbacks.onError?.('Reconhecimento de voz não suportado neste navegador.');
       return false;
     }
 
-    this.stopSpeaking();
-    this.stopListening();
-
     try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      this.recognition = new SpeechRecognition();
+      this.stopListening();
+
+      this.recognition = new SpeechRecognitionClass();
       this.recognition.lang = 'pt-BR';
       this.recognition.continuous = true;
       this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 1;
 
-      this.isListening = true;
-      this.interimTranscript = '';
-      this.volumeLevel = 0.3;
-      this.notifyState();
-
-      this.playChime('start');
-
       let lastFinalTranscript = '';
 
+      this.recognition.onstart = () => {
+        this.isListening = true;
+        this.interimTranscript = '';
+        this.volumeLevel = 0.4;
+        this.playChime('start');
+        this.notifyState();
+      };
+
       this.recognition.onresult = (event: any) => {
-        let interim = '';
         let currentFinal = '';
+        let currentInterim = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const trans = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            currentFinal += trans;
+          const item = event.results[i];
+          if (item.isFinal) {
+            currentFinal += item[0].transcript;
           } else {
-            interim += trans;
+            currentInterim += item[0].transcript;
           }
         }
 
-        const activeInterim = interim || currentFinal;
-        this.interimTranscript = activeInterim;
-        this.volumeLevel = 0.7;
+        const fullTranscript = (currentFinal || currentInterim).trim();
+        this.interimTranscript = fullTranscript;
+        this.volumeLevel = 0.75;
         this.notifyState();
-        callbacks.onInterim?.(activeInterim);
 
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = null;
-        }
-
-        // Snappy 480ms silence detection for fast response
+        if (this.silenceTimer) clearTimeout(this.silenceTimer);
         this.silenceTimer = setTimeout(() => {
-          const toSend = (currentFinal || interim || lastFinalTranscript).trim();
-          if (toSend && toSend.length > 1) {
-            this.playChime('success');
-            callbacks.onFinal?.(toSend);
-            callbacks.onResult?.(toSend);
+          if (this.interimTranscript.trim()) {
+            callbacks.onResult?.(this.interimTranscript.trim());
             this.interimTranscript = '';
             this.notifyState();
           }
