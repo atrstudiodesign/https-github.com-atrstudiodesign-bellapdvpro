@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/auth';
+import { auth } from '../lib/firebase';
 import { toast } from 'sonner';
 import { ArrowRight, Box, Calendar, Clock, GitBranch, Play, Plus, Smartphone, Zap, X, Filter } from 'lucide-react';
 import { useNicheStore } from '../store/niche';
@@ -40,27 +41,47 @@ export default function Automations() {
   const config = getConfig();
   
   const owner = useAuthStore(state => state.user);
-  const draftStorageKey = owner?.companyId && owner?.id
-    ? `bella_automation_drafts_${owner.companyId}_${owner.id}`
-    : null;
-  // Worker execution is not implemented: keep these as local drafts, not active integrations.
   const [flows, setFlows] = useState<typeof INITIAL_FLOWS>([]);
+  const [loadingFlows, setLoadingFlows] = useState(false);
+  const [savingFlows, setSavingFlows] = useState(false);
   useEffect(() => {
-    if (!draftStorageKey) { setFlows([]); return; }
+    let alive = true;
+    if (!owner?.companyId || !auth.currentUser) { setFlows([]); return; }
+    setLoadingFlows(true);
+    (async () => {
+      try {
+        const token = await auth.currentUser!.getIdToken();
+        const result = await fetch('/api/automations/flows', { headers: { Authorization: 'Bearer ' + token } });
+        if (!result.ok) throw new Error('Falha ao carregar automações do servidor');
+        const payload = await result.json();
+        if (alive) setFlows(payload.flows.map((f: any) => ({ ...f, status: 'paused', stats: 0 })));
+      } catch {
+        if (alive) { setFlows([]); toast.error('Não foi possível carregar automações. Nenhum dado local foi usado como substituto.'); }
+      } finally { if (alive) setLoadingFlows(false); }
+    })();
+    return () => { alive = false; };
+  }, [owner?.companyId, owner?.id]);
+  const saveDrafts = async (next: typeof INITIAL_FLOWS): Promise<boolean> => {
+    if (!owner?.companyId || !auth.currentUser) {
+      toast.error('É necessário entrar na empresa para salvar automações.');
+      return false;
+    }
+    setSavingFlows(true);
     try {
-      const data = JSON.parse(localStorage.getItem(draftStorageKey) || '[]');
-      setFlows(Array.isArray(data) ? data.filter((f): f is typeof INITIAL_FLOWS[number] =>
-        typeof f?.id === 'string' && typeof f?.name === 'string' &&
-        typeof f?.trigger === 'string' && typeof f?.action === 'string'
-      ).map(f => ({ ...f, status: 'paused', stats: 0 })) : []);
-    } catch { setFlows([]); }
-  }, [draftStorageKey]);
-  const saveDrafts = (next: typeof INITIAL_FLOWS) => {
-    if (!draftStorageKey) { toast.error('Entre em uma empresa para salvar seus rascunhos.'); return; }
-    const safe = next.map(f => ({ ...f, status: 'paused', stats: 0 }));
-    try { localStorage.setItem(draftStorageKey, JSON.stringify(safe)); }
-    catch { toast.error('Falha ao salvar rascunhos neste navegador.'); return; }
-    setFlows(safe);
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/automations/flows', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ flows: next })
+      });
+      if (!response.ok) throw new Error('Persistência indisponível');
+      const payload = await response.json();
+      setFlows(payload.flows.map((f: any) => ({ ...f, status: 'paused', stats: 0 })));
+      return true;
+    } catch {
+      toast.error('Falha ao salvar no servidor. As alterações não foram confirmadas.');
+      return false;
+    } finally { setSavingFlows(false); }
   };
   const [viewMode, setViewMode] = useState<'list' | 'builder'>('list');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,7 +107,7 @@ export default function Automations() {
      setViewMode('builder');
   };
 
-  const saveVisualFlow = () => {
+  const saveVisualFlow = async () => {
       const toastId = toast.loading('Salvando rascunho do fluxo...');
       
       const triggerNode = builderNodes.find(n => n.type === 'trigger');
@@ -99,7 +120,7 @@ export default function Automations() {
       }
 
       {
-          saveDrafts([...(editingFlowId ? flows.filter(f => f.id !== editingFlowId) : flows), { 
+          const saved = await saveDrafts([...(editingFlowId ? flows.filter(f => f.id !== editingFlowId) : flows), { 
               id: editingFlowId || crypto.randomUUID(), 
               name: builderFlowName || 'Novo Fluxo Visual', 
               trigger: triggerNode.label, 
@@ -108,20 +129,22 @@ export default function Automations() {
               status: 'paused', 
               stats: 0 
           }]);
+          if (!saved) { toast.dismiss(toastId); return; }
           setViewMode('list');
           setEditingFlowId(null);
-          toast.success('Rascunho visual salvo neste navegador.', { id: toastId, description: 'O envio automático depende de um worker real.' });
+          toast.success('Rascunho visual salvo no servidor.', { id: toastId, description: 'O envio automático depende de um worker real.' });
       }
   };
 
 
-  const handleCreateFlow = (e: React.FormEvent) => {
+  const handleCreateFlow = async (e: React.FormEvent) => {
     e.preventDefault();
     if(!newFlow.name) return;
     
     const toastId = toast.loading('Salvando rascunho...');
     {
-      saveDrafts([...flows, { id: Date.now().toString(), name: newFlow.name, trigger: newFlow.trigger, condition: newFlow.condition, action: newFlow.action, status: 'paused', stats: 0 }]);
+      const saved = await saveDrafts([...flows, { id: crypto.randomUUID(), name: newFlow.name, trigger: newFlow.trigger, condition: newFlow.condition, action: newFlow.action, status: 'paused', stats: 0 }]);
+      if (!saved) { toast.dismiss(toastId); return; }
       setIsModalOpen(false);
       setNewFlow({ name: '', trigger: 'Agenda (Marcada)', condition: 'Qualquer', action: 'Message WPP: Promoção 10%' });
       toast.success('Rascunho salvo.', { id: toastId, description: 'Execução automática não configurada.' });
@@ -129,9 +152,8 @@ export default function Automations() {
   };
 
 
-  const removeDraft = (id: string) => {
-    saveDrafts(flows.filter(f => f.id !== id));
-    toast.info('Rascunho excluído deste navegador.');
+  const removeDraft = async (id: string) => {
+    if (await saveDrafts(flows.filter(f => f.id !== id))) toast.info('Rascunho excluído do servidor.');
   };
 
   const toggleStatus = (_id: string) => {
@@ -228,7 +250,7 @@ export default function Automations() {
       <div className="flex-none h-24 border-b border-[#1A2C47] px-8 flex items-center justify-between bg-[#0C1627] sticky top-0 z-20">
         <div>
           <h1 className="text-2xl font-display font-semibold text-white tracking-tight">Motor de Automações</h1>
-          <p className="text-sm text-slate-400 mt-1">Crie e edite rascunhos locais. Execução e envios automáticos ainda não estão habilitados.</p>
+          <p className="text-sm text-slate-400 mt-1">Rascunhos persistidos no servidor. Envio automático depende da homologação do provedor.</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-cyan-400 to-purple-500 hover:scale-105 transition-all text-black px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-[0_0_15px_rgba(34,211,238,0.3)]">
           <Plus className="w-4 h-4" />
@@ -246,7 +268,7 @@ export default function Automations() {
                     <Zap className="w-5 h-5" />
                  </div>
                  <h3 className="text-lg font-semibold text-white mb-1">Eventos Ativos</h3>
-                 <p className="text-sm text-slate-400 mb-4">Nenhum worker conectado ou execução verificada.</p>
+                 <p className="text-sm text-slate-400 mb-4">Execuções externas aguardando integração homologada.</p>
                  <div className="text-3xl font-display font-bold text-white">0 <span className="text-sm text-purple-400 font-sans">execuções confirmadas</span></div>
               </div>
 
