@@ -75,7 +75,8 @@ app.use(cors({
       const parsed = new URL(origin);
       const allowed = parsed.protocol === 'https:' &&
         (parsed.hostname === 'bellapdvpro.vercel.app' ||
-         parsed.hostname.endsWith('.bellapdvpro.vercel.app'));
+         parsed.hostname === req.hostname ||
+         parsed.hostname.startsWith('https-github-com-atrstudiodesign-bellapdvpro-') && parsed.hostname.endsWith('.vercel.app'));
       return callback(null, allowed);
     } catch { return callback(null, false); }
   },
