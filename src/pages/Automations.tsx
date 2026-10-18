@@ -67,9 +67,11 @@ export default function Automations() {
   const [newFlow, setNewFlow] = useState({ name: '', trigger: 'Agenda (Marcada)', condition: 'Qualquer', action: 'Message WPP: Promoção 10%' });
   const [builderNodes, setBuilderNodes] = useState<any[]>([]);
   const [builderFlowName, setBuilderFlowName] = useState('');
+  const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
 
   const openVisualBuilder = (flow?: typeof INITIAL_FLOWS[0]) => {
      if (flow) {
+        setEditingFlowId(flow.id);
         setBuilderFlowName(flow.name);
         setBuilderNodes([
            { id: '1', type: 'trigger', label: flow.trigger },
@@ -77,6 +79,7 @@ export default function Automations() {
            { id: '3', type: 'action', label: flow.action },
         ].filter(Boolean));
      } else {
+        setEditingFlowId(null);
         setBuilderFlowName('');
         setBuilderNodes([{ id: '1', type: 'trigger', label: 'Selecionar Gatilho' }]);
      }
@@ -96,8 +99,8 @@ export default function Automations() {
       }
 
       {
-          saveDrafts([...flows, { 
-              id: Date.now().toString(), 
+          saveDrafts([...(editingFlowId ? flows.filter(f => f.id !== editingFlowId) : flows), { 
+              id: editingFlowId || crypto.randomUUID(), 
               name: builderFlowName || 'Novo Fluxo Visual', 
               trigger: triggerNode.label, 
               condition: conditionNode ? conditionNode.label : 'Qualquer', 
@@ -106,6 +109,7 @@ export default function Automations() {
               stats: 0 
           }]);
           setViewMode('list');
+          setEditingFlowId(null);
           toast.success('Rascunho visual salvo neste navegador.', { id: toastId, description: 'O envio automático depende de um worker real.' });
       }
   };
@@ -124,6 +128,11 @@ export default function Automations() {
     }
   };
 
+
+  const removeDraft = (id: string) => {
+    saveDrafts(flows.filter(f => f.id !== id));
+    toast.info('Rascunho excluído deste navegador.');
+  };
 
   const toggleStatus = (_id: string) => {
     toast.warning('Ainda não há worker conectado: os fluxos são apenas rascunhos.');
@@ -292,6 +301,9 @@ export default function Automations() {
                         <div className="flex items-center gap-4 ml-6">
                            <button onClick={(e) => { e.stopPropagation(); openVisualBuilder(flow); }} className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-medium transition-colors">
                               Editar Visual
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); removeDraft(flow.id); }} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 rounded-lg text-xs font-medium transition-colors">
+                              Excluir
                            </button>
                            {flow.status === 'active' ? (
                               <div className="w-12 h-6 bg-emerald-500 rounded-full relative cursor-pointer flex items-center px-1 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
