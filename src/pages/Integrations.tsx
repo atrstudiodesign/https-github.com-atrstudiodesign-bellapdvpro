@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap, UserCircle, QrCode, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -19,14 +19,6 @@ export default function Integrations() {
 
   const { evolutionUrl, evolutionKey, asaasKey, geminiKey, setAsaasKey } = useApiKeysStore();
   const [isAsaasIntegrated, setIsAsaasIntegrated] = useState(false);
-
-  useEffect(() => {
-     if (asaasKey) {
-        setIsAsaasIntegrated(true);
-     } else {
-        setIsAsaasIntegrated(false);
-     }
-  }, [asaasKey]);
 
   const handleValidateAsaas = async () => {
       if (!asaasKey) {
