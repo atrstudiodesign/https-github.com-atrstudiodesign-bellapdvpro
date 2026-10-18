@@ -65,14 +65,18 @@ class SystemOperatorService {
     const clients = useClientStore.getState().clients;
     const professionals = useProfessionalStore.getState().professionals;
 
-    const totalRevenue = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
-    const completedSales = transactions.filter(t => t.status === 'completed').length;
+    const completedTransactions = transactions.filter(t => t.status === 'completed');
+    const totalRevenue = completedTransactions.reduce((acc, t) => acc + (t.total || 0), 0);
+    const completedSales = completedTransactions.length;
     const pendingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
     const activeClientsCount = clients.length;
     const activeProsCount = professionals.length;
 
     const sortedAppointments = [...appointments].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
     const nextAppt = sortedAppointments[0] || null;
+    const nextClient = nextAppt ? String((nextAppt as any).client || (nextAppt as any).clientName || 'cliente') : '';
+    const nextTime = nextAppt?.time || 'horário não informado';
+    const nextAppointmentNotice = nextAppt ? `O próximo atendimento é de ${nextClient} às ${nextTime}.` : 'Nenhum próximo agendamento disponível.';
 
     return {
       revenueToday: totalRevenue,
@@ -84,6 +88,7 @@ class SystemOperatorService {
       professionalsCount: activeProsCount,
       professionalsList: professionals.map(p => p.name).join(', '),
       nextAppointment: nextAppt,
+      nextAppointmentNotice,
     };
   }
 
@@ -187,8 +192,8 @@ class SystemOperatorService {
       if (navigate) navigate('/schedule');
       return {
         handled: true,
-        reply: `Abrindo sua **Agenda**! Hoje temos **${snapshot.appointmentsToday} agendamentos** confirmados. O próximo cliente é **${snapshot.nextAppointment.client}** às **${snapshot.nextAppointment.time}**.`,
-        spokenText: `Abrindo sua agenda! Hoje temos ${snapshot.appointmentsToday} agendamentos. O próximo cliente é ${snapshot.nextAppointment.client} às ${snapshot.nextAppointment.time}.`,
+        reply: `Abrindo sua **Agenda**! Hoje temos **${snapshot.appointmentsToday} agendamentos** confirmados. ${snapshot.nextAppointmentNotice}`,
+        spokenText: `Abrindo sua agenda! Hoje temos ${snapshot.appointmentsToday} agendamentos. ${snapshot.nextAppointmentNotice}`,
         actions: [
           { id: '1', label: '📅 Ver Agenda', type: 'NAVIGATE', payload: { path: '/schedule' } },
           { id: '2', label: '💬 Confirmar WhatsApp', type: 'NAVIGATE', payload: { path: '/schedule' } }
