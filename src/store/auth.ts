@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { bellaSupabaseRestore, type BellaSupabaseIdentity } from '../lib/bellaSupabase';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -27,6 +28,7 @@ interface AuthState {
   setAuthReady: (ready: boolean) => void;
   hasFeature: (feature: string) => boolean;
   login: (userData: any, token?: string, company?: any) => void;
+  loginSupabase: (identity: BellaSupabaseIdentity) => void;
   logout: () => Promise<void>;
 }
 
@@ -48,9 +50,9 @@ const getStoredUser = (): AuthUser | null => {
 const initialUser = getStoredUser();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: initialUser,
-  isAuthenticated: !!initialUser,
-  isAuthReady: !!initialUser,
+  user: null,
+  isAuthenticated: false,
+  isAuthReady: false,
   setUser: (user) => {
     if (user) {
       try {
@@ -75,6 +77,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const user = get().user;
     if (!user) return false;
     return user.planFeatures?.includes(feature) ?? false;
+  },
+  loginSupabase: (identity) => {
+    sessionStorage.setItem('bella_supabase_session', JSON.stringify(identity));
+    localStorage.removeItem('bellapdv_auth_user');
+    localStorage.removeItem('bellapdv_auth_token');
+    set({ user: { id: identity.id, email: identity.email, name: identity.email.split('@')[0], companyId: identity.companyId, role: identity.role, planFeatures: DEFAULT_FEATURES }, isAuthenticated: true, isAuthReady: true });
   },
   login: (userData: any, token?: string, company?: any) => {
     const fullUser: AuthUser = {
@@ -103,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     try {
+      sessionStorage.removeItem('bella_supabase_session');
       localStorage.removeItem('bellapdv_auth_user');
       localStorage.removeItem('last_merchant_uid');
       localStorage.removeItem('bellapdv_auth_token');
@@ -119,6 +128,13 @@ let isListenerInitialized = false;
 
 onAuthStateChanged(auth, async (firebaseUser) => {
   isListenerInitialized = true;
+  if (sessionStorage.getItem('bella_supabase_session')) {
+    const identity = await bellaSupabaseRestore();
+    if (identity) {
+      useAuthStore.getState().loginSupabase(identity);
+      return;
+    }
+  }
   
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
@@ -126,26 +142,13 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
+      // Firebase automatically signs anonymous users into public pages.
+      // Do not treat this as an authenticated business or administrator.
       const stored = getStoredUser();
-      const anonUser: AuthUser = {
-        id: firebaseUser.uid,
-        email: stored?.email || 'demo@bellapdv.com',
-        name: stored?.name || 'Gestor Demo (BellaPDV)',
-        role: 'admin',
-        planFeatures: stored?.planFeatures || DEFAULT_FEATURES,
-        isDemo: true
-      };
-      useAuthStore.getState().setUser(anonUser);
-      try {
-        unsubscribes.push(
-          subscribeToClients(),
-          subscribeToCatalog(),
-          subscribeToAppointments(),
-          subscribeToTransactions(),
-          subscribeToQueue()
-        );
-      } catch (err) {
-        console.warn('Could not start Firestore subscriptions for demo:', err);
+      if (stored?.isDemo && stored.id === firebaseUser.uid) {
+        useAuthStore.getState().setUser(stored);
+      } else {
+        useAuthStore.getState().setUser(null);
       }
       return;
     }
@@ -186,22 +189,6 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     }
   } else {
     // If no firebaseUser, check if a stored user (e.g. active demo session) exists in localStorage
-    const stored = getStoredUser();
-    if (stored) {
-      useAuthStore.getState().setUser(stored);
-      try {
-        unsubscribes.push(
-          subscribeToClients(),
-          subscribeToCatalog(),
-          subscribeToAppointments(),
-          subscribeToTransactions(),
-          subscribeToQueue()
-        );
-      } catch (err) {
-        console.warn('Could not start Firestore subscriptions:', err);
-      }
-      return;
-    }
     useAuthStore.getState().setUser(null);
   }
 });
