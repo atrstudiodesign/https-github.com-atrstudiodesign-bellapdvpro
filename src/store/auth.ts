@@ -142,26 +142,13 @@ onAuthStateChanged(auth, async (firebaseUser) => {
 
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
+      // Firebase automatically signs anonymous users into public pages.
+      // Do not treat this as an authenticated business or administrator.
       const stored = getStoredUser();
-      const anonUser: AuthUser = {
-        id: firebaseUser.uid,
-        email: stored?.email || 'demo@bellapdv.com',
-        name: stored?.name || 'Gestor Demo (BellaPDV)',
-        role: 'admin',
-        planFeatures: stored?.planFeatures || DEFAULT_FEATURES,
-        isDemo: true
-      };
-      useAuthStore.getState().setUser(anonUser);
-      try {
-        unsubscribes.push(
-          subscribeToClients(),
-          subscribeToCatalog(),
-          subscribeToAppointments(),
-          subscribeToTransactions(),
-          subscribeToQueue()
-        );
-      } catch (err) {
-        console.warn('Could not start Firestore subscriptions for demo:', err);
+      if (stored?.isDemo && stored.id === firebaseUser.uid) {
+        useAuthStore.getState().setUser(stored);
+      } else {
+        useAuthStore.getState().setUser(null);
       }
       return;
     }
