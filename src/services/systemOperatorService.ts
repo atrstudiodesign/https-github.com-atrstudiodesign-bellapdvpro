@@ -68,26 +68,21 @@ class SystemOperatorService {
     const totalRevenue = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
     const completedSales = transactions.filter(t => t.status === 'completed').length;
     const pendingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
-    const activeClientsCount = clients.length > 0 ? clients.length : 1250;
-    const activeProsCount = professionals.length > 0 ? professionals.length : 4;
+    const activeClientsCount = clients.length;
+    const activeProsCount = professionals.length;
 
     const sortedAppointments = [...appointments].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const nextAppt = sortedAppointments[0] || {
-      client: 'João Silva',
-      service: 'Corte Degradê + Barba',
-      time: '14:30',
-      employee: 'Marcos Barbeiro'
-    };
+    const nextAppt = sortedAppointments[0] || null;
 
     return {
-      revenueToday: totalRevenue > 0 ? totalRevenue : 24680.50,
-      salesCount: completedSales > 0 ? completedSales : 156,
-      averageTicket: totalRevenue > 0 && completedSales > 0 ? totalRevenue / completedSales : 158.30,
+      revenueToday: totalRevenue,
+      salesCount: completedSales,
+      averageTicket: completedSales > 0 ? totalRevenue / completedSales : 0,
       activeClients: activeClientsCount,
-      appointmentsToday: appointments.length > 0 ? appointments.length : 12,
+      appointmentsToday: appointments.length,
       pendingAppointments,
       professionalsCount: activeProsCount,
-      professionalsList: professionals.length > 0 ? professionals.map(p => p.name).join(', ') : 'Marcos, Lucas, Beatriz, Camila',
+      professionalsList: professionals.map(p => p.name).join(', '),
       nextAppointment: nextAppt,
     };
   }
