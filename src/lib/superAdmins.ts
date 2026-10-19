@@ -12,7 +12,8 @@ import type { User } from 'firebase/auth';
 export async function hasPlatformAdminClaim(user: User): Promise<boolean> {
   if (!isSuperAdminEmail(user.email)) return false;
   try {
-    return (await user.getIdTokenResult()).claims.admin === true;
+    // A newly assigned claim is not present in a cached ID token until refresh.
+    return (await user.getIdTokenResult(true)).claims.admin === true;
   } catch (error) {
     console.warn('Cannot verify platform admin claim:', error);
     return false;

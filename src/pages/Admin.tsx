@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../components/ui/Logo';
 import { useAuthStore } from '../store/auth';
+import { isSuperAdminEmail } from '../lib/superAdmins';
 import { toast } from 'sonner';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { db } from '../lib/firebase';
@@ -155,7 +156,7 @@ export default function AdminPanel() {
     // Attempt admin-level fetch
     if (user?.isPlatformAdmin) {
        fetchCompanies();
-    } else {
+    } else if (!isSuperAdminEmail(user?.email)) {
        toast.error("Acesso restrito a administradores do SaaS.");
        navigate('/');
     }
@@ -322,7 +323,9 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-[#030815] text-slate-300 flex flex-col items-center justify-center font-sans">
         <Lock className="w-16 h-16 text-red-500 mb-4" />
         <h1 className="text-3xl font-bold text-white mb-2">Acesso Restrito</h1>
-        <p className="text-slate-500 mb-6">Área exclusiva para administradores da plataforma.</p>
+        <p className="text-slate-500 mb-6 text-center max-w-md">{isSuperAdminEmail(user?.email)
+          ? 'Conta reconhecida. A permissão admin ainda precisa ser ativada no Firebase. Entre novamente após a ativação.'
+          : 'Área exclusiva para administradores da plataforma.'}</p>
         <button onClick={() => navigate('/')} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">Voltar</button>
       </div>
     );
