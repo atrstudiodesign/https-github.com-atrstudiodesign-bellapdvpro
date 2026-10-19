@@ -83,6 +83,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('bellapdv_auth_user');
     localStorage.removeItem('bellapdv_auth_token');
     set({ user: { id: identity.id, email: identity.email, name: identity.email.split('@')[0], companyId: identity.companyId, role: identity.role, planFeatures: DEFAULT_FEATURES }, isAuthenticated: true, isAuthReady: true });
+    unsubscribes.forEach(stop => stop());
+    unsubscribes = [
+      subscribeToClients(), subscribeToCatalog(), subscribeToAppointments(),
+      subscribeToTransactions(), subscribeToQueue()
+    ];
   },
   login: (userData: any, token?: string, company?: any) => {
     const fullUser: AuthUser = {
