@@ -53,7 +53,12 @@ export const useQueueStore = create<QueueStore>((set) => ({
       ownerId
     };
 
-    // ALWAYS write to Firestore to bypass auth for client-side selection
+    if (hasBellaSupabaseSession()) {
+      await bellaInsert('queue', newQueueItem);
+      set(state => ({ queueItems: [...state.queueItems, newQueueItem], isLoaded: true }));
+      return itemId;
+    }
+    // Legacy Firebase-only path
     try {
       await setDoc(doc(db, 'queue', itemId), newQueueItem);
       set((state) => ({ queueItems: [...state.queueItems, newQueueItem] }));
@@ -67,6 +72,14 @@ export const useQueueStore = create<QueueStore>((set) => ({
   },
 
   updateQueueItemStatus: async (id, status) => {
+    if (hasBellaSupabaseSession()) {
+      const current = useQueueStore.getState().queueItems.find(item => item.id === id);
+      if (!current) throw new Error('Fila: item não encontrado');
+      const updated = { ...current, status };
+      await bellaUpdate('queue', updated);
+      set(state => ({ queueItems: state.queueItems.map(item => item.id === id ? updated : item) }));
+      return;
+    }
     try {
       await updateDoc(doc(db, 'queue', id), { status });
       set((state) => ({
@@ -85,6 +98,11 @@ export const useQueueStore = create<QueueStore>((set) => ({
   },
 
   deleteQueueItem: async (id) => {
+    if (hasBellaSupabaseSession()) {
+      await bellaDelete('queue', id);
+      set(state => ({ queueItems: state.queueItems.filter(item => item.id !== id) }));
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'queue', id));
       set((state) => ({
