@@ -1,6 +1,7 @@
 import React, { ReactNode, useState, useEffect } from 'react';
 import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth';
+import { isSuperAdminEmail } from '../../lib/superAdmins';
 import { useNicheStore } from '../../store/niche';
 import { useSubscriptionStore } from '../../store/subscription';
 import { motion, AnimatePresence } from 'motion/react';
@@ -217,14 +218,14 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
               {/* Drawer Footer */}
               <div className="p-4 border-t border-white/5 flex flex-col gap-2">
-                {user?.isPlatformAdmin && (
+                {(user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
                   <Link 
                     to="/admin"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 transition-all bg-white/5"
                   >
                     <Shield className="w-5 h-5" />
-                    <span className="tracking-wide font-medium">Painel Admin</span>
+                    <span className="tracking-wide font-medium">{user?.isPlatformAdmin ? 'Painel Admin' : 'Super admin pendente'}</span>
                   </Link>
                 )}
                 <button 
@@ -336,13 +337,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               Instalar
             </span>
           </button>
-          {user?.isPlatformAdmin && (
+          {(user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
             <Link 
               to="/admin"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 transition-all bg-white/5"
             >
               <Shield className="w-5 h-5" />
-              <span className="tracking-wide font-medium">Painel Admin</span>
+              <span className="tracking-wide font-medium">{user?.isPlatformAdmin ? 'Painel Admin' : 'Super admin pendente'}</span>
             </Link>
           )}
           <button 
