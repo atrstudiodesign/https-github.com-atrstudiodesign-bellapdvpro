@@ -1,3 +1,4 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -39,7 +40,7 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
     if (!auth.currentUser) {
       set((state) => ({ transactions: [transaction, ...state.transactions], isLoaded: true }));
     } else {
-      const data = { ...transaction, ownerId: auth.currentUser.uid };
+      const data = { ...transaction, ownerId: currentFirebaseTenantId() || auth.currentUser.uid };
       await setDoc(doc(db, 'transactions', transaction.id), data);
     }
   },
@@ -60,7 +61,7 @@ export const subscribeToTransactions = () => {
   if (!auth.currentUser) return () => {};
   
   // Notice we must index if we use orderBy, so we'll just sort client-side or use basic where.
-  const q = query(collection(db, 'transactions'), where('ownerId', '==', auth.currentUser.uid));
+  const q = query(collection(db, 'transactions'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
   return onSnapshot(q, (snapshot) => {
     const transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
     // Sort descending by date locally to avoid composite index requirements
