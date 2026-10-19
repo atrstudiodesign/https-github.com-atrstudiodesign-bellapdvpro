@@ -34,10 +34,10 @@ interface AuthState {
 let unsubscribes: Array<() => void> = [];
 
 const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
-const SUPER_ADMIN_EMAIL = 'tramposshop@gmail.com';
+const SUPER_ADMIN_EMAILS = new Set(['tramposshop@gmail.com', 'agtramposof@gmail.com']);
 
 const isSuperAdminEmail = (email?: string | null) =>
-  (email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+  SUPER_ADMIN_EMAILS.has((email || '').trim().toLowerCase());
 
 const getStoredUser = (): AuthUser | null => {
   try {
