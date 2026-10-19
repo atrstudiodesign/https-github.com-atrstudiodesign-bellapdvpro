@@ -164,10 +164,49 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
   return claims;
 }
 
+
+async function verifyBellaSupabaseAccess(token: string): Promise<{ uid: string; companyId: string } | null> {
+  if (token.length > 12000) return null;
+  const url = process.env.VITE_SUPABASE_URL;
+  const apikey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !apikey) return null;
+  try {
+    const controller = AbortSignal.timeout(8000);
+    const userResponse = await fetch(url + '/auth/v1/user', {
+      headers: { apikey, Authorization: 'Bearer ' + token }, signal: controller,
+    });
+    if (!userResponse.ok) return null;
+    const user: any = await userResponse.json();
+    if (typeof user.id !== 'string') return null;
+    const memberships = await fetch(url + '/rest/v1/bella_memberships?select=company_id,role&limit=2', {
+      headers: { apikey, Authorization: 'Bearer ' + token }, signal: controller,
+    });
+    if (!memberships.ok) return null;
+    const rows: any = await memberships.json();
+    if (!Array.isArray(rows) || rows.length !== 1 || typeof rows[0]?.company_id !== 'string') return null;
+    return { uid: user.id, companyId: rows[0].company_id };
+  } catch { return null; }
+}
+
 // Restrict API access to verified identities and server-issued custom tenant claims.
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
+  if (req.path === '/ai/tts') {
+    const bearer = req.headers.authorization;
+    if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Autenticação obrigatória para narração IA.' });
+    const token = bearer.slice(7);
+    const supabaseIdentity = await verifyBellaSupabaseAccess(token);
+    if (supabaseIdentity) { (req as any).verifiedTenant = supabaseIdentity.companyId; return next(); }
+    try {
+      const claims = await verifyFirebaseIdToken(token);
+      if (typeof claims.companyId === 'string' && claims.companyId.length > 0) {
+        (req as any).verifiedTenant = claims.companyId;
+        return next();
+      }
+    } catch {}
+    return res.status(403).json({ error: 'Usuário sem autorização para IA.' });
+  }
   if (req.path.startsWith('/ai/') || req.path.startsWith('/gemini/')) return next();
 
   const authorization = req.headers.authorization;
