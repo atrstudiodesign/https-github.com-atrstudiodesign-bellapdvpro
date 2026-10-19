@@ -153,7 +153,7 @@ app.use(['/api/ai', '/api/gemini', '/api/auth'], (req, res, next) => {
 
 // Verify Firebase ID tokens against Google's Secure Token signing certificates.
 // Never trust user-supplied roles, company IDs, or unverified JWT payloads.
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0731708491';
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'bellapdv-15ae0';
 const FIREBASE_CERT_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 let cachedCerts: Record<string, string> = {};
 let certsExpireAt = 0;

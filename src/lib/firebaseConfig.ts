@@ -1,10 +1,9 @@
 export default {
-  "projectId": "gen-lang-client-0731708491",
-  "appId": "1:564684497286:web:83bddf5e91ca0b49c5cc07",
-  "apiKey": "AIzaSyDQwlGEyL__yS31Ay3zDax6qoTckd04ub8",
-  "authDomain": "gen-lang-client-0731708491.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-508781f5-edff-4cd1-bffa-1334db3e7e39",
-  "storageBucket": "gen-lang-client-0731708491.firebasestorage.app",
-  "messagingSenderId": "564684497286",
-  "measurementId": ""
+  projectId: "bellapdv-15ae0",
+  appId: "1:900779146185:web:82cbcde0f0533e65640618",
+  apiKey: "AIzaSyABIrHCQUQPPGAkQlm1xv-B2A71YgO-TJ0",
+  authDomain: "bellapdv-15ae0.firebaseapp.com",
+  storageBucket: "bellapdv-15ae0.firebasestorage.app",
+  messagingSenderId: "900779146185",
+  measurementId: "G-J4Q76TGVD0"
 };

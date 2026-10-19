@@ -3,15 +3,14 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  projectId: "gen-lang-client-0731708491",
-  appId: "1:564684497286:web:83bddf5e91ca0b49c5cc07",
-  apiKey: "AIzaSyDQwlGEyL__yS31Ay3zDax6qoTckd04ub8",
-  authDomain: "gen-lang-client-0731708491.firebaseapp.com",
-  storageBucket: "gen-lang-client-0731708491.firebasestorage.app",
-  messagingSenderId: "564684497286"
+  projectId: "bellapdv-15ae0",
+  appId: "1:900779146185:android:46245c0db76fee7a640618",
+  apiKey: "AIzaSyABIrHCQUQPPGAkQlm1xv-B2A71YgO-TJ0",
+  authDomain: "bellapdv-15ae0.firebaseapp.com",
+  storageBucket: "bellapdv-15ae0.firebasestorage.app",
+  messagingSenderId: "900779146185"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-508781f5-edff-4cd1-bffa-1334db3e7e39");
+export const db = getFirestore(app);
 export const auth = getAuth(app);
