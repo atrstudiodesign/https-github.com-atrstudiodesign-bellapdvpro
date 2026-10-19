@@ -6,7 +6,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
-import { createVerify, X509Certificate } from 'node:crypto';
+import { createVerify, X509Certificate, createHash } from 'node:crypto';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -84,6 +84,43 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '256kb' }));
+
+// Shared, atomic rate limit via the dedicated Bella Supabase Postgres database.
+// Fail closed on protected API groups if shared counter is unavailable.
+async function sharedBellaRateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (url !== 'https://nmaqharvngnklkmwkwni.supabase.co' || !serviceKey) {
+    return res.status(503).json({ error: 'Proteção global indisponível; solicitação bloqueada.' });
+  }
+  const pathGroup = req.path.startsWith('/api/auth/') ? 'auth' : 'ai';
+  const limit = pathGroup === 'auth' ? 12 : 15;
+  const windowStart = Math.floor(Date.now() / 60000);
+  // Use server-verified ingress address; never accept arbitrary x-forwarded-for.
+  const ip = req.socket.remoteAddress || 'unknown';
+  const keyHash = createHash('sha256').update(pathGroup + ':' + ip).digest('hex');
+  try {
+    const response = await fetch(url + '/rest/v1/rpc/bella_consume_rate_limit', {
+      method: 'POST',
+      headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_key_hash: keyHash, p_window_start: windowStart, p_max_requests: limit }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return res.status(503).json({ error: 'Proteção global indisponível.' });
+    const count = Number(await response.json());
+    if (!Number.isSafeInteger(count)) return res.status(503).json({ error: 'Contador global inválido.' });
+    res.setHeader('RateLimit-Limit', String(limit));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, limit - count)));
+    if (count > limit) {
+      res.setHeader('Retry-After', String(60 - (Math.floor(Date.now() / 1000) % 60)));
+      return res.status(429).json({ error: 'Limite de solicitações atingido. Tente novamente em breve.' });
+    }
+    next();
+  } catch {
+    return res.status(503).json({ error: 'Proteção global temporariamente indisponível.' });
+  }
+}
+app.use(['/api/ai', '/api/gemini', '/api/auth'], sharedBellaRateLimit);
 
 // Best-effort per-instance throttle; serverless instances do not share counters.
 // A distributed Redis/Upstash limiter is still required for strict global quotas.
