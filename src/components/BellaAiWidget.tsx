@@ -340,9 +340,17 @@ export function BellaAiWidget() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
 
+      const { auth } = await import('../lib/firebase');
+      const storedSupabase = (() => {
+        try { return JSON.parse(sessionStorage.getItem('bella_supabase_session') || 'null'); }
+        catch { return null; }
+      })();
+      const bearer = storedSupabase?.token ||
+        (auth.currentUser && !auth.currentUser.isAnonymous ? await auth.currentUser.getIdToken() : null);
+      if (!bearer) throw new Error('Sessão válida necessária para Bella IA');
       const response = await fetch('/api/gemini/generateContent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + bearer },
         body: JSON.stringify({
           contents: contentsForApi,
           model: 'gemini-3-flash-preview',
