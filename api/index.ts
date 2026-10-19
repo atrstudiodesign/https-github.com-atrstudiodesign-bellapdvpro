@@ -166,7 +166,7 @@ app.use('/api', async (req, res, next) => {
     return res.status(401).json({ error: 'Identidade não verificada.' });
   }
   const tenantId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
-  (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true, companyId: tenantId };
+  (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true, companyId: tenantId, provider: claims.firebase?.sign_in_provider };
   if (req.path === '/auth/me') return next();
 
   const companyId = tenantId;
@@ -481,10 +481,12 @@ app.use('/api', async (req, res, next) => {
   // --- ASAAS PROXY ROUTES ---
   app.post('/api/asaas/proxy', async (req, res) => {
       try {
+          if ((req as any).firebaseUser?.provider === 'anonymous') {
+              return res.status(403).json({ error: 'Conta de demonstração não pode acessar cobranças.' });
+          }
           const { path, method, body } = req.body;
-          const key = process.env.ASAAS_API_KEY;
           const clientKey = req.headers['x-asaas-key'] as string;
-          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : key;
+          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : null;
           
           if (!effectiveKey) {
              return res.status(400).json({ error: "Chave da API do Asaas não configurada nas configurações." });

@@ -9,10 +9,12 @@ import { toast, Toaster } from 'sonner';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAuthStore } from '../store/auth';
 
 export default function Totem({ publicMode = false }: { publicMode?: boolean }) {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const { items, setItems } = useCatalogStore();
   const { addAppointment } = useAppointmentStore();
   const { addQueueItem } = useQueueStore();
@@ -103,7 +105,7 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
   
   const displayServices = realCatalogServices.length > 0 
     ? realCatalogServices.map(i => ({ id: i.id, name: i.name, price: i.price, duration: i.duration || '30 min' }))
-    : defaultNicheServices[currentNicheType];
+    : (isDemo ? defaultNicheServices[currentNicheType] : []);
 
   const handleStartTotem = () => {
     setKioskStep('indent');

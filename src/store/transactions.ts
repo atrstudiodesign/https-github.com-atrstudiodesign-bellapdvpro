@@ -37,7 +37,7 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
   setTransactions: (transactions) => set({ transactions, isLoaded: true }),
   addTransaction: async (transaction) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({ transactions: [transaction, ...state.transactions], isLoaded: true }));
     } else {
       const data = { ...transaction, ownerId: currentFirebaseTenantId() || auth.currentUser.uid };
@@ -46,7 +46,7 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
   },
   updateTransaction: async (id, updates) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         transactions: state.transactions.map((t) => (t.id === id ? { ...t, ...updates } : t)),
       }));

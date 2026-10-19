@@ -57,6 +57,7 @@ import {
   query 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAuthStore } from '../store/auth';
 
 // ==========================================
 // INTERFACES & DATA SCHEMAS
@@ -294,6 +295,10 @@ const areaData = [
 ];
 
 export default function Marketplace() {
+  const userId = useAuthStore(state => state.user?.id);
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
+  const isPlatformAdmin = useAuthStore(state => state.user?.isPlatformAdmin === true);
+  const storageKey = (name: string) => `bella_marketplace_${userId || 'signed-out'}_${name}`;
   const [activeTab, setActiveTab] = useState<'store' | 'recursos' | 'builder' | 'superadmin'>('store');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -301,83 +306,65 @@ export default function Marketplace() {
   // Local storage cache or dynamic states
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>(() => {
     try {
-      const saved = localStorage.getItem('bella_marketplace_installed');
+      localStorage.removeItem('bella_marketplace_installed');
+      const saved = localStorage.getItem(storageKey('installed'));
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
+    return isDemo ? [
       { appId: 'whatsapp_premium', status: 'active', installedAt: '2026-06-01', premiumAgreement: true },
       { appId: 'campaigns_auto', status: 'active', installedAt: '2026-06-10', premiumAgreement: false }
-    ];
+    ] : [];
   });
 
   const [addonRequests, setAddonRequests] = useState<AddonRequest[]>(() => {
     try {
-      const saved = localStorage.getItem('bella_marketplace_requests');
+      localStorage.removeItem('bella_marketplace_requests');
+      const saved = localStorage.getItem(storageKey('requests'));
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
+    return isDemo ? [
       { id: 'req_1', companyId: 'comp_99', companyName: 'Bella Studio Moema', addon: 'bella_ia_marketing', addonName: 'IA Marketing e Assistente', status: 'pending', plan: 'Pro', requestedAt: '2026-06-19 14:12', cost: 39.90 },
       { id: 'req_2', companyId: 'comp_102', companyName: 'Studio Glamour Jardins', addon: 'whatsapp_premium', addonName: 'WhatsApp Business', status: 'pending', plan: 'Básico', requestedAt: '2026-06-19 12:45', cost: 19.90 },
       { id: 'req_3', companyId: 'comp_77', companyName: 'Barbearia Navalha de Ouro', addon: 'white_label', addonName: 'White Label Customizer', status: 'approved', plan: 'Premium', requestedAt: '2026-06-18 10:20', cost: 99.90 }
-    ];
+    ] : [];
   });
 
   const [automations, setAutomations] = useState<AutomationFlow[]>(() => {
     try {
-      const saved = localStorage.getItem('bella_marketplace_automations');
+      localStorage.removeItem('bella_marketplace_automations');
+      const saved = localStorage.getItem(storageKey('automations'));
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
+    return isDemo ? [
       { id: 'auto_1', name: 'Alerta Automático de Cliente Sumido', trigger: 'Cliente inativo há 30 dias', actions: ['Criar Cupom de 15%', 'Disparar WhatsApp'], enabled: true, executedCount: 124, lastExecuted: '2026-06-19 18:22' },
       { id: 'auto_2', name: 'NPS de Avaliação de Visita', trigger: 'Serviço finalizado no PDV', actions: ['Enviar WhatsApp com Link Google Reviews'], enabled: true, executedCount: 382, lastExecuted: '2026-06-19 20:02' }
-    ];
+    ] : [];
   });
 
   const [licenses, setLicenses] = useState<CompanyLicense[]>([]);
 
-  // Subscribe to real-time company_licenses state in Firestore with automatic seeding if empty
+  // License enumeration requires the verified platform admin claim.
   useEffect(() => {
-    const qCol = collection(db, 'company_licenses');
-    const unsubscribe = onSnapshot(qCol, async (snapshot) => {
-      if (snapshot.empty) {
-        const initialLicenses: CompanyLicense[] = [
-          { id: 'comp_99', name: 'Bella Studio Moema', plan: 'Prata', status: 'active', expireDate: '2026-12-31', aiUsage: 45, waUsage: 1240, unitsCount: 1, maxUsers: 5 },
-          { id: 'comp_102', name: 'Studio Glamour Jardins', plan: 'Bronze', status: 'trial', expireDate: '2026-06-25', aiUsage: 12, waUsage: 350, unitsCount: 1, maxUsers: 2 },
-          { id: 'comp_77', name: 'Barbearia Navalha de Ouro', plan: 'Ouro', status: 'active', expireDate: '2027-01-15', aiUsage: 89, waUsage: 4310, unitsCount: 3, maxUsers: 15 },
-          { id: 'comp_203', name: 'Estética Slim Corp', plan: 'Ouro', status: 'active', expireDate: '2026-09-10', aiUsage: 62, waUsage: 2190, unitsCount: 2, maxUsers: 10 }
-        ];
-        
-        for (const lic of initialLicenses) {
-          try {
-            await setDoc(doc(db, 'company_licenses', lic.id), lic);
-          } catch (e) {
-            console.error('Erro ao semear licença:', e);
-          }
-        }
-      } else {
-        const loaded: CompanyLicense[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          loaded.push({
-            id: docSnap.id,
-            name: data.name || '',
-            plan: data.plan || 'Bronze',
-            status: data.status || 'active',
-            expireDate: data.expireDate || '',
-            aiUsage: typeof data.aiUsage === 'number' ? data.aiUsage : 0,
-            waUsage: typeof data.waUsage === 'number' ? data.waUsage : 0,
-            unitsCount: typeof data.unitsCount === 'number' ? data.unitsCount : 1,
-            maxUsers: typeof data.maxUsers === 'number' ? data.maxUsers : 5,
-          });
-        });
-        setLicenses(loaded);
-      }
-    }, (error) => {
-      console.error('Erro ao ler coleção company_licenses:', error);
-    });
-
+    if (!isPlatformAdmin) { setLicenses([]); return; }
+    const unsubscribe = onSnapshot(collection(db, 'company_licenses'), (snapshot) => {
+      const loaded: CompanyLicense[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          name: data.name || '',
+          plan: data.plan || 'Bronze',
+          status: data.status || 'active',
+          expireDate: data.expireDate || '',
+          aiUsage: typeof data.aiUsage === 'number' ? data.aiUsage : 0,
+          waUsage: typeof data.waUsage === 'number' ? data.waUsage : 0,
+          unitsCount: typeof data.unitsCount === 'number' ? data.unitsCount : 1,
+          maxUsers: typeof data.maxUsers === 'number' ? data.maxUsers : 5,
+        };
+      });
+      setLicenses(loaded);
+    }, error => console.error('Erro ao ler licenças:', error));
     return () => unsubscribe();
-  }, []);
+  }, [isPlatformAdmin]);
 
   // CRUD state of licenses (Cérebro Comercial)
   const [editingLicense, setEditingLicense] = useState<CompanyLicense | null>(null);
@@ -475,21 +462,21 @@ export default function Marketplace() {
   // Log notifications state
   useEffect(() => {
     try {
-      localStorage.setItem('bella_marketplace_installed', JSON.stringify(installedApps));
+      if (userId) localStorage.setItem(storageKey('installed'), JSON.stringify(installedApps));
     } catch {}
-  }, [installedApps]);
+  }, [installedApps, userId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('bella_marketplace_requests', JSON.stringify(addonRequests));
+      if (userId) localStorage.setItem(storageKey('requests'), JSON.stringify(addonRequests));
     } catch {}
-  }, [addonRequests]);
+  }, [addonRequests, userId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('bella_marketplace_automations', JSON.stringify(automations));
+      if (userId) localStorage.setItem(storageKey('automations'), JSON.stringify(automations));
     } catch {}
-  }, [automations]);
+  }, [automations, userId]);
 
   // Request activation of addon handler
   const requestAddonActivation = (addonId: string, addonName: string, cost: number) => {

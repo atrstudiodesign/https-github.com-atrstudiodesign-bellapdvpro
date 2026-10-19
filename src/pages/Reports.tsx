@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
 
 const mockPerformanceData = [
   { name: 'Corte Degradê', uv: 4000, pv: 2400 },
@@ -63,13 +64,14 @@ const defaultVoiceTrends: VoiceTrendItem[] = [
 export default function Reports() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
 
   const [aiInput, setAiInput] = useState('');
-  const [aiResponse, setAiResponse] = useState('"Analisando os últimos 7 dias, notei que a <strong>Sobrancelha</strong> teve um aumento de 15% na demanda durante o período da tarde. Sugiro alocar mais ' + config.terminology.employee + 's disponíveis entre 14h e 17h."');
+  const [aiResponse, setAiResponse] = useState('');
   
   // Voice trends state loaded from Firebase
-  const [voiceData, setVoiceData] = useState<VoiceTrendItem[]>(defaultVoiceTrends);
-  const [totalVoiceEvents, setTotalVoiceEvents] = useState(297);
+  const [voiceData, setVoiceData] = useState<VoiceTrendItem[]>(isDemo ? defaultVoiceTrends : []);
+  const [totalVoiceEvents, setTotalVoiceEvents] = useState(isDemo ? 297 : 0);
 
   // Load team voice usage analytics from Firebase
   useEffect(() => {
@@ -98,18 +100,16 @@ export default function Reports() {
           });
 
           // Blend with baseline so the visualization is informative immediately
-          const combined = [
-            { id: 'varejista', name: 'Varejista (Animado)', count: 142 + counts.varejista * 5, fill: '#F59E0B', speed: '1.10x', tag: 'Comercial & Vendas' },
-            { id: 'amigavel', name: 'Amigável', count: 78 + counts.amigavel * 5, fill: '#A855F7', speed: '1.00x', tag: 'Acolhedor' },
-            { id: 'executivo', name: 'Executivo', count: 45 + counts.executivo * 5, fill: '#3B82F6', speed: '0.98x', tag: 'Corporativo' },
-            { id: 'jarvis', name: 'Jarvis Humanizado', count: 32 + counts.jarvis * 5, fill: '#06B6D4', speed: '1.02x', tag: 'Comandos Ágeis' },
-          ];
+          const combined = defaultVoiceTrends.map(persona => ({
+            ...persona,
+            count: counts[persona.id] || 0
+          }));
 
           const total = combined.reduce((acc, curr) => acc + curr.count, 0);
           setTotalVoiceEvents(total);
           setVoiceData(combined.map(item => ({
             ...item,
-            percentage: Math.round((item.count / total) * 100)
+            percentage: total ? Math.round((item.count / total) * 100) : 0
           })));
         }
       } catch (err) {
@@ -124,6 +124,10 @@ export default function Reports() {
 
   const askAI = () => {
      if (!aiInput.trim()) return;
+     if (!isDemo) {
+       toast.info('Insights estarão disponíveis quando houver dados reais suficientes.');
+       return;
+     }
      const id = toast.loading('Analisando dados...');
      setTimeout(() => {
         setAiResponse(`"Com base nos seus dados atuais, ${aiInput.toLowerCase().includes('lucro') ? 'o seu dia mais lucrativo está sendo a sexta-feira, recomendo investir em promoções na terça-feira' : 'os clientes estão com uma recorrência média de 15 dias. Continuem com as automações de WhatsApp ativas.'}"`);
@@ -152,7 +156,7 @@ export default function Reports() {
             <h3 className="text-lg font-semibold tracking-tight text-white mb-6">Top {config.terminology.service}s</h3>
             <div className="h-[300px] w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={mockPerformanceData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                 <BarChart data={isDemo ? mockPerformanceData : []} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                    <XAxis dataKey="name" stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} tickLine={false} axisLine={false} />
                    <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} tickLine={false} axisLine={false} />
@@ -174,7 +178,7 @@ export default function Reports() {
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
                    <Pie
-                     data={mockPieData}
+                     data={isDemo ? mockPieData : []}
                      cx="50%"
                      cy="50%"
                      innerRadius={60}
@@ -182,7 +186,7 @@ export default function Reports() {
                      paddingAngle={5}
                      dataKey="value"
                    >
-                     {mockPieData.map((entry, index) => (
+                     {(isDemo ? mockPieData : []).map((entry, index) => (
                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                      ))}
                    </Pie>

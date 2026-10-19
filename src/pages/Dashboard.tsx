@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { whatsappService } from '../services/whatsappService';
 import { useApiKeysStore } from '../store/apiKeys';
+import { useAuthStore } from '../store/auth';
 
 const mockChartData = [
   { name: 'Seg', uv: 4000, pv: 2400 },
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const { currentNiche, setNiche, getConfig } = useNicheStore();
   const config = getConfig();
   const navigate = useNavigate();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   
   const { transactions } = useTransactionStore();
   const { clients, addClient } = useClientStore();
@@ -70,8 +72,18 @@ export default function Dashboard() {
      activeClients: activeClients,
      averageTicket: averageTicket
   };
+  const chartData = isDemo ? mockChartData : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((name, day) => ({
+    name,
+    uv: transactions.filter(t => t.status === 'completed' && new Date(t.date).getDay() === day).reduce((sum, t) => sum + t.total, 0),
+    pv: 0
+  }));
 
   const handleConfigIA = () => {
+     if (!isDemo) {
+        setActiveModal('add_service');
+        toast.info('Cadastre seus serviços reais para começar. Dados de exemplo ficam apenas na demonstração.');
+        return;
+     }
      const toastId = toast.loading('Motor de IA analisando o nicho...');
      
      setTimeout(() => {
@@ -241,6 +253,10 @@ export default function Dashboard() {
        setAiReport(data.text);
      } catch (error: any) {
         console.warn("Erro ao gerar insights via API (utilizando inteligência híbrida de contingência):", error);
+        if (!isDemo) {
+           setAiReport('Não foi possível gerar a análise dos dados reais agora. Tente novamente mais tarde.');
+           return;
+        }
         
         // Premium Fallback engine provides flawless consulting reports tailored to their data
         const fallbackReports: Record<string, string> = {
@@ -368,10 +384,10 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
   };
 
   const stats = [
-    { label: 'Faturamento (7 dias)', value: `R$ ${data?.revenue?.toFixed(2) || '0.00'}`, icon: DollarSign, change: '+23.5%' },
-    { label: `${config.terminology.appointment}s`, value: data?.appointments || 0, icon: Calendar, change: '+18.2%' },
-    { label: `${config.terminology.client}s Ativos`, value: data?.activeClients || 0, icon: Users, change: '+15.7%' },
-    { label: 'Ticket Médio', value: `R$ ${data?.averageTicket?.toFixed(2) || '0.00'}`, icon: TrendingUp, change: '+12.3%' },
+    { label: 'Faturamento', value: `R$ ${data?.revenue?.toFixed(2) || '0.00'}`, icon: DollarSign, change: isDemo ? '+23.5%' : '' },
+    { label: `${config.terminology.appointment}s`, value: data?.appointments || 0, icon: Calendar, change: isDemo ? '+18.2%' : '' },
+    { label: `${config.terminology.client}s Ativos`, value: data?.activeClients || 0, icon: Users, change: isDemo ? '+15.7%' : '' },
+    { label: 'Ticket Médio', value: `R$ ${data?.averageTicket?.toFixed(2) || '0.00'}`, icon: TrendingUp, change: isDemo ? '+12.3%' : '' },
   ];
 
   return (
@@ -495,12 +511,12 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
          </div>
          <div className="relative z-10 border border-purple-500/40 bg-purple-500/10 p-5 rounded-xl w-full md:w-1/4 shadow-inner flex flex-col items-center justify-center space-y-3">
              <Bot className="w-8 h-8 text-purple-400" />
-             <p className="text-xs text-center font-medium text-slate-200">Não quer preencher à mão?</p>
+             <p className="text-xs text-center font-medium text-slate-200">{isDemo ? 'Explore com dados de exemplo' : 'Comece com seus próprios dados'}</p>
              <button onClick={handleConfigIA} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold tracking-wide uppercase text-[10px] py-2.5 px-3 rounded-lg shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all">
-                Configuração Rápida IA
+                {isDemo ? 'Configuração Rápida IA' : 'Cadastrar Serviço'}
              </button>
              <button onClick={handleSimulateSale} className="w-full text-slate-400 hover:text-white font-medium tracking-wide text-xs transition-colors">
-                Simular 1ª Venda
+                {isDemo ? 'Simular 1ª Venda' : 'Abrir PDV'}
              </button>
          </div>
       </div>
@@ -713,7 +729,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
       {/* Gamification & Goals */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          {/* Daily Goal */}
-         <div className="lg:col-span-2 bg-[#0F172A] border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         {isDemo && <div className="lg:col-span-2 bg-[#0F172A] border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col justify-center relative overflow-hidden">
              <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-cyan-500/10 to-transparent pointer-events-none" />
              <div className="flex justify-between items-end mb-2 relative z-10">
                 <div>
@@ -739,10 +755,10 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                    <p className="text-xs text-yellow-500/80">Você está 30% abaixo da meta ideal para este horário. <span className="underline cursor-pointer hover:text-yellow-400" onClick={handleGenerateInsights}>Ver sugestões IA</span></p>
                 </div>
              </div>
-         </div>
+         </div>}
 
          {/* Gamification / Ranking */}
-         <div className="bg-[#0F172A] border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         {isDemo && <div className="bg-[#0F172A] border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col justify-center relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                <Trophy className="w-24 h-24 text-yellow-500" />
             </div>
@@ -765,7 +781,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
             <button onClick={() => navigate('/professionals')} className="mt-5 w-full py-2 bg-[#1E293B] hover:bg-[#334155] border border-white/5 text-xs font-semibold text-slate-300 rounded-lg transition-colors">
                Ver Ranking Completo
             </button>
-         </div>
+         </div>}
       </div>
 
       {/* Charts Area */}
@@ -775,7 +791,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
             <h3 className="text-lg font-semibold tracking-tight mb-6">Receita</h3>
             <div className="h-[300px] w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <LineChart data={mockChartData}>
+                 <LineChart data={chartData}>
                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                    <XAxis dataKey="name" stroke="#9CA3AF" tick={{fill: '#9CA3AF', fontSize: 12}} tickLine={false} axisLine={false} />
                    <YAxis stroke="#9CA3AF" tick={{fill: '#9CA3AF', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `R$${value/1000}k`} />
@@ -801,7 +817,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
             
             <div className="flex-1 h-[250px] w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={mockChartData} layout="vertical" margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                 <BarChart data={isDemo ? mockChartData : []} layout="vertical" margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                    <XAxis type="number" hide />
                    <YAxis dataKey="name" type="category" hide />
                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: '#050505', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
@@ -810,7 +826,8 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                </ResponsiveContainer>
             </div>
             
-            <div className="mt-4 space-y-3">
+            {!isDemo && <p className="text-xs text-slate-400">Sem serviços registrados nesta semana.</p>}
+            {isDemo && <div className="mt-4 space-y-3">
                <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-300 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-cyan-500"></div>Corte Degradê</span>
                   <span className="font-medium">120</span>
@@ -823,7 +840,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                   <span className="text-slate-300 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-cyan-500/30"></div>Sobrancelha</span>
                   <span className="font-medium">45</span>
                </div>
-            </div>
+            </div>}
          </div>
       </div>
       

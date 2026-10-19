@@ -45,7 +45,7 @@ export const useClientStore = create<ClientStore>((set) => ({
   setClients: (clients) => set({ clients, isLoaded: true }),
   addClient: async (client) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({ clients: [...state.clients, client], isLoaded: true }));
       return;
     }
@@ -54,7 +54,7 @@ export const useClientStore = create<ClientStore>((set) => ({
   },
   updateClient: async (id, updates) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         clients: state.clients.map((c) => (c.id === id ? { ...c, ...updates } : c)),
       }));
@@ -64,7 +64,7 @@ export const useClientStore = create<ClientStore>((set) => ({
   },
   deleteClient: async (id) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         clients: state.clients.filter((c) => c.id !== id),
       }));

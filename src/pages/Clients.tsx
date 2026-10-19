@@ -4,6 +4,7 @@ import { useNicheStore } from '../store/niche';
 import { useClientStore, Client } from '../store/clients';
 import { Search, Plus, MoreVertical, Phone, Mail, MapPin, X, Calendar, ShoppingBag, Sparkles, AlertTriangle, MessageCircle, Star, Clock, Gift, Crown, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuthStore } from '../store/auth';
 
 const mockHistory = [
   { id: 'h1', date: '2025-05-18', type: 'appointment', details: 'Corte Degradê + Barba', value: 80.00 },
@@ -14,6 +15,7 @@ const mockHistory = [
 export default function Clients() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const { clients, addClient, updateClient } = useClientStore();
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
@@ -37,12 +39,12 @@ export default function Clients() {
   }, [queryParam, actionParam]);
 
   const [newsIndex, setNewsIndex] = useState(0);
-  const breakingNews = [
+  const breakingNews = isDemo ? [
      "3 clientes aguardando na recepção (Tempo Médio: 12 min)",
      "Maria Souza (VIP) confirmou agendamento para 15:30",
      "João Pedro cancelou. Horário de 14:00 da Sílvia liberou!",
      "Apenas mais 1 selo para Beatriz ganhar Fidelidade!"
-  ];
+  ] : ['Cadastre clientes e agendamentos para acompanhar sua operação.'];
 
   useEffect(() => {
      const interval = setInterval(() => {
@@ -349,7 +351,7 @@ export default function Clients() {
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                     <div className="bg-[#1A2C47]/20 border border-[#1A2C47] rounded-xl p-6">
+                     {isDemo && <div className="bg-[#1A2C47]/20 border border-[#1A2C47] rounded-xl p-6">
                         <div className="flex items-center gap-2 mb-4">
                            <Sparkles className="w-5 h-5 text-indigo-400" />
                            <h3 className="text-lg font-semibold text-white">Score de Risco de Churn (IA)</h3>
@@ -398,13 +400,13 @@ export default function Clients() {
                               </div>
                            );
                         })()}
-                     </div>
+                     </div>}
 
                      <div>
                         <h3 className="text-lg font-semibold text-white mb-4">Histórico Recente</h3>
                         
                         <div className="space-y-4">
-                        {mockHistory.map(item => (
+                        {(isDemo ? mockHistory : []).map(item => (
                           <div key={item.id} className="bg-[#09111D] border border-[#1A2C47] rounded-xl p-4 flex items-center justify-between">
                              <div className="flex items-center gap-4">
                                 <div className={`p-3 rounded-lg ${item.type === 'appointment' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-purple-500/10 text-purple-400'}`}>

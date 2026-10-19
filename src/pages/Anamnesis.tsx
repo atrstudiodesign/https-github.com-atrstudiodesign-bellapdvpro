@@ -3,6 +3,7 @@ import { Search, Plus, Save, FileText, UserCircle, Calendar, Edit3, X, History, 
 import { motion, AnimatePresence } from 'motion/react';
 import { useNicheStore } from '../store/niche';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
 
 const mockPatients = [
   { id: '1', name: 'Ana Paula Souza', phone: '(11) 98765-4321', lastVisit: '2025-05-18' },
@@ -17,15 +18,16 @@ const mockRecords = [
 export default function Anamnesis() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
 
   const [search, setSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [isNewRecordModalOpen, setIsNewRecordModalOpen] = useState(false);
   const [recordType, setRecordType] = useState<'anamnesis' | 'evolution'>('anamnesis');
   const [recordContent, setRecordContent] = useState('');
-  const [records, setRecords] = useState(mockRecords);
+  const [records, setRecords] = useState(isDemo ? mockRecords : []);
 
-  const filteredPatients = mockPatients.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredPatients = (isDemo ? mockPatients : []).filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const handleSaveRecord = () => {
     if (!recordContent || !selectedPatient) return;

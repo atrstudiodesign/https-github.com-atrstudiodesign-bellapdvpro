@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
+import { useAuthStore } from './auth';
 
 export interface Appointment {
   id: string;
@@ -35,25 +36,21 @@ export const useAppointmentStore = create<AppointmentStore>((set) => ({
     const urlParams = new URLSearchParams(window.location.search);
     const user = auth.currentUser;
     const isAnonymous = user?.isAnonymous;
+    if ((!user || isAnonymous) && !useAuthStore.getState().user?.isDemo) {
+      throw new Error('Agendamento público indisponível até configurar um endpoint seguro para este estabelecimento.');
+    }
     const ownerId = (user && !isAnonymous) ? currentFirebaseTenantId() || user.uid : (urlParams.get('merchant') || localStorage.getItem('last_merchant_uid') || 'public');
     const data = { ...appointment, ownerId };
 
-    if (ownerId !== 'public') {
+    if (ownerId !== 'public' && !isAnonymous) {
       await setDoc(doc(db, 'appointments', appointment.id), data);
     }
     set((state) => ({ appointments: [...state.appointments, data], isLoaded: true }));
 
-    // Prioridade 1: WhatsApp - Confirmação Automática
-    setTimeout(() => {
-      toast.success(
-        `✅ Automação WhatsApp enviada: "Olá ${appointment.client}, seu horário às ${appointment.time} está confirmado!"`, 
-        { duration: 5000, position: 'bottom-right' }
-      );
-    }, 1500);
   },
   updateAppointment: async (id, updates) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         appointments: state.appointments.map((a) => (a.id === id ? { ...a, ...updates } : a)),
       }));
@@ -61,16 +58,10 @@ export const useAppointmentStore = create<AppointmentStore>((set) => ({
       await updateDoc(doc(db, 'appointments', id), updates);
     }
     
-    // Simulate Reminders / Recovery
-    if (updates.status === 'cancelled') {
-        setTimeout(() => {
-          toast(`🔄 Recuperação via WhatsApp enviada para retorno.`, { duration: 4000, position: 'bottom-right' });
-        }, 1500);
-    }
   },
   deleteAppointment: async (id) => {
     const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         appointments: state.appointments.filter((a) => a.id !== id),
       }));
