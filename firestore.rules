@@ -25,6 +25,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
     }
 
+    function validStock(data) {
+      return !data.keys().hasAny(['stock']) || (data.stock is number && data.stock >= 0);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client' && request.resource.data.companyId == request.auth.uid;
@@ -49,8 +53,12 @@ service cloud.firestore {
 
     match /catalog/{serviceId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if ownsTenant(request.resource.data);
-      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow create: if ownsTenant(request.resource.data) && validStock(request.resource.data);
+      allow update: if isAdmin() || (
+        ownsTenant(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && validStock(request.resource.data)
+      );
       allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
@@ -69,9 +77,21 @@ service cloud.firestore {
 
     match /transactions/{transactionId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if ownsTenant(request.resource.data);
-      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
-      allow delete: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data)
+        && request.resource.data.total is number
+        && request.resource.data.total > 0
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.status in ['completed', 'pending']
+        && request.resource.data.paymentMethod in ['pix', 'card', 'cash', 'split'];
+      allow update: if isAdmin() || (
+        ownsTenant(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if isAdmin();
     }
 
     match /companies/{companyId} {
