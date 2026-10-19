@@ -1,3 +1,4 @@
+import { hasBellaSupabaseSession, bellaList, bellaInsert, bellaUpdate, bellaDelete } from '../lib/bellaOperational';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -35,6 +36,7 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
   isLoaded: false,
   setTransactions: (transactions) => set({ transactions, isLoaded: true }),
   addTransaction: async (transaction) => {
+    if (hasBellaSupabaseSession()) { await bellaInsert('transactions', transaction); set(s => ({ transactions: [transaction, ...s.transactions], isLoaded: true })); return; }
     const auth = getAuth();
     if (!auth.currentUser) {
       set((state) => ({ transactions: [transaction, ...state.transactions], isLoaded: true }));
@@ -44,6 +46,7 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
     }
   },
   updateTransaction: async (id, updates) => {
+    if (hasBellaSupabaseSession()) { const current = useTransactionStore.getState().transactions.find(x => x.id === id); if (!current) throw new Error('Venda não encontrada'); const updated = { ...current, ...updates }; await bellaUpdate('transactions', updated); set(s => ({ transactions: s.transactions.map(x => x.id === id ? updated : x) })); return; }
     const auth = getAuth();
     if (!auth.currentUser) {
       set((state) => ({
@@ -56,6 +59,21 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
 }));
 
 export const subscribeToTransactions = () => {
+  if (hasBellaSupabaseSession()) {
+    let active = true;
+    let busy = false;
+    const refresh = async () => {
+      if (!active || busy) return;
+      busy = true;
+      try { const rows = await bellaList<Transaction>('transactions'); if (active) useTransactionStore.getState().setTransactions(rows); }
+      catch (error) { console.error('Falha ao carregar transactions do Supabase:', error); }
+      finally { busy = false; }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }
+
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
   
