@@ -35,7 +35,9 @@ import {
   VoiceEngineMode 
 } from '../services/voiceNarrationService';
 import { auth } from '../lib/firebase';
-import { AndroidApkModal } from '../components/pwa/AndroidApkModal';
+const AndroidApkModal = React.lazy(() =>
+  import('../components/pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
+);
 import { DataBackupExportCard } from '../components/settings/DataBackupExportCard';
 
 export default function Settings() {
