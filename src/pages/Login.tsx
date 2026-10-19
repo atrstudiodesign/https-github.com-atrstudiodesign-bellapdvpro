@@ -337,7 +337,7 @@ export default function Login() {
         console.warn('Could not load Google user profile:', err);
       }
 
-      const isSuperAdmin = userEmail.trim().toLowerCase() === 'tramposshop@gmail.com';
+      const isSuperAdmin = ['tramposshop@gmail.com', 'agtramposof@gmail.com'].includes(userEmail.trim().toLowerCase());
       const tenantId = typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : uid;
       const socialUser = {
         id: uid,
