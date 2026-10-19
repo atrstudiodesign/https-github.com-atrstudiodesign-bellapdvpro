@@ -192,7 +192,7 @@ async function verifyBellaSupabaseAccess(token: string): Promise<{ uid: string; 
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
-  if (req.path === '/ai/tts') {
+  if (req.path === '/ai/tts' || req.path.startsWith('/gemini/')) {
     const bearer = req.headers.authorization;
     if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Autenticação obrigatória para narração IA.' });
     const token = bearer.slice(7);
@@ -207,7 +207,7 @@ app.use('/api', async (req, res, next) => {
     } catch {}
     return res.status(403).json({ error: 'Usuário sem autorização para IA.' });
   }
-  if (req.path.startsWith('/ai/') || req.path.startsWith('/gemini/')) return next();
+  if (req.path.startsWith('/ai/')) return res.status(404).json({ error: 'Rota não disponível.' });
 
   const authorization = req.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) {
