@@ -19,6 +19,7 @@ import {
 import { Logo } from '../components/ui/Logo';
 import { AtrStudioBadge } from '../components/ui/AtrStudioBadge';
 import { auth, db } from '../lib/firebase';
+import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -253,9 +254,10 @@ export default function Login() {
         const loggedUser = {
           id: uid,
           companyId: tenantId,
-          email: email.trim(),
+          email: firebaseUser.email || '',
           name: firebaseUser?.displayName || email.trim().split('@')[0] || 'Administrador',
-          role: profile.role === 'admin' ? 'admin' as const : 'client' as const,
+          role: (isSuperAdminEmail(firebaseUser.email) || profile.role === 'admin') ? 'admin' as const : 'client' as const,
+          isPlatformAdmin: await hasPlatformAdminClaim(firebaseUser),
           planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : ['pdv', 'agenda']
         };
 
@@ -337,7 +339,7 @@ export default function Login() {
         console.warn('Could not load Google user profile:', err);
       }
 
-      const isSuperAdmin = ['tramposshop@gmail.com', 'agtramposof@gmail.com'].includes(userEmail.trim().toLowerCase());
+      const isSuperAdmin = isSuperAdminEmail(userEmail);
       const tenantId = typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : uid;
       const socialUser = {
         id: uid,
@@ -345,6 +347,7 @@ export default function Login() {
         name: displayName,
         email: userEmail,
         role: (isSuperAdmin || profile.role === 'admin') ? 'admin' as const : 'client' as const,
+        isPlatformAdmin: await hasPlatformAdminClaim(result.user),
         planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace']
       };
 
@@ -620,7 +623,7 @@ export default function Login() {
                   <button 
                     type="button" 
                     onClick={async () => {
-                      if (email.trim().toLowerCase() !== 'tramposshop@gmail.com') {
+                      if (!isSuperAdminEmail(email)) {
                         toast.info('Para recuperar contas Firebase, utilize a recuperação do provedor atual.'); return;
                       }
                       try {

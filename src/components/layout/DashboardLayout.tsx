@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth';
 import { useNicheStore } from '../../store/niche';
@@ -217,7 +217,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
               {/* Drawer Footer */}
               <div className="p-4 border-t border-white/5 flex flex-col gap-2">
-                {user?.role === 'admin' && (
+                {user?.isPlatformAdmin && (
                   <Link 
                     to="/admin"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -336,7 +336,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               Instalar
             </span>
           </button>
-          {user?.role === 'admin' && (
+          {user?.isPlatformAdmin && (
             <Link 
               to="/admin"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 transition-all bg-white/5"

@@ -153,7 +153,7 @@ export default function AdminPanel() {
     };
     
     // Attempt admin-level fetch
-    if (user?.email === 'tramposshop@gmail.com') {
+    if (user?.isPlatformAdmin) {
        fetchCompanies();
     } else {
        toast.error("Acesso restrito a administradores do SaaS.");
@@ -317,7 +317,7 @@ export default function AdminPanel() {
     color: "#4F46E5"
   });
 
-  if (user?.role !== 'admin') {
+  if (!user?.isPlatformAdmin) {
     return (
       <div className="min-h-screen bg-[#030815] text-slate-300 flex flex-col items-center justify-center font-sans">
         <Lock className="w-16 h-16 text-red-500 mb-4" />
