@@ -6,7 +6,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
-import { createVerify, X509Certificate, createHash } from 'node:crypto';
+import { createVerify, X509Certificate } from 'node:crypto';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -54,84 +54,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '256kb' }));
-
-// Shared rate limit persisted in the Bella Firestore project.
-// Uses the caller's verified Firebase identity; no Supabase or server database secret is required.
-async function sharedBellaRateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const bearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
-  if (!bearer) return res.status(401).json({ error: 'Firebase ID token obrigatório.' });
-
-  let claims: Record<string, any>;
-  try {
-    claims = await verifyFirebaseIdToken(bearer);
-  } catch {
-    return res.status(401).json({ error: 'Identidade Firebase inválida.' });
-  }
-
-  const pathGroup = req.originalUrl.startsWith('/api/auth/') ? 'auth' : 'ai';
-  const limit = pathGroup === 'auth' ? 12 : 15;
-  const windowStart = Math.floor(Date.now() / 60000);
-  const docId = createHash('sha256').update(claims.sub + ':' + pathGroup + ':' + windowStart).digest('hex');
-  const baseUrl = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID +
-    '/databases/(default)/documents/bella_rate_limits/' + docId;
-  const headers = { Authorization: 'Bearer ' + bearer, 'Content-Type': 'application/json' };
-
-  try {
-    let count = 0;
-    let saved = false;
-    for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-      const read = await fetch(baseUrl, { headers: { Authorization: 'Bearer ' + bearer }, signal: AbortSignal.timeout(4000) });
-      if (read.status === 404) {
-        count = 1;
-        const create = await fetch(baseUrl + '?currentDocument.exists=false', {
-          method: 'PATCH', headers,
-          body: JSON.stringify({ fields: {
-            userId: { stringValue: claims.sub },
-            routeGroup: { stringValue: pathGroup },
-            windowStart: { integerValue: String(windowStart) },
-            count: { integerValue: '1' }
-          }}),
-          signal: AbortSignal.timeout(4000),
-        });
-        if (create.ok) saved = true;
-        else if (![409, 412].includes(create.status)) return res.status(503).json({ error: 'Proteção global indisponível.' });
-      } else if (read.ok) {
-        const document: any = await read.json();
-        const previous = Number(document?.fields?.count?.integerValue || 0);
-        if (!Number.isSafeInteger(previous) || previous < 0 || !document.updateTime) {
-          return res.status(503).json({ error: 'Contador global inválido.' });
-        }
-        count = previous + 1;
-        const update = await fetch(baseUrl + '?currentDocument.updateTime=' + encodeURIComponent(document.updateTime), {
-          method: 'PATCH', headers,
-          body: JSON.stringify({ fields: {
-            userId: { stringValue: claims.sub },
-            routeGroup: { stringValue: pathGroup },
-            windowStart: { integerValue: String(windowStart) },
-            count: { integerValue: String(count) }
-          }}),
-          signal: AbortSignal.timeout(4000),
-        });
-        if (update.ok) saved = true;
-        else if (![409, 412].includes(update.status)) return res.status(503).json({ error: 'Proteção global indisponível.' });
-      } else {
-        return res.status(503).json({ error: 'Proteção global indisponível.' });
-      }
-    }
-    if (!saved) return res.status(503).json({ error: 'Não foi possível atualizar o limite global.' });
-
-    res.setHeader('RateLimit-Limit', String(limit));
-    res.setHeader('RateLimit-Remaining', String(Math.max(0, limit - count)));
-    if (count > limit) {
-      res.setHeader('Retry-After', String(60 - (Math.floor(Date.now() / 1000) % 60)));
-      return res.status(429).json({ error: 'Limite de solicitações atingido. Tente novamente em breve.' });
-    }
-    next();
-  } catch {
-    return res.status(503).json({ error: 'Proteção global temporariamente indisponível.' });
-  }
-}
-app.use(['/api/ai', '/api/gemini', '/api/auth'], sharedBellaRateLimit);
 
 // Best-effort per-instance throttle; serverless instances do not share counters.
 // A distributed Redis/Upstash limiter is still required for strict global quotas.
