@@ -630,9 +630,16 @@ class VoiceNarrationService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), engineMode === 'humanized' ? 6500 : 8000);
 
+      const { auth } = await import('../lib/firebase');
+      const supabaseSession = (() => {
+        try { return JSON.parse(sessionStorage.getItem('bella_supabase_session') || 'null'); } catch { return null; }
+      })();
+      const bearer = supabaseSession?.token ||
+        (auth.currentUser && !auth.currentUser.isAnonymous ? await auth.currentUser.getIdToken() : null);
+      if (!bearer) throw new Error('Narração em nuvem exige login de empresa.');
       const response = await fetch('/api/ai/tts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + bearer },
         body: JSON.stringify({
           text: speechText,
           voice: selectedVoice,
