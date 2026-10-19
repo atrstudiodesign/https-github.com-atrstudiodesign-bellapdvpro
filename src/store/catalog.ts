@@ -1,3 +1,4 @@
+import { hasBellaSupabaseSession, bellaList, bellaInsert, bellaUpdate, bellaDelete } from '../lib/bellaOperational';
 import { create } from 'zustand';
 import { auth, db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
@@ -28,6 +29,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
   isLoaded: false,
   setItems: (items) => set({ items, isLoaded: true }),
   addItem: async (item) => {
+    if (hasBellaSupabaseSession()) { await bellaInsert('catalog', item); set(s => ({ items: [...s.items, item], isLoaded: true })); return; }
     if (!auth.currentUser) {
       set((state) => ({ items: [...state.items, item], isLoaded: true }));
       return;
@@ -36,6 +38,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
     await setDoc(doc(db, 'catalog', item.id), itemData);
   },
   updateItem: async (id, updates) => {
+    if (hasBellaSupabaseSession()) { const current = useCatalogStore.getState().items.find(x => x.id === id); if (!current) throw new Error('Item não encontrado'); const updated = { ...current, ...updates }; await bellaUpdate('catalog', updated); set(s => ({ items: s.items.map(x => x.id === id ? updated : x) })); return; }
     if (!auth.currentUser) {
       set((state) => ({
         items: state.items.map((i) => (i.id === id ? { ...i, ...updates } : i)),
@@ -45,6 +48,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
     await updateDoc(doc(db, 'catalog', id), updates);
   },
   deleteItem: async (id) => {
+    if (hasBellaSupabaseSession()) { await bellaDelete('catalog', id); set(s => ({ items: s.items.filter(x => x.id !== id) })); return; }
     if (!auth.currentUser) {
       set((state) => ({
         items: state.items.filter((i) => i.id !== id),
@@ -120,6 +124,21 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
 }));
 
 export const subscribeToCatalog = () => {
+  if (hasBellaSupabaseSession()) {
+    let active = true;
+    let busy = false;
+    const refresh = async () => {
+      if (!active || busy) return;
+      busy = true;
+      try { const rows = await bellaList<CatalogItem>('catalog'); if (active) useCatalogStore.getState().setItems(rows); }
+      catch (error) { console.error('Falha ao carregar catalog do Supabase:', error); }
+      finally { busy = false; }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }
+
   if (!auth.currentUser) return () => {};
   
   const q = query(collection(db, 'catalog'), where('ownerId', '==', auth.currentUser.uid));
