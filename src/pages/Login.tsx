@@ -184,20 +184,6 @@ export default function Login() {
     setLoginError('');
     setIsSubmitting(true);
     try {
-        const identity = await bellaSupabaseSignIn(email, password);
-        loginSupabase(identity);
-        toast.success('Acesso Supabase autenticado.', { description: 'Empresa e permissões verificadas.' });
-        navigate('/', { replace: true });
-      } catch (error: any) {
-        setLoginError(error?.message || 'Falha ao entrar pelo Supabase.');
-        toast.error(error?.message || 'Falha ao entrar pelo Supabase.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    try {
       let firebaseUser = auth.currentUser;
       let uid = firebaseUser?.uid || '';
 
