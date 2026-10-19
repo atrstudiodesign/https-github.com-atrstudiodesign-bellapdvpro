@@ -7,10 +7,12 @@ import { subscribeToCatalog } from './catalog';
 import { subscribeToAppointments } from './appointments';
 import { subscribeToTransactions } from './transactions';
 import { subscribeToQueue } from './queue';
+import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
 
 export interface AuthUser {
   id: string;
   role: 'admin' | 'client';
+  isPlatformAdmin?: boolean;
   planFeatures: string[];
   email: string;
   name: string;
@@ -34,11 +36,6 @@ interface AuthState {
 let unsubscribes: Array<() => void> = [];
 
 const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
-const SUPER_ADMIN_EMAILS = new Set(['tramposshop@gmail.com', 'agtramposof@gmail.com']);
-
-const isSuperAdminEmail = (email?: string | null) =>
-  SUPER_ADMIN_EMAILS.has((email || '').trim().toLowerCase());
-
 const getStoredUser = (): AuthUser | null => {
   try {
     const raw = localStorage.getItem('bellapdv_auth_user');
@@ -86,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       name: userData?.name || 'Administrador',
       email: userData?.email || 'admin@bellapdv.com',
       role: userData?.role === 'admin' ? 'admin' : 'client',
+      isPlatformAdmin: userData?.isPlatformAdmin === true,
       companyId: company?.id || userData?.companyId,
       avatar: userData?.avatar,
       planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
@@ -149,6 +147,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       email,
       name: displayName,
       role: isSuperAdminEmail(email) ? 'admin' : 'client',
+      isPlatformAdmin: false,
       companyId: firebaseUser.uid,
       avatar: firebaseUser.photoURL || undefined,
       planFeatures: DEFAULT_FEATURES
@@ -172,6 +171,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
       isDemo: !!profile.isDemo
     };
+    userData.isPlatformAdmin = await hasPlatformAdminClaim(firebaseUser);
     useAuthStore.getState().setUser(userData);
 
     // Start real-time data subscriptions
