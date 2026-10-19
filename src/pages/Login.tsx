@@ -329,18 +329,30 @@ export default function Login() {
       const displayName = result.user.displayName || 'Usuário Google';
       const userEmail = result.user.email || '';
 
+      let profile: Record<string, any> = {};
+      try {
+        const snapshot = await getDoc(doc(db, 'users', uid));
+        if (snapshot.exists()) profile = snapshot.data();
+      } catch (err) {
+        console.warn('Could not load Google user profile:', err);
+      }
+
+      const isSuperAdmin = userEmail.trim().toLowerCase() === 'tramposshop@gmail.com';
+      const tenantId = typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : uid;
       const socialUser = {
         id: uid,
+        companyId: tenantId,
         name: displayName,
         email: userEmail,
-        role: 'client' as const,
-        planFeatures: ['pdv', 'agenda']
+        role: (isSuperAdmin || profile.role === 'admin') ? 'admin' as const : 'client' as const,
+        planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace']
       };
 
       try {
         await setDoc(doc(db, 'users', uid), {
-          ...socialUser,
-          companyId: uid,
+          name: displayName,
+          email: userEmail,
+          companyId: tenantId,
           provider,
           lastLogin: new Date().toISOString()
         }, { merge: true });
@@ -348,20 +360,30 @@ export default function Login() {
         console.warn('Error saving social user:', err);
       }
 
-      setNiche(selectedNiche);
+      const niche = typeof profile.niche === 'string' ? profile.niche as NicheType : selectedNiche;
+      setNiche(niche);
       login(socialUser, undefined, {
-        id: uid,
-        name: `${provider} Empresa`,
-        niche: selectedNiche
+        id: tenantId,
+        name: typeof profile.companyName === 'string' ? profile.companyName : `${provider} Empresa`,
+        niche
       });
 
       toast.success(`Conectado com ${provider}!`, {
         description: 'Bem-vindo ao painel BellaPDV.'
       });
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error(`${provider} login error:`, error);
-      toast.error(`Erro ao autenticar com ${provider}.`);
+      const code = error?.code || '';
+      const message = code === 'auth/account-exists-with-different-credential'
+        ? 'Este e-mail já existe com outro método de acesso. Entre com e-mail/senha primeiro para vincular o Google.'
+        : code === 'auth/popup-blocked'
+          ? 'O navegador bloqueou a janela do Google. Libere pop-ups e tente novamente.'
+          : code === 'auth/unauthorized-domain'
+            ? 'Este domínio ainda não está autorizado no Firebase Authentication.'
+            : `Erro ao autenticar com ${provider}.`;
+      setLoginError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
