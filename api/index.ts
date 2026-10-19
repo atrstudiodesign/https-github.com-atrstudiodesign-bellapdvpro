@@ -93,12 +93,14 @@ async function sharedBellaRateLimit(req: express.Request, res: express.Response,
   if (url !== 'https://nmaqharvngnklkmwkwni.supabase.co' || !serviceKey) {
     return res.status(503).json({ error: 'Proteção global indisponível; solicitação bloqueada.' });
   }
-  const pathGroup = req.path.startsWith('/api/auth/') ? 'auth' : 'ai';
+  const pathGroup = req.originalUrl.startsWith('/api/auth/') ? 'auth' : 'ai';
   const limit = pathGroup === 'auth' ? 12 : 15;
   const windowStart = Math.floor(Date.now() / 60000);
-  // Use server-verified ingress address; never accept arbitrary x-forwarded-for.
-  const ip = req.socket.remoteAddress || 'unknown';
-  const keyHash = createHash('sha256').update(pathGroup + ':' + ip).digest('hex');
+  // Isolate signed-in callers by bearer credential; no credentials are persisted.
+  // Unauthenticated requests use their connection address, not client-controlled headers.
+  const bearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
+  const caller = bearer || req.socket.remoteAddress || 'unknown';
+  const keyHash = createHash('sha256').update(pathGroup + ':' + caller).digest('hex');
   try {
     const response = await fetch(url + '/rest/v1/rpc/bella_consume_rate_limit', {
       method: 'POST',
