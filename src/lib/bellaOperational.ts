@@ -16,7 +16,7 @@ async function request(module: ModuleName, method: string, query = '', body?: un
   if (!URL || !KEY) throw new Error('Banco Bella Supabase não configurado.');
   const identity = await session();
   const params = new URLSearchParams(query);
-  params.set('company_id', 'eq.' + identity.companyId);
+  if (method !== 'POST') params.set('company_id', 'eq.' + identity.companyId);
   const response = await fetch(URL + '/rest/v1/bella_' + module + '?' + params.toString(), {
     method,
     headers: {
