@@ -40,7 +40,9 @@ import { Logo } from '../ui/Logo';
 import { AtrStudioBadge } from '../ui/AtrStudioBadge';
 import { toast } from 'sonner';
 import { GlobalSearch } from './GlobalSearch';
-import { AndroidApkModal } from '../pwa/AndroidApkModal';
+const AndroidApkModal = React.lazy(() =>
+  import('../pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
+);
 
 export function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
