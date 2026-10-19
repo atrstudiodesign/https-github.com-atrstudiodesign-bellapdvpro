@@ -15,24 +15,40 @@ export default defineConfig(({mode}) => {
         devOptions: {
           enabled: true
         },
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png', 'icon.svg'],
         manifest: {
-          name: 'BellaPDV',
-          short_name: 'BellaPDV',
-          description: 'Sistema Profissional de Caixa',
-          theme_color: '#0F172A',
-          background_color: '#0F172A',
+          id: '/',
+          name: 'Bella PDV - Sistema ERP & PDV Inteligente',
+          short_name: 'Bella PDV',
+          description: 'Sistema de gestão comercial completo com PDV, Frente de Caixa, IA e Controle de Vendas.',
+          theme_color: '#05070F',
+          background_color: '#05070F',
           display: 'standalone',
+          start_url: '/',
+          scope: '/',
           icons: [
+            {
+              src: '/pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/pwa-maskable-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
+            },
             {
               src: '/icon.svg',
               sizes: 'any',
               type: 'image/svg+xml'
-            },
-            {
-              src: '/icon.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'any maskable'
             }
           ]
         }

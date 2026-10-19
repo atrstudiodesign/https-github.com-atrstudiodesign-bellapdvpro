@@ -1,26 +1,83 @@
 {
-  "name": "Bella PDV",
+  "id": "/",
+  "name": "Bella PDV - Sistema ERP & PDV Inteligente",
   "short_name": "Bella PDV",
+  "description": "Sistema de gestão comercial completo com PDV, Frente de Caixa, IA e Controle de Vendas.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#05070F",
   "theme_color": "#05070F",
-  "description": "Sistema de gestão definitivo para o seu negócio",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "categories": ["business", "finance", "productivity", "utilities"],
   "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Frente de Caixa (PDV)",
+      "short_name": "PDV",
+      "description": "Abrir o PDV para realizar vendas rápidas",
+      "url": "/pos",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "src": "/icon.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
+      "name": "Gestão de Clientes",
+      "short_name": "Clientes",
+      "description": "Visualizar e cadastrar clientes",
+      "url": "/clients",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "src": "/icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
+      "name": "Controle Financeiro",
+      "short_name": "Financeiro",
+      "description": "Acessar fluxo de caixa e relatórios",
+      "url": "/finance",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

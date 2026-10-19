@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNicheStore } from '../store/niche';
 import { Plus, Search, Edit, Trash2, Package, Tag, Filter, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,6 +24,10 @@ import { useCatalogStore, CatalogItem } from '../store/catalog';
 export default function Services() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get('q') || '';
+  const actionParam = searchParams.get('action');
+
   const [activeTab, setActiveTab] = useState<'services' | 'products'>('services');
 
   const { items, addItem, updateItem, deleteItem, seedCatalog } = useCatalogStore();
@@ -33,14 +38,25 @@ export default function Services() {
 
   const [categories, setCategories] = useState<string[]>(initialCategories);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(actionParam === 'new');
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [currentItem, setCurrentItem] = useState<Partial<CatalogItem>>({});
   
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const [newCategory, setNewCategory] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(queryParam);
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
+
+  useEffect(() => {
+    if (queryParam) {
+      setSearchTerm(queryParam);
+    }
+    if (actionParam === 'new') {
+      setModalMode('add');
+      setCurrentItem({ name: '', category: categories[0] || 'Geral', price: 0, type: activeTab === 'services' ? 'service' : 'product', duration: '30 min', stock: 0 });
+      setIsModalOpen(true);
+    }
+  }, [queryParam, actionParam, categories, activeTab]);
 
   const handleOpenModal = (mode: 'add' | 'edit', item: Partial<CatalogItem> = {}) => {
     setModalMode(mode);

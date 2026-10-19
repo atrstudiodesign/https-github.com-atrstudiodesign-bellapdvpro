@@ -39,6 +39,8 @@ import { twMerge } from 'tailwind-merge';
 import { Logo } from '../ui/Logo';
 import { AtrStudioBadge } from '../ui/AtrStudioBadge';
 import { toast } from 'sonner';
+import { GlobalSearch } from './GlobalSearch';
+import { AndroidApkModal } from '../pwa/AndroidApkModal';
 
 export function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
@@ -226,6 +228,21 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 <button 
                   onClick={() => {
                     setIsMobileMenuOpen(false);
+                    setIsInstallModalOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all font-medium mb-1 shadow-sm"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="tracking-wide">Instalar App Android</span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded text-emerald-300 font-bold uppercase">
+                    APK
+                  </span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
                     handleLogout();
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all duration-200"
@@ -304,6 +321,19 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-white/5 flex flex-col gap-2">
+          <button
+            onClick={() => setIsInstallModalOpen(true)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all font-medium shadow-sm"
+            title="Instalar App Android ou Gerar APK"
+          >
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="tracking-wide">App Android / APK</span>
+            </div>
+            <span className="text-[9px] bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded text-emerald-300 font-bold uppercase">
+              Instalar
+            </span>
+          </button>
           {user?.role === 'admin' && (
             <Link 
               to="/admin"
@@ -387,10 +417,24 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                  </div>
               )}
            </div>
+
+           {/* Global Search Component */}
+           <div className="flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-1 sm:mx-3">
+              <GlobalSearch />
+           </div>
            
            <div className="flex items-center gap-2 md:gap-4 shrink-0">
-              <button onClick={handleInstallClick} className="hidden lg:flex items-center gap-2 px-3 py-1.5 border border-white/20 bg-white/5 rounded-lg text-sm hover:bg-white/10 transition-colors">
-                 <MonitorSmartphone className="w-4 h-4" /> Instalar App
+              <button 
+                 onClick={() => setIsInstallModalOpen(true)} 
+                 className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3 sm:py-1.5 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-[0_0_12px_rgba(16,185,129,0.15)] shrink-0"
+                 title="Instalar App Android ou Gerar APK"
+              >
+                 <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+                 <span className="hidden sm:inline">App Android</span>
+                 <span className="sm:hidden font-bold">APK</span>
+                 <span className="hidden md:inline-block text-[9px] bg-emerald-500/25 px-1.5 py-0.5 rounded text-emerald-300 font-bold uppercase tracking-wider">
+                    APK
+                 </span>
               </button>
               
               <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-cyan-400 to-purple-500 text-black font-semibold rounded-lg shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:scale-105 transition-all outline-none text-xs md:text-sm">
@@ -557,68 +601,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           )}
         </AnimatePresence>
 
-        {/* INSTALL APP MODAL */}
-        <AnimatePresence>
-          {isInstallModalOpen && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-              onClick={() => setIsInstallModalOpen(false)}
-            >
-               <motion.div 
-                 initial={{ scale: 0.9, opacity: 0 }}
-                 animate={{ scale: 1, opacity: 1 }}
-                 exit={{ scale: 0.9, opacity: 0 }}
-                 onClick={(e) => e.stopPropagation()}
-                 className="bg-[#0F172A] border border-cyan-500/30 rounded-2xl w-full max-w-lg shadow-[0_0_30px_rgba(34,211,238,0.15)] overflow-hidden flex flex-col relative"
-               >
-                  <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#09111D] relative z-10">
-                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                       <MonitorSmartphone className="w-5 h-5 text-cyan-400" /> Como Instalar o App
-                    </h3>
-                    <button 
-                      onClick={() => setIsInstallModalOpen(false)}
-                      className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  
-                  <div className="p-6 space-y-6 relative z-10">
-                     <p className="text-slate-300 text-sm leading-relaxed">
-                       Pelo fato de você estar usando um navegador em modo seguro ou não ter aceitado o prompt inicial, siga as instruções manuais para instalar o App no seu PC ou celular.
-                     </p>
-                     
-                     <div className="space-y-4">
-                        <div className="bg-[#1E293B] border border-white/10 rounded-xl p-4">
-                           <h4 className="text-white font-semibold text-sm mb-2 flex items-center gap-2"><MonitorSmartphone className="w-4 h-4 text-cyan-400"/> No PC (Google Chrome / Edge)</h4>
-                           <ol className="list-decimal pl-4 space-y-2 text-sm text-slate-400">
-                             <li>Abra este painel no <strong>Google Chrome</strong> ou <strong>Edge</strong>.</li>
-                             <li>Olhe para a <strong>Barra de Endereços</strong> (onde fica a URL lá no topo).</li>
-                             <li>No lado direito dela, clique no ícone <MonitorSmartphone className="w-3 h-3 inline"/> <strong>Instalar App</strong> (ou uma seta de download).</li>
-                             <li>O app será instalado e aparecerá na sua área de trabalho.</li>
-                           </ol>
-                        </div>
-
-                        <div className="bg-[#1E293B] border border-white/10 rounded-xl p-4">
-                           <h4 className="text-white font-semibold text-sm mb-2 flex items-center gap-2"><Smartphone className="w-4 h-4 text-cyan-400"/> No Celular (Android / iOS)</h4>
-                           <ol className="list-decimal pl-4 space-y-2 text-sm text-slate-400">
-                             <li>Abra no <strong>Chrome</strong> (Android) ou <strong>Safari</strong> (iOS).</li>
-                             <li>Vá em <strong>Compartilhar</strong> ou <strong>Opções (3 pontinhos)</strong>.</li>
-                             <li>Selecione <strong>Adicionar à Tela Inicial</strong>.</li>
-                           </ol>
-                        </div>
-                     </div>
-                     <button onClick={() => setIsInstallModalOpen(false)} className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm rounded-xl transition-all">
-                        Entendi
-                     </button>
-                  </div>
-               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ANDROID APK & PWA INSTALL MODAL */}
+        <AndroidApkModal
+          isOpen={isInstallModalOpen}
+          onClose={() => setIsInstallModalOpen(false)}
+          deferredPrompt={deferredPrompt}
+        />
       </main>
 
       {/* Mobile Bottom Navigation */}

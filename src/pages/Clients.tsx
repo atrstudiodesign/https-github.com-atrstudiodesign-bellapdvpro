@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNicheStore } from '../store/niche';
 import { useClientStore, Client } from '../store/clients';
 import { Search, Plus, MoreVertical, Phone, Mail, MapPin, X, Calendar, ShoppingBag, Sparkles, AlertTriangle, MessageCircle, Star, Clock, Gift, Crown, Activity } from 'lucide-react';
@@ -14,14 +15,26 @@ export default function Clients() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
   const { clients, addClient, updateClient } = useClientStore();
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get('q') || '';
+  const actionParam = searchParams.get('action');
   
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(queryParam);
   const [filter, setFilter] = useState('all'); // all, active, inactive, vip
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(actionParam === 'new');
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', email: '', phone: '', location: '', status: 'active', tags: [] as string[], birthday: '' });
   const [editingClient, setEditingClient] = useState({ id: '', name: '', email: '', phone: '', location: '', status: 'active', tags: [] as string[], birthday: '' });
+
+  useEffect(() => {
+    if (queryParam) {
+      setSearch(queryParam);
+    }
+    if (actionParam === 'new') {
+      setIsNewClientModalOpen(true);
+    }
+  }, [queryParam, actionParam]);
 
   const [newsIndex, setNewsIndex] = useState(0);
   const breakingNews = [

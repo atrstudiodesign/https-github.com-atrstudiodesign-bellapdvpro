@@ -21,7 +21,10 @@ import {
   Check, 
   Radio,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Smartphone,
+  QrCode,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -32,6 +35,8 @@ import {
   VoiceEngineMode 
 } from '../services/voiceNarrationService';
 import { auth } from '../lib/firebase';
+import { AndroidApkModal } from '../components/pwa/AndroidApkModal';
+import { DataBackupExportCard } from '../components/settings/DataBackupExportCard';
 
 export default function Settings() {
   const { user } = useAuthStore();
@@ -41,6 +46,7 @@ export default function Settings() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [wppAuto, setWppAuto] = useState(true);
   const [emailAuto, setEmailAuto] = useState(false);
+  const [isAndroidModalOpen, setIsAndroidModalOpen] = useState(false);
 
   // --- Voice Settings State ---
   const initialSettings = voiceNarration.getSettings();
@@ -648,6 +654,84 @@ export default function Settings() {
           </div>
        </div>
 
+       {/* ========================================================================= */}
+       {/* APLICATIVO ANDROID & GERADOR DE APK                                      */}
+       {/* ========================================================================= */}
+       <div className="glass-card p-0 border border-emerald-500/30 overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+          <div className="bg-gradient-to-r from-[#0B1E19] via-[#0C1627] to-[#0A1224] p-6 border-b border-[#1A2C47] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+             <div className="flex items-center gap-3">
+               <div className="p-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                 <Smartphone className="w-7 h-7" />
+               </div>
+               <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-white">Aplicativo Android & APK Instalável</h2>
+                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> 100% Android & SmartPOS
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-400">
+                    Instale o Bella PDV diretamente no smartphone ou maquininha de cartão via WebAPK oficial ou baixe pacotes para compilar o APK assinado.
+                  </p>
+               </div>
+             </div>
+
+             <button
+               onClick={() => setIsAndroidModalOpen(true)}
+               className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-white font-bold rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center gap-2 shrink-0 active:scale-95"
+             >
+               <Smartphone className="w-4 h-4" />
+               <span>Abrir Instalador Android (APK)</span>
+             </button>
+          </div>
+
+          <div className="p-6 bg-[#0B1324]/50 grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div 
+               onClick={() => setIsAndroidModalOpen(true)}
+               className="p-4 rounded-xl bg-[#0F172A] border border-white/5 hover:border-emerald-500/40 transition-all cursor-pointer group"
+             >
+               <div className="flex items-center gap-2 mb-2 text-emerald-400 font-semibold text-sm">
+                  <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>WebAPK Nativo</span>
+               </div>
+               <p className="text-xs text-slate-400 leading-relaxed">
+                  Instalação instantânea em 1 toque no Google Chrome do celular, com ícone próprio e inicialização em tela cheia.
+               </p>
+             </div>
+
+             <div 
+               onClick={() => setIsAndroidModalOpen(true)}
+               className="p-4 rounded-xl bg-[#0F172A] border border-white/5 hover:border-cyan-500/40 transition-all cursor-pointer group"
+             >
+               <div className="flex items-center gap-2 mb-2 text-cyan-400 font-semibold text-sm">
+                  <QrCode className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>Escanear QR Code</span>
+               </div>
+               <p className="text-xs text-slate-400 leading-relaxed">
+                  Aponte a câmera de qualquer celular Android ou maquininha SmartPOS para conectar e instalar diretamente no balcão.
+               </p>
+             </div>
+
+             <div 
+               onClick={() => setIsAndroidModalOpen(true)}
+               className="p-4 rounded-xl bg-[#0F172A] border border-white/5 hover:border-purple-500/40 transition-all cursor-pointer group"
+             >
+               <div className="flex items-center gap-2 mb-2 text-purple-400 font-semibold text-sm">
+                  <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span>Gerar Pacote APK / TWA</span>
+               </div>
+               <p className="text-xs text-slate-400 leading-relaxed">
+                  Gere o APK assinado via PWABuilder ou baixe o pacote (.zip) com manifest, ícones e Digital Asset Links.
+               </p>
+             </div>
+          </div>
+       </div>
+
+       <AndroidApkModal
+         isOpen={isAndroidModalOpen}
+         onClose={() => setIsAndroidModalOpen(false)}
+       />
+
        {/* BILLING & PLANS SECTION */}
        <div className="glass-card p-0 border border-[#1A2C47] overflow-hidden">
           <div className="bg-[#0C1627] p-6 border-b border-[#1A2C47] flex items-center justify-between">
@@ -805,73 +889,8 @@ export default function Settings() {
           </div>
        </div>
 
-       {/* BACKUP E SEGURANÇA */}
-       <div className="glass-card p-8 border-[#1A2C47]">
-          <div className="flex items-center gap-3 mb-6">
-             <div className="p-2.5 bg-yellow-500/20 text-yellow-400 rounded-xl">
-               <Shield className="w-6 h-6" />
-             </div>
-             <div>
-                <h2 className="text-xl font-semibold text-white">Backup e Exportação de Dados</h2>
-                <p className="text-sm text-slate-400">Faça o download de todos os seus dados cadastrados para garantir a segurança das informações.</p>
-             </div>
-          </div>
-          
-          <div className="bg-[#0C1627] p-6 rounded-2xl border border-[#1A2C47] flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-             <div>
-                <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-                   Exportação de Banco de Dados (JSON)
-                </h3>
-                <p className="text-sm text-slate-400 leading-relaxed max-w-xl">
-                   Esta opção fará uma varredura em todos os seus registros (Clientes, Agenda, Catálogo, Profissionais e Transações Financeiras) na nuvem e baixará um arquivo num formato seguro.
-                </p>
-             </div>
-             
-             <button
-               onClick={async () => {
-                 try {
-                    const { db } = await import('../lib/firebase');
-                    const { collection, getDocs, query, where } = await import('firebase/firestore');
-                    const { getAuth } = await import('firebase/auth');
-                    const auth = getAuth();
-                    const user = auth.currentUser;
-                    
-                    if (!user) {
-                        toast.error("Usuário não autenticado.");
-                        return;
-                    }
-
-                    toast.info("Iniciando backup. Por favor, aguarde...");
-
-                    const collectionsToExport = ['clients', 'appointments', 'catalog', 'professionals', 'transactions'];
-                    const backupData: Record<string, any[]> = {};
-
-                    for (const collName of collectionsToExport) {
-                        const q = query(collection(db, collName), where('ownerId', '==', user.uid));
-                        const snapshot = await getDocs(q);
-                        backupData[collName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    }
-
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-                    const downloadAnchorNode = document.createElement('a');
-                    downloadAnchorNode.setAttribute("href", dataStr);
-                    downloadAnchorNode.setAttribute("download", `backup_bella_pdv_${new Date().toISOString().split('T')[0]}.json`);
-                    document.body.appendChild(downloadAnchorNode);
-                    downloadAnchorNode.click();
-                    downloadAnchorNode.remove();
-                    
-                    toast.success("Backup do banco de dados concluído com sucesso!");
-                 } catch (error) {
-                    console.error("Erro no backup:", error);
-                    toast.error("Falha ao exportar os dados.");
-                 }
-               }}
-               className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500 hover:text-gray-900 font-semibold py-3 px-6 rounded-xl transition-all whitespace-nowrap border border-yellow-500/30 w-full md:w-auto text-center"
-             >
-                Gerar e Baixar Backup
-             </button>
-          </div>
-       </div>
+       {/* BACKUP E EXPORTAÇÃO DE DADOS (FIRESTORE & LOCAL) */}
+       <DataBackupExportCard />
 
     </div>
   );

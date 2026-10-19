@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTransactionStore } from '../store/transactions';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area } from 'recharts';
 import { DollarSign, ArrowUpRight, ArrowDownRight, Activity, Wallet, CreditCard, Banknote, Filter, Layers, Sparkles, AlertTriangle, ShieldCheck, Zap, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Finance() {
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get('q') || '';
+  const methodParam = searchParams.get('method') || 'all';
+
   const [period, setPeriod] = useState('7-days');
   const [activeTab, setActiveTab] = useState('overview');
   
   const [filterType, setFilterType] = useState('all');
-  const [filterMethod, setFilterMethod] = useState('all');
+  const [filterMethod, setFilterMethod] = useState(methodParam);
+  const [searchTerm, setSearchTerm] = useState(queryParam);
+
+  useEffect(() => {
+    if (queryParam) setSearchTerm(queryParam);
+    if (methodParam && methodParam !== 'all') setFilterMethod(methodParam);
+  }, [queryParam, methodParam]);
 
   const transactions = useTransactionStore(state => state.transactions);
   const isLoaded = useTransactionStore(state => state.isLoaded);
@@ -43,7 +54,8 @@ export default function Finance() {
       date: new Date(tx.date).toLocaleString('pt-BR')
     }))
     .filter(tx => (filterType === 'all' || tx.type === filterType) &&
-      (filterMethod === 'all' || tx.method.toLowerCase().includes(filterMethod.toLowerCase())));
+      (filterMethod === 'all' || tx.method.toLowerCase().includes(filterMethod.toLowerCase())) &&
+      (!searchTerm || tx.desc.toLowerCase().includes(searchTerm.toLowerCase()) || tx.id.toLowerCase().includes(searchTerm.toLowerCase()) || tx.method.toLowerCase().includes(searchTerm.toLowerCase())));
   const flowByDate = new Map<string, number>();
   for (const tx of completed) {
     const key = new Date(tx.date).toLocaleDateString('pt-BR');
