@@ -1,7 +1,7 @@
 import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, updateDoc, onSnapshot, query, where, runTransaction } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 export interface TransactionItem {
@@ -11,6 +11,7 @@ export interface TransactionItem {
   quantity: number;
   professionalId?: string;
   category?: string;
+  type?: 'service' | 'product';
 }
 
 export interface Transaction {
@@ -39,10 +40,52 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
     const auth = getAuth();
     if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({ transactions: [transaction, ...state.transactions], isLoaded: true }));
-    } else {
-      const data = { ...transaction, ownerId: currentFirebaseTenantId() || auth.currentUser.uid };
-      await setDoc(doc(db, 'transactions', transaction.id), data);
+      return;
     }
+
+    const tenantId = currentFirebaseTenantId() || auth.currentUser.uid;
+    const transactionRef = doc(db, 'transactions', transaction.id);
+
+    await runTransaction(db, async (firestoreTx) => {
+      const existingSale = await firestoreTx.get(transactionRef);
+      if (existingSale.exists()) {
+        throw new Error('Venda duplicada detectada. A operação não foi repetida.');
+      }
+
+      const stockUpdates: Array<{ ref: ReturnType<typeof doc>; nextStock: number }> = [];
+      for (const item of transaction.items) {
+        if (item.type !== 'product') continue;
+
+        const catalogRef = doc(db, 'catalog', item.id);
+        const catalogSnapshot = await firestoreTx.get(catalogRef);
+        if (!catalogSnapshot.exists()) {
+          throw new Error(`Produto "${item.name}" não encontrado no catálogo.`);
+        }
+
+        const catalogData = catalogSnapshot.data();
+        if (catalogData.ownerId !== tenantId) {
+          throw new Error('Produto pertence a outra empresa.');
+        }
+
+        const currentStock = Number(catalogData.stock);
+        if (!Number.isFinite(currentStock)) {
+          throw new Error(`Estoque inválido para "${item.name}".`);
+        }
+
+        const nextStock = currentStock - item.quantity;
+        if (nextStock < 0) {
+          throw new Error(`Estoque insuficiente para "${item.name}". Disponível: ${currentStock}.`);
+        }
+
+        stockUpdates.push({ ref: catalogRef, nextStock });
+      }
+
+      for (const update of stockUpdates) {
+        firestoreTx.update(update.ref, { stock: update.nextStock });
+      }
+
+      firestoreTx.set(transactionRef, { ...transaction, ownerId: tenantId });
+    });
   },
   updateTransaction: async (id, updates) => {
     const auth = getAuth();
