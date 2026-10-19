@@ -1,3 +1,4 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
@@ -42,7 +43,7 @@ export const useQueueStore = create<QueueStore>((set) => ({
     const isAnonymous = user?.isAnonymous;
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const merchantParam = urlParams ? urlParams.get('merchant') : null;
-    let ownerId = (user && !isAnonymous) ? user.uid : (merchantParam || localStorage.getItem('last_merchant_uid') || 'public');
+    let ownerId = (user && !isAnonymous) ? currentFirebaseTenantId() || user.uid : (merchantParam || localStorage.getItem('last_merchant_uid') || 'public');
     
     const newQueueItem: QueueItem = {
       ...item,
@@ -103,7 +104,7 @@ export const subscribeToQueue = () => {
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
 
-  const q = query(collection(db, 'queue'), where('ownerId', '==', auth.currentUser.uid));
+  const q = query(collection(db, 'queue'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
   return onSnapshot(q, (snapshot) => {
     const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem));
     

@@ -28,11 +28,11 @@ import {
   updateProfile,
   RecaptchaVerifier,
   signInWithPhoneNumber,
+  sendPasswordResetEmail,
   type ConfirmationResult
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { bellaSupabaseSignIn, bellaSupabaseResetPassword } from '../lib/bellaSupabase';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -50,7 +50,7 @@ export default function Login() {
   const [phoneCode, setPhoneCode] = useState('');
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
-  const { login, loginSupabase, isAuthenticated } = useAuthStore();
+  const { login, isAuthenticated } = useAuthStore();
   const { setNiche } = useNicheStore();
   const navigate = useNavigate();
 
@@ -183,21 +183,6 @@ export default function Login() {
 
     setLoginError('');
     setIsSubmitting(true);
-    if (!isRegister && email.trim().toLowerCase() === 'tramposshop@gmail.com') {
-      try {
-        const identity = await bellaSupabaseSignIn(email, password);
-        loginSupabase(identity);
-        toast.success('Acesso Supabase autenticado.', { description: 'Empresa e permissões verificadas.' });
-        navigate('/', { replace: true });
-      } catch (error: any) {
-        setLoginError(error?.message || 'Falha ao entrar pelo Supabase.');
-        toast.error(error?.message || 'Falha ao entrar pelo Supabase.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
     try {
       let firebaseUser = auth.currentUser;
       let uid = firebaseUser?.uid || '';
@@ -210,8 +195,8 @@ export default function Login() {
         await updateProfile(cred.user, { displayName: companyName.trim() });
 
         // Backend register sync
-        let companyData = {
-          id: '1',
+        const companyData = {
+          id: uid,
           name: companyName.trim(),
           niche: selectedNiche
         };
@@ -230,6 +215,7 @@ export default function Login() {
             ...newUser,
             companyName: companyName.trim(),
             niche: selectedNiche,
+            companyId: uid,
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString()
           }, { merge: true });
@@ -250,25 +236,33 @@ export default function Login() {
         firebaseUser = cred.user;
         uid = cred.user.uid;
 
-        // Server sync
-        let companyData = {
-          id: '1',
-          name: 'BellaPDV Studio',
-          niche: 'barbershop'
+        let profile: Record<string, any> = {};
+        try {
+          const snapshot = await getDoc(doc(db, 'users', uid));
+          if (snapshot.exists()) profile = snapshot.data();
+        } catch (profileError) {
+          console.warn('Firestore profile read error:', profileError);
+        }
+        const tenantId = typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : uid;
+        const companyData = {
+          id: tenantId,
+          name: typeof profile.companyName === 'string' ? profile.companyName : 'BellaPDV Studio',
+          niche: typeof profile.niche === 'string' ? profile.niche : 'barbershop'
         };
 
-        // Do not call mock server authentication endpoints.
         const loggedUser = {
           id: uid,
+          companyId: tenantId,
           email: email.trim(),
           name: firebaseUser?.displayName || email.trim().split('@')[0] || 'Administrador',
-          role: 'client' as const,
-          planFeatures: ['pdv', 'agenda']
+          role: profile.role === 'admin' ? 'admin' as const : 'client' as const,
+          planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : ['pdv', 'agenda']
         };
 
         try {
           await setDoc(doc(db, 'users', uid), {
             ...loggedUser,
+            companyId: tenantId,
             lastLogin: new Date().toISOString()
           }, { merge: true });
         } catch (docErr) {
@@ -346,6 +340,7 @@ export default function Login() {
       try {
         await setDoc(doc(db, 'users', uid), {
           ...socialUser,
+          companyId: uid,
           provider,
           lastLogin: new Date().toISOString()
         }, { merge: true });
@@ -355,7 +350,7 @@ export default function Login() {
 
       setNiche(selectedNiche);
       login(socialUser, undefined, {
-        id: '1',
+        id: uid,
         name: `${provider} Empresa`,
         niche: selectedNiche
       });
@@ -607,7 +602,7 @@ export default function Login() {
                         toast.info('Para recuperar contas Firebase, utilize a recuperação do provedor atual.'); return;
                       }
                       try {
-                        await bellaSupabaseResetPassword(email);
+                        await sendPasswordResetEmail(auth, email.trim());
                         toast.success('Se a conta estiver habilitada, você receberá um e-mail para recuperar a senha.');
                       } catch (error: any) { toast.error(error?.message || 'Falha na recuperação de senha.'); }
                     }}

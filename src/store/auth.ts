@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { bellaSupabaseRestore, type BellaSupabaseIdentity } from '../lib/bellaSupabase';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -28,7 +27,6 @@ interface AuthState {
   setAuthReady: (ready: boolean) => void;
   hasFeature: (feature: string) => boolean;
   login: (userData: any, token?: string, company?: any) => void;
-  loginSupabase: (identity: BellaSupabaseIdentity) => void;
   logout: () => Promise<void>;
 }
 
@@ -57,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user) {
       try {
         localStorage.setItem('bellapdv_auth_user', JSON.stringify(user));
-        localStorage.setItem('last_merchant_uid', user.id);
+        localStorage.setItem('last_merchant_uid', user.companyId || user.id);
       } catch (err) {
         console.warn('Could not cache user locally:', err);
       }
@@ -78,12 +76,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     return user.planFeatures?.includes(feature) ?? false;
   },
-  loginSupabase: (identity) => {
-    sessionStorage.setItem('bella_supabase_session', JSON.stringify(identity));
-    localStorage.removeItem('bellapdv_auth_user');
-    localStorage.removeItem('bellapdv_auth_token');
-    set({ user: { id: identity.id, email: identity.email, name: identity.email.split('@')[0], companyId: identity.companyId, role: identity.role, planFeatures: DEFAULT_FEATURES }, isAuthenticated: true, isAuthReady: true });
-  },
   login: (userData: any, token?: string, company?: any) => {
     const fullUser: AuthUser = {
       id: userData?.id || auth.currentUser?.uid || 'u_admin',
@@ -97,7 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       localStorage.setItem('bellapdv_auth_user', JSON.stringify(fullUser));
-      localStorage.setItem('last_merchant_uid', fullUser.id);
+      localStorage.setItem('last_merchant_uid', fullUser.companyId || fullUser.id);
       if (token) localStorage.setItem('bellapdv_auth_token', token);
     } catch (e) {
       console.warn('Failed to save auth to localStorage', e);
@@ -111,7 +103,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     try {
-      sessionStorage.removeItem('bella_supabase_session');
       localStorage.removeItem('bellapdv_auth_user');
       localStorage.removeItem('last_merchant_uid');
       localStorage.removeItem('bellapdv_auth_token');
@@ -128,18 +119,6 @@ let isListenerInitialized = false;
 
 onAuthStateChanged(auth, async (firebaseUser) => {
   isListenerInitialized = true;
-  if (sessionStorage.getItem('bella_supabase_session')) {
-    const identity = await bellaSupabaseRestore();
-    if (identity) {
-      useAuthStore.getState().loginSupabase(identity);
-      return;
-    }
-  }
-  
-  // Firebase may fire after a successful Supabase login. Do not override it.
-  if (sessionStorage.getItem('bella_supabase_session') &&
-      useAuthStore.getState().user?.companyId &&
-      useAuthStore.getState().user?.id !== firebaseUser?.uid) return;
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
@@ -171,7 +150,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       email: email,
       name: displayName,
       role: profile.role === 'admin' ? 'admin' : 'client',
-      companyId: typeof profile.companyId === 'string' ? profile.companyId : undefined,
+      companyId: typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : firebaseUser.uid,
       avatar: firebaseUser.photoURL || undefined,
       planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
       isDemo: !!profile.isDemo

@@ -1,3 +1,4 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { auth, db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
@@ -32,7 +33,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
       set((state) => ({ items: [...state.items, item], isLoaded: true }));
       return;
     }
-    const itemData = { ...item, ownerId: auth.currentUser.uid };
+    const itemData = { ...item, ownerId: currentFirebaseTenantId() || auth.currentUser.uid };
     await setDoc(doc(db, 'catalog', item.id), itemData);
   },
   updateItem: async (id, updates) => {
@@ -122,7 +123,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
 export const subscribeToCatalog = () => {
   if (!auth.currentUser) return () => {};
   
-  const q = query(collection(db, 'catalog'), where('ownerId', '==', auth.currentUser.uid));
+  const q = query(collection(db, 'catalog'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
   return onSnapshot(q, (snapshot) => {
     const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CatalogItem));
     useCatalogStore.getState().setItems(items);

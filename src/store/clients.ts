@@ -1,3 +1,4 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
@@ -48,7 +49,7 @@ export const useClientStore = create<ClientStore>((set) => ({
       set((state) => ({ clients: [...state.clients, client], isLoaded: true }));
       return;
     }
-    const clientData = { ...client, ownerId: auth.currentUser.uid };
+    const clientData = { ...client, ownerId: currentFirebaseTenantId() || auth.currentUser.uid };
     await setDoc(doc(db, 'clients', client.id), clientData);
   },
   updateClient: async (id, updates) => {
@@ -77,7 +78,7 @@ export const subscribeToClients = () => {
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
   
-  const q = query(collection(db, 'clients'), where('ownerId', '==', auth.currentUser.uid));
+  const q = query(collection(db, 'clients'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
   return onSnapshot(q, (snapshot) => {
     const clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
     useClientStore.getState().setClients(clients);

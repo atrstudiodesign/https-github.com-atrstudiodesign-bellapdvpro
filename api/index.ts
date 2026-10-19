@@ -6,44 +6,15 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
-import { createVerify, X509Certificate, createHash } from 'node:crypto';
+import { createVerify, X509Certificate } from 'node:crypto';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
 
-// --- DATABASE MOCK (Simulating Core Services + Multi-tenant) ---
-let companies = [
-  { 
-    id: '1', 
-    name: 'Original Barbershop', 
-    niche: 'barbershop', 
-    plan: 'premium', 
-    asaasCustomerId: 'cus_00000X8J',
-    whatsappSessionId: null,
-    status: 'active' 
-  }
-];
-
-let services = [
-  { id: '1', companyId: '1', name: 'Corte Degradê', price: 45, duration: 30, nicheType: 'barbershop' },
-  { id: '2', companyId: '1', name: 'Barba Terapia', price: 35, duration: 30, nicheType: 'barbershop' },
-];
-
-let appointments = [
-    { id: '1', companyId: '1', clientName: 'João Silva', clientPhone: '+5511999999999', serviceId: '1', datetime: new Date().toISOString(), status: 'confirmed' }
-];
-
 // --- INTEGRATION LAYER (CAMADA DE INTEGRAÇÃO LIMPA) ---
 class IntegrationService {
     static async sendMessage(companyId: string, type: 'whatsapp' | 'email', data: any) {
-        const company = companies.find(c => c.id === companyId);
-        if(!company) return;
-
         if (type === 'whatsapp') {
-            if (!company.whatsappSessionId) {
-                console.log(`[IntegrationService] Company ${companyId} has no WhatsApp connected. Skipping message to ${data.to}`);
-                return;
-            }
             console.warn(`[WhatsApp] Envio não realizado: provedor de mensageria ainda não implementado para a empresa ${companyId}.`);
         }
     }
@@ -75,7 +46,6 @@ app.use(cors({
       const parsed = new URL(origin);
       const allowed = parsed.protocol === 'https:' &&
         (parsed.hostname === 'bellapdvpro.vercel.app' ||
-         parsed.hostname === req.hostname ||
          parsed.hostname.startsWith('https-github-com-atrstudiodesign-bellapdvpro-') && parsed.hostname.endsWith('.vercel.app'));
       return callback(null, allowed);
     } catch { return callback(null, false); }
@@ -84,45 +54,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '256kb' }));
-
-// Shared, atomic rate limit via the dedicated Bella Supabase Postgres database.
-// Fail closed on protected API groups if shared counter is unavailable.
-async function sharedBellaRateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const url = process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url !== 'https://nmaqharvngnklkmwkwni.supabase.co' || !serviceKey) {
-    return res.status(503).json({ error: 'Proteção global indisponível; solicitação bloqueada.' });
-  }
-  const pathGroup = req.originalUrl.startsWith('/api/auth/') ? 'auth' : 'ai';
-  const limit = pathGroup === 'auth' ? 12 : 15;
-  const windowStart = Math.floor(Date.now() / 60000);
-  // Isolate signed-in callers by bearer credential; no credentials are persisted.
-  // Unauthenticated requests use their connection address, not client-controlled headers.
-  const bearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
-  const caller = bearer || req.socket.remoteAddress || 'unknown';
-  const keyHash = createHash('sha256').update(pathGroup + ':' + caller).digest('hex');
-  try {
-    const response = await fetch(url + '/rest/v1/rpc/bella_consume_rate_limit', {
-      method: 'POST',
-      headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_key_hash: keyHash, p_window_start: windowStart, p_max_requests: limit }),
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!response.ok) return res.status(503).json({ error: 'Proteção global indisponível.' });
-    const count = Number(await response.json());
-    if (!Number.isSafeInteger(count)) return res.status(503).json({ error: 'Contador global inválido.' });
-    res.setHeader('RateLimit-Limit', String(limit));
-    res.setHeader('RateLimit-Remaining', String(Math.max(0, limit - count)));
-    if (count > limit) {
-      res.setHeader('Retry-After', String(60 - (Math.floor(Date.now() / 1000) % 60)));
-      return res.status(429).json({ error: 'Limite de solicitações atingido. Tente novamente em breve.' });
-    }
-    next();
-  } catch {
-    return res.status(503).json({ error: 'Proteção global temporariamente indisponível.' });
-  }
-}
-app.use(['/api/ai', '/api/gemini', '/api/auth'], sharedBellaRateLimit);
 
 // Best-effort per-instance throttle; serverless instances do not share counters.
 // A distributed Redis/Upstash limiter is still required for strict global quotas.
@@ -204,29 +135,6 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
 }
 
 
-async function verifyBellaSupabaseAccess(token: string): Promise<{ uid: string; companyId: string } | null> {
-  if (token.length > 12000) return null;
-  const url = process.env.VITE_SUPABASE_URL;
-  const apikey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !apikey) return null;
-  try {
-    const controller = AbortSignal.timeout(8000);
-    const userResponse = await fetch(url + '/auth/v1/user', {
-      headers: { apikey, Authorization: 'Bearer ' + token }, signal: controller,
-    });
-    if (!userResponse.ok) return null;
-    const user: any = await userResponse.json();
-    if (typeof user.id !== 'string') return null;
-    const memberships = await fetch(url + '/rest/v1/bella_memberships?select=company_id,role&limit=2', {
-      headers: { apikey, Authorization: 'Bearer ' + token }, signal: controller,
-    });
-    if (!memberships.ok) return null;
-    const rows: any = await memberships.json();
-    if (!Array.isArray(rows) || rows.length !== 1 || typeof rows[0]?.company_id !== 'string') return null;
-    return { uid: user.id, companyId: rows[0].company_id };
-  } catch { return null; }
-}
-
 // Restrict API access to verified identities and server-issued custom tenant claims.
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
@@ -235,16 +143,14 @@ app.use('/api', async (req, res, next) => {
     const bearer = req.headers.authorization;
     if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Autenticação obrigatória para narração IA.' });
     const token = bearer.slice(7);
-    const supabaseIdentity = await verifyBellaSupabaseAccess(token);
-    if (supabaseIdentity) { (req as any).verifiedTenant = supabaseIdentity.companyId; return next(); }
     try {
       const claims = await verifyFirebaseIdToken(token);
-      if (typeof claims.companyId === 'string' && claims.companyId.length > 0) {
-        (req as any).verifiedTenant = claims.companyId;
-        return next();
-      }
-    } catch {}
-    return res.status(403).json({ error: 'Usuário sem autorização para IA.' });
+      const tenantId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
+      (req as any).verifiedTenant = tenantId;
+      return next();
+    } catch {
+      return res.status(403).json({ error: 'Usuário Firebase sem autorização para IA.' });
+    }
   }
   if (req.path.startsWith('/ai/')) return res.status(404).json({ error: 'Rota não disponível.' });
 
@@ -259,23 +165,15 @@ app.use('/api', async (req, res, next) => {
     console.warn('Rejected Firebase token:', error instanceof Error ? error.message : 'unknown');
     return res.status(401).json({ error: 'Identidade não verificada.' });
   }
-  (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true };
+  const tenantId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
+  (req as any).firebaseUser = { uid: claims.sub, email: claims.email, admin: claims.admin === true, companyId: tenantId };
   if (req.path === '/auth/me') return next();
 
-  // Tenant is assigned only from trusted, Firebase Admin-issued custom claims.
-  const companyId = claims.companyId;
-  if (typeof companyId !== 'string' || !companyId || companyId.length > 128) {
-    return res.status(403).json({ error: 'Empresa não provisionada na autenticação.' });
-  }
+  const companyId = tenantId;
   if (req.headers['x-company-id'] && req.headers['x-company-id'] !== companyId) {
     return res.status(403).json({ error: 'Empresa não autorizada.' });
   }
-  const company = companies.find(c => c.id === companyId);
-  if (!company) return res.status(403).json({ error: 'Empresa não encontrada no backend.' });
-  if (company.status === 'blocked' && !['GET', 'HEAD'].includes(req.method)) {
-    return res.status(403).json({ error: 'Assinatura bloqueada.' });
-  }
-  (req as any).company = company;
+  (req as any).company = { id: companyId };
   next();
 });
 
@@ -291,15 +189,8 @@ app.use('/api', async (req, res, next) => {
   });
 
   // Appointments (Simula disparo de evento)
-  app.post('/api/appointments', (req, res) => {
-      const company = (req as any).company;
-      const newAppointment = { ...req.body, id: Date.now().toString(), companyId: company.id };
-      appointments.push(newAppointment);
-      
-      // DISPARA EVENTO (Arquitetura Event-driven)
-      eventBus.emit('APPOINTMENT_CREATED', newAppointment);
-
-      res.json(newAppointment);
+  app.post('/api/appointments', (_req, res) => {
+      res.status(410).json({ error: 'Agendamentos são persistidos diretamente no Firestore do tenant.' });
   });
 
   // A successful connection requires a real provider handshake; never fabricate a session ID.
@@ -308,25 +199,8 @@ app.use('/api', async (req, res, next) => {
   });
 
   // Webhooks: Asaas Dunning / Billing
-  app.post('/api/webhooks/asaas', (req, res) => {
-      const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
-      const receivedToken = req.headers['asaas-access-token'];
-      if (!expectedToken) return res.status(503).json({ error: 'Webhook não configurado.' });
-      if (typeof receivedToken !== 'string' || receivedToken !== expectedToken) return res.sendStatus(401);
-      const { customer, event, payment } = req.body || {};
-      console.log(`[ASAAS WEBHOOK] Recebido evento: ${event} do customer: ${customer}`);
-
-      const company = companies.find(c => c.asaasCustomerId === customer);
-      if(company) {
-          if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
-              company.status = 'active';
-              console.log(`[Dunning] Empresa ${company.id} regularizada. Status: Ativo.`);
-          } else if (event === 'PAYMENT_OVERDUE') {
-              company.status = 'blocked';
-              console.log(`[Dunning] Empresa ${company.id} inadimplente. Status: Soft Blocked.`);
-          }
-      }
-      res.sendStatus(200);
+  app.post('/api/webhooks/asaas', (_req, res) => {
+      res.status(501).json({ error: 'Webhook Asaas ainda não está vinculado a empresas persistidas no Firebase.' });
   });
 
   // --- GEMINI PROXY ROUTES WITH HIGH-RESILIENCE FALLBACK ---
