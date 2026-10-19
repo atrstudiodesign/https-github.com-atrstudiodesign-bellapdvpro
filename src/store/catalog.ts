@@ -113,7 +113,9 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
         ownerId: uid || 'public'
       };
       
-      if (uid) {
+      if (hasBellaSupabaseSession()) {
+        await bellaInsert('catalog', itemData);
+      } else if (uid) {
         await setDoc(doc(db, 'catalog', generatedId), itemData);
       }
       itemsToSet.push(itemData);
