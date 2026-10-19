@@ -13,51 +13,71 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
+    function tenantId() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['companyId'])
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
+        : request.auth.uid;
+    }
+
+    function ownsTenant(data) {
+      return isSignedIn() && data.ownerId == tenantId();
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client';
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'lastLogin']));
+      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client' && request.resource.data.companyId == request.auth.uid;
+      allow update: if isAdmin() || (
+        isSignedIn() && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && (
+          request.resource.data.companyId == resource.data.companyId
+          || (!resource.data.keys().hasAny(['companyId']) && request.resource.data.companyId == request.auth.uid)
+        )
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'lastLogin', 'provider', 'companyName', 'niche', 'companyId'])
+      );
       allow delete: if isAdmin();
     }
 
     match /clients/{clientId} {
-      allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && (isAdmin() || (resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId));
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data);
+      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
     match /catalog/{serviceId} {
-      allow read: if true; // Public totem needs catalog access
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data);
+      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
     match /queue/{itemId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.ownerId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.ownerId == request.auth.uid);
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data);
+      allow update, delete: if isAdmin() || (ownsTenant(resource.data) && (request.method == 'delete' || request.resource.data.ownerId == resource.data.ownerId));
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && request.resource.data.ownerId == request.auth.uid; // Public booking must use validated backend
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && ownsTenant(request.resource.data);
+      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
     match /transactions/{transactionId} {
-      allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data);
+      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
     match /companies/{companyId} {
-      allow read: if isSignedIn() && (companyId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (companyId == tenantId() || isAdmin());
       allow create: if isSignedIn() && companyId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAdmin() || (isSignedIn() && companyId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
+      allow update: if isAdmin() || (isSignedIn() && companyId == tenantId() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
       allow delete: if isAdmin();
     }
 
