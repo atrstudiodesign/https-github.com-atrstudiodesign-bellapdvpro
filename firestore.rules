@@ -97,6 +97,21 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid) && (request.method == 'delete' || request.resource.data.userId == resource.data.userId);
     }
 
+    match /bella_rate_limits/{limitId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.count == 1;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.routeGroup == resource.data.routeGroup
+        && request.resource.data.windowStart == resource.data.windowStart
+        && request.resource.data.count == resource.data.count + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count']);
+      allow delete: if false;
+    }
+
     match /voice_settings/{userId} {
       allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
