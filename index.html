@@ -78,9 +78,23 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(err => {
-            console.log('ServiceWorker registration failed: ', err);
-          });
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(registration => {
+              // Verificar atualizações do Service Worker
+              registration.onupdatefound = () => {
+                const installingWorker = registration.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[PWA] Nova versão do Bella PDV pronta.');
+                    }
+                  };
+                }
+              };
+            })
+            .catch(err => {
+              console.warn('[PWA] Falha ao registrar ServiceWorker:', err);
+            });
         });
       }
     </script>

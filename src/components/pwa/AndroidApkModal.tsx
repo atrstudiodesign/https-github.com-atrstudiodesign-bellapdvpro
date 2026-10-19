@@ -13,33 +13,56 @@ import {
   Terminal, 
   CreditCard,
   Sparkles,
-  Layers
+  AlertTriangle,
+  HelpCircle,
+  ShieldAlert,
+  FileWarning,
+  ChevronRight,
+  ArrowRight,
+  Info,
+  Flame,
+  Database
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import JSZip from 'jszip';
 import { toast } from 'sonner';
+import { realtimeDatabaseService } from '../../services/realtimeDatabaseService';
 
 interface AndroidApkModalProps {
   isOpen: boolean;
   onClose: () => void;
   deferredPrompt?: any;
   onInstalled?: () => void;
+  initialTab?: 'instant' | 'troubleshoot' | 'qrcode' | 'apk_builder' | 'smartpos';
 }
 
 export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
   isOpen,
   onClose,
   deferredPrompt,
-  onInstalled
+  onInstalled,
+  initialTab = 'troubleshoot'
 }) => {
-  const [activeTab, setActiveTab] = useState<'instant' | 'qrcode' | 'apk_builder' | 'smartpos'>('instant');
+  const [activeTab, setActiveTab] = useState<'instant' | 'troubleshoot' | 'qrcode' | 'apk_builder' | 'smartpos'>(initialTab);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCli, setCopiedCli] = useState(false);
   const [isGeneratingZip, setIsGeneratingZip] = useState(false);
   const [isAndroidDevice, setIsAndroidDevice] = useState(false);
+  const [activeTroubleAccordion, setActiveTroubleAccordion] = useState<string | null>('play_protect');
+  const [copiedKotlin, setCopiedKotlin] = useState(false);
+  const [copiedWebSnippet, setCopiedWebSnippet] = useState(false);
+  const [isTestingRtdb, setIsTestingRtdb] = useState(false);
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bellapdv.com';
+  // URL do aplicativo
+  const rawAppUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bellapdv.com';
+  // Se estiver em ambiente dev com proxy ais-dev, permitir o link ais-pre (público) para escanear no celular
+  const publicAppUrl = rawAppUrl.includes('ais-dev-') 
+    ? rawAppUrl.replace('ais-dev-', 'ais-pre-') 
+    : rawAppUrl;
+
+  const [usePublicUrl, setUsePublicUrl] = useState(rawAppUrl.includes('ais-dev-'));
+  const currentTargetUrl = usePublicUrl ? publicAppUrl : rawAppUrl;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -50,7 +73,7 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      QRCode.toDataURL(appUrl, {
+      QRCode.toDataURL(currentTargetUrl, {
         width: 320,
         margin: 2,
         color: {
@@ -61,7 +84,7 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
         .then((url) => setQrCodeUrl(url))
         .catch((err) => console.error('Erro ao gerar QRCode:', err));
     }
-  }, [isOpen, appUrl]);
+  }, [isOpen, currentTargetUrl]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -80,26 +103,94 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
       }
     } else {
       toast.info('Instalação manual no Android', {
-        description: 'Toque nos 3 pontinhos (⋮) do navegador e selecione "Instalar aplicativo".'
+        description: 'Toque nos 3 pontinhos (⋮) do Google Chrome e selecione "Instalar aplicativo".'
       });
     }
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(appUrl);
+    navigator.clipboard.writeText(currentTargetUrl);
     setCopiedLink(true);
-    toast.success('Link copiado!', {
-      description: 'Envie por WhatsApp para abrir e instalar no seu Android.'
+    toast.success('Link copiado com sucesso!', {
+      description: 'Envie por WhatsApp para abrir e instalar direto no celular.'
     });
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
   const handleCopyCli = () => {
-    const cliCommand = `npm i -g @bubblewrap/cli\nbubblewrap init --manifest="${appUrl}/manifest.json"\nbubblewrap build`;
+    const cliCommand = `npm i -g @bubblewrap/cli\nbubblewrap init --manifest="${currentTargetUrl}/manifest.json"\nbubblewrap build`;
     navigator.clipboard.writeText(cliCommand);
     setCopiedCli(true);
     toast.success('Comandos copiados!');
     setTimeout(() => setCopiedCli(false), 2500);
+  };
+
+  const handleCopyKotlin = () => {
+    const code = `// 1. No app-level build.gradle.kts:
+implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+implementation("com.google.firebase:firebase-database")
+
+// 2. Gravar dados:
+val database = Firebase.database("https://bellapdv-15ae0-default-rtdb.firebaseio.com")
+val myRef = database.getReference("message")
+myRef.setValue("Hello, World!")
+
+// 3. Ler dados em tempo real:
+myRef.addValueEventListener(object : ValueEventListener {
+    override fun onDataChange(snapshot: DataSnapshot) {
+        val value = snapshot.getValue(String::class.java)
+        Log.d("RTDB", "Valor recebido: $value")
+    }
+    override fun onCancelled(error: DatabaseError) {
+        Log.w("RTDB", "Erro ao ler:", error.toException())
+    }
+})`;
+    navigator.clipboard.writeText(code);
+    setCopiedKotlin(true);
+    toast.success('Código Kotlin copiado com sucesso!');
+    setTimeout(() => setCopiedKotlin(false), 2500);
+  };
+
+  const handleCopyWebSnippet = () => {
+    const code = `import { getDatabase, ref, set, onValue } from "firebase/database";
+import { app } from "./lib/firebase";
+
+const database = getDatabase(app);
+
+// Escrever:
+await set(ref(database, 'message'), "Hello, World!");
+
+// Escutar em tempo real:
+onValue(ref(database, 'message'), (snapshot) => {
+  console.log("Mensagem recebida:", snapshot.val());
+});`;
+    navigator.clipboard.writeText(code);
+    setCopiedWebSnippet(true);
+    toast.success('Código Web copiado com sucesso!');
+    setTimeout(() => setCopiedWebSnippet(false), 2500);
+  };
+
+  const handleTestRtdb = async () => {
+    setIsTestingRtdb(true);
+    try {
+      const now = new Date().toLocaleTimeString('pt-BR');
+      const testMsg = `Conexão ativa Bella PDV às ${now}`;
+      const success = await realtimeDatabaseService.setMessage(testMsg);
+      if (success) {
+        toast.success('Mensagem gravada no Realtime Database!', {
+          description: `Chave "message" atualizada com sucesso no Firebase.`
+        });
+      } else {
+        toast.info('Modo simulação local ativo', {
+          description: 'A URL do banco de dados está configurada em firebaseConfig.json.'
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao conectar ao Realtime Database');
+    } finally {
+      setIsTestingRtdb(false);
+    }
   };
 
   const handleDownloadZipPackage = async () => {
@@ -170,8 +261,8 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
         navigationColor: "#05070F",
         backgroundColor: "#05070F",
         startUrl: "/",
-        iconUrl: `${appUrl}/pwa-512x512.png`,
-        maskableIconUrl: `${appUrl}/pwa-maskable-512x512.png`,
+        iconUrl: `${currentTargetUrl}/pwa-512x512.png`,
+        maskableIconUrl: `${currentTargetUrl}/pwa-maskable-512x512.png`,
         appVersion: "1.0.0",
         signingKey: {
           path: "./android.keystore",
@@ -183,32 +274,24 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
 BELLA PDV - PACOTE DE IMPLANTAÇÃO ANDROID & APK
 ======================================================
 
-Este pacote contém todos os artefatos necessários para gerar o arquivo APK instalável
-ou publicar o Bella PDV na Google Play Store.
+ATENÇÃO: ESTE ARQUIVO .ZIP É O CÓDIGO-FONTE PARA GERAR O APK.
+O Android NÃO instala arquivos .zip diretamente!
 
-OPÇÃO 1: GERAR APK EM 1 CLIQUE VIA PWABUILDER (MAIS FÁCIL)
----------------------------------------------------------
+COMO INSTALAR NO CELULAR OU SMARTPOS (SEM ERROS):
+------------------------------------------------------------------
+MÉTODO 1 (MAIS FÁCIL E RÁPIDO - DIRETO NO GOOGLE CHROME):
+1. No seu celular Android, abra o Google Chrome.
+2. Acesse: ${currentTargetUrl}
+3. Toque nos 3 pontinhos (⋮) no canto superior direito.
+4. Toque em "Instalar aplicativo" (ou "Adicionar à tela inicial").
+5. Pronto! O Google Chrome instala o APK nativo sem nenhum erro de Play Protect!
+
+MÉTODO 2 (GERAR ARQUIVO .APK ASSINADO COM PWABUILDER):
 1. Acesse: https://www.pwabuilder.com
-2. Digite a URL do seu sistema: ${appUrl}
+2. Digite a URL: ${currentTargetUrl}
 3. Clique em "Package for stores" -> "Android".
-4. Baixe o arquivo .apk ou .aab assinado pronto para instalar no seu celular ou enviar por WhatsApp!
-
-OPÇÃO 2: GERAR APK VIA LINUX / MAC / WINDOWS (BUBBLEWRAP CLI)
-------------------------------------------------------------
-Requisitos: Node.js e Java JDK 17+
-Execute no terminal:
-  npm i -g @bubblewrap/cli
-  bubblewrap init --manifest="${appUrl}/manifest.json"
-  bubblewrap build
-
-O arquivo 'app-release-signed.apk' será gerado na pasta de saída.
-
-OPÇÃO 3: INSTALAÇÃO DIRETA NO CELULAR OU SMARTPOS (SEM PRECISAR DE APK MANUAL)
-------------------------------------------------------------------------------
-O Android 8+ possui suporte nativo ao WebAPK:
-1. Abra ${appUrl} no Google Chrome do celular.
-2. Toque nos 3 pontinhos (⋮) do Chrome e selecione "Instalar aplicativo".
-3. O Android gerará o APK nativo e o colocará na gaveta de aplicativos com ícone, tela cheia e notificações!
+4. Baixe o arquivo .apk assinado e transfira para o aparelho.
+5. Ao instalar o .apk, se o Android alertar "Bloqueado pelo Play Protect", clique em "Mais detalhes" -> "Instalar assim mesmo".
 
 Equipe ATR Studio / Bella PDV
 `;
@@ -218,7 +301,71 @@ Equipe ATR Studio / Bella PDV
       zip.file("twa-manifest.json", twaManifest);
       zip.file("LEIA-ME-INSTALACAO-ANDROID.txt", readme);
 
-      // Buscar ícones existentes e anexar ao zip
+      // build.gradle.kts (Android app)
+      const buildGradleKts = `plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    id("com.google.gms.google-services")
+}
+
+android {
+    namespace = "com.bellapdv.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.bellapdv.app"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+}
+
+dependencies {
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    // Firebase Realtime Database
+    implementation("com.google.firebase:firebase-database")
+    // Firebase Auth & Common
+    implementation("com.google.firebase:firebase-auth")
+}`;
+
+      // FirebaseRealtimeHelper.kt
+      const kotlinHelper = `package com.bellapdv.app
+
+import android.util.Log
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+
+class FirebaseRealtimeHelper {
+    private val database = Firebase.database("https://bellapdv-15ae0-default-rtdb.firebaseio.com")
+    private val myRef = database.getReference("message")
+
+    fun writeMessage(text: String) {
+        myRef.setValue(text)
+    }
+
+    fun listenToMessage(onValueChange: (String?) -> Unit) {
+        myRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val value = snapshot.getValue(String::class.java)
+                Log.d("RTDB", "Value is: $value")
+                onValueChange(value)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.w("RTDB", "Failed to read value.", error.toException())
+            }
+        })
+    }
+}`;
+
+      zip.file("build.gradle.kts", buildGradleKts);
+      zip.file("FirebaseRealtimeHelper.kt", kotlinHelper);
+
       try {
         const [res192, res512] = await Promise.all([
           fetch('/pwa-192x192.png').then(r => r.blob()),
@@ -234,14 +381,14 @@ Equipe ATR Studio / Bella PDV
       const downloadUrl = URL.createObjectURL(content);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `BellaPDV-Android-Package.zip`;
+      link.download = `BellaPDV-Android-Source-Package.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(downloadUrl);
 
-      toast.success('Pacote Android baixado com sucesso!', {
-        description: 'Arquivo ZIP com manifest, ícones e guias gerado.'
+      toast.success('Pacote baixado!', {
+        description: 'Lembre-se: o Android instala via Chrome WebAPK ou compilação de APK.'
       });
     } catch (e) {
       console.error('Erro ao gerar ZIP:', e);
@@ -251,7 +398,7 @@ Equipe ATR Studio / Bella PDV
     }
   };
 
-  const pwabuilderUrl = `https://www.pwabuilder.com?siteUrl=${encodeURIComponent(appUrl)}`;
+  const pwabuilderUrl = `https://www.pwabuilder.com?siteUrl=${encodeURIComponent(currentTargetUrl)}`;
 
   return (
     <AnimatePresence>
@@ -272,7 +419,7 @@ Equipe ATR Studio / Bella PDV
             className="bg-[#0A0F1D] border border-cyan-500/30 rounded-2xl w-full max-w-2xl shadow-[0_0_50px_rgba(6,182,212,0.2)] overflow-hidden flex flex-col relative my-auto max-h-[92vh]"
           >
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-[#0F172A] via-[#0B132B] to-[#0A0F1D]">
+            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-[#0F172A] via-[#0B132B] to-[#0A0F1D]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white shrink-0">
                   <Smartphone className="w-5 h-5" />
@@ -280,14 +427,14 @@ Equipe ATR Studio / Bella PDV
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base sm:text-lg font-bold text-white">
-                      Instalador Android & APK
+                      Instalação do Aplicativo Android & APK
                     </h3>
                     <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Android 8+ & SmartPOS
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Instale como WebAPK nativo no celular ou gere o arquivo APK oficial
+                    Soluções para instalação no celular e resolução de bloqueios do Android
                   </p>
                 </div>
               </div>
@@ -300,10 +447,22 @@ Equipe ATR Studio / Bella PDV
             </div>
 
             {/* Navigation Tabs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-2 bg-[#060A14] border-b border-white/5 text-xs font-medium">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-2 bg-[#060A14] border-b border-white/5 text-xs font-medium">
+              <button
+                onClick={() => setActiveTab('troubleshoot')}
+                className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center col-span-2 sm:col-span-1 ${
+                  activeTab === 'troubleshoot'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm font-bold'
+                    : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400 animate-pulse" />
+                <span className="truncate">APK não instala?</span>
+              </button>
+
               <button
                 onClick={() => setActiveTab('instant')}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
+                className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
                   activeTab === 'instant'
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -315,44 +474,238 @@ Equipe ATR Studio / Bella PDV
 
               <button
                 onClick={() => setActiveTab('qrcode')}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
+                className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
                   activeTab === 'qrcode'
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <QrCode className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Escanear QR Code</span>
+                <span className="truncate">QR Code</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('apk_builder')}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
+                className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
                   activeTab === 'apk_builder'
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Gerar Arquivo APK</span>
+                <span className="truncate">Gerar APK</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('smartpos')}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
+                className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-center ${
                   activeTab === 'smartpos'
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <CreditCard className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Maquininhas SmartPOS</span>
+                <span className="truncate">SmartPOS</span>
               </button>
             </div>
 
             {/* Tab Contents */}
             <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-              {/* TAB 1: INSTALAÇÃO DIRETA / WEBAPK */}
+              
+              {/* ========================================================================= */}
+              {/* TAB 0: GUIA DE RESOLUÇÃO (POR QUE O APK NÃO ESTÁ INSTALANDO)              */}
+              {/* ========================================================================= */}
+              {activeTab === 'troubleshoot' && (
+                <div className="space-y-4">
+                  {/* Banner de Destaque da Solução Principal */}
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/50 via-[#0B1A24] to-[#0A1224] border border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-white">
+                            Método Oficial e Sem Erros: Google Chrome (WebAPK)
+                          </h4>
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.2 rounded-full uppercase">
+                            100% Garantido
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          Você <strong>não precisa</strong> baixar arquivo APK manualmente nem ativar fontes desconhecidas! O Android possui a tecnologia WebAPK oficial da Google:
+                        </p>
+                        <div className="mt-2.5 p-2.5 bg-black/40 rounded-lg border border-white/5 text-xs text-slate-200 space-y-1">
+                          <p className="font-semibold text-emerald-300">Como instalar em 3 toques:</p>
+                          <p>1. No celular Android, abra o <strong>Google Chrome</strong> e acesse o endereço do Bella PDV.</p>
+                          <p>2. Toque nos <strong>3 pontinhos (⋮)</strong> no canto superior direito do Chrome.</p>
+                          <p>3. Toque em <strong>"Instalar aplicativo"</strong> (ou "Adicionar à tela inicial").</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    Qual mensagem de erro apareceu no seu celular?
+                  </h5>
+
+                  {/* Acordeon / Cards com os 4 motivos mais comuns */}
+                  <div className="space-y-2.5">
+                    {/* Caso 1: Baixou arquivo .ZIP em vez de APK */}
+                    <div className="border border-white/10 rounded-xl bg-[#0F172A] overflow-hidden">
+                      <button
+                        onClick={() => setActiveTroubleAccordion(activeTroubleAccordion === 'zip_file' ? null : 'zip_file')}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <FileWarning className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              1. "Não é possível abrir o arquivo" (O arquivo baixado terminou em .zip)
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              O celular não reconhece o arquivo baixado ou tenta descompactar
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeTroubleAccordion === 'zip_file' ? 'rotate-90 text-amber-400' : ''}`} />
+                      </button>
+
+                      {activeTroubleAccordion === 'zip_file' && (
+                        <div className="p-3.5 pt-0 border-t border-white/5 bg-[#0A101D] text-xs text-slate-300 space-y-2">
+                          <p>
+                            O botão de "Baixar Pacote" gera um arquivo <strong>.zip</strong> com o código de compilação técnica para programadores. O sistema Android só executa arquivos <strong>.apk</strong> ou instalações diretas.
+                          </p>
+                          <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200">
+                            <strong>Como resolver:</strong> Abra o Bella PDV no <strong>Google Chrome</strong> do celular e toque nos 3 pontinhos (⋮) &gt; <strong>"Instalar aplicativo"</strong>. O aplicativo será instalado imediatamente na sua tela sem precisar de nenhum arquivo .zip.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Caso 2: Play Protect Bloqueou */}
+                    <div className="border border-white/10 rounded-xl bg-[#0F172A] overflow-hidden">
+                      <button
+                        onClick={() => setActiveTroubleAccordion(activeTroubleAccordion === 'play_protect' ? null : 'play_protect')}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              2. "Bloqueado pelo Play Protect" (Aviso vermelho ou amarelo)
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              O Google Play Protect alerta sobre aplicativos fora da Play Store
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeTroubleAccordion === 'play_protect' ? 'rotate-90 text-rose-400' : ''}`} />
+                      </button>
+
+                      {activeTroubleAccordion === 'play_protect' && (
+                        <div className="p-3.5 pt-0 border-t border-white/5 bg-[#0A101D] text-xs text-slate-300 space-y-2">
+                          <p>
+                            Como o APK é corporativo/privado e não passou pela aprovação da Google Play Store, o Android exibe um aviso de segurança preventivo.
+                          </p>
+                          <ol className="list-decimal pl-4 space-y-1 text-slate-300">
+                            <li>Na tela do aviso do Play Protect, procure o link <strong>"Mais detalhes"</strong> (ou "Detalhes").</li>
+                            <li>Toque em <strong>"Instalar assim mesmo"</strong> (ou "Instalar mesmo assim").</li>
+                            <li>A instalação prosseguirá e o app abrirá normalmente.</li>
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Caso 3: Permissão de Fontes Desconhecidas */}
+                    <div className="border border-white/10 rounded-xl bg-[#0F172A] overflow-hidden">
+                      <button
+                        onClick={() => setActiveTroubleAccordion(activeTroubleAccordion === 'unknown_sources' ? null : 'unknown_sources')}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              3. "Para sua segurança, seu smartphone não tem permissão para instalar..."
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              Bloqueio nativo do Android para instalação de APK via Chrome ou WhatsApp
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeTroubleAccordion === 'unknown_sources' ? 'rotate-90 text-amber-400' : ''}`} />
+                      </button>
+
+                      {activeTroubleAccordion === 'unknown_sources' && (
+                        <div className="p-3.5 pt-0 border-t border-white/5 bg-[#0A101D] text-xs text-slate-300 space-y-2">
+                          <ol className="list-decimal pl-4 space-y-1 text-slate-300">
+                            <li>Quando o aviso surgir na tela, toque no botão <strong>"Configurações"</strong>.</li>
+                            <li>Ative o interruptor <strong>"Permitir desta fonte"</strong> (autorizando o Chrome, WhatsApp ou Gerenciador de Arquivos).</li>
+                            <li>Toque no botão <strong>Voltar</strong> do celular.</li>
+                            <li>Toque em <strong>"Instalar"</strong>.</li>
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Caso 4: "App não instalado" ou "O pacote parece estar corrompido" */}
+                    <div className="border border-white/10 rounded-xl bg-[#0F172A] overflow-hidden">
+                      <button
+                        onClick={() => setActiveTroubleAccordion(activeTroubleAccordion === 'package_corrupt' ? null : 'package_corrupt')}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <X className="w-4 h-4 text-rose-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              4. "App não instalado" ou "O pacote parece estar corrompido"
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              Geralmente causado por versão antiga já instalada ou download incompleto
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeTroubleAccordion === 'package_corrupt' ? 'rotate-90 text-rose-400' : ''}`} />
+                      </button>
+
+                      {activeTroubleAccordion === 'package_corrupt' && (
+                        <div className="p-3.5 pt-0 border-t border-white/5 bg-[#0A101D] text-xs text-slate-300 space-y-2">
+                          <p>Isso acontece por 2 razões:</p>
+                          <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                            <li><strong>Conflito de versão:</strong> Se você já tinha um aplicativo de teste instalado com o mesmo nome, vá em <em>Configurações do Android &gt; Aplicativos &gt; Bella PDV</em> e clique em <strong>Desinstalar</strong> antes de reinstalar.</li>
+                            <li><strong>Download interrompido:</strong> Se a conexão oscilou ao baixar o arquivo, baixe o APK novamente ou utilize a instalação direta via Google Chrome.</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ação rápida para testar no Chrome */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={() => setActiveTab('instant')}
+                      className="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      <span>Instalar Agora via Google Chrome</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('qrcode')}
+                      className="py-2.5 px-4 bg-white/10 hover:bg-white/15 text-white font-semibold text-xs rounded-xl border border-white/10 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <QrCode className="w-4 h-4 text-cyan-400" />
+                      <span>Ver QR Code para Celular</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB 1: INSTALAÇÃO DIRETA / WEBAPK                                        */}
+              {/* ========================================================================= */}
               {activeTab === 'instant' && (
                 <div className="space-y-4">
                   {/* Banner de destaque */}
@@ -417,7 +770,7 @@ Equipe ATR Studio / Bella PDV
                           </div>
                           <p className="text-xs font-medium text-white">Aplicativo Pronto</p>
                           <p className="text-[11px] text-slate-400 mt-1">
-                            O app aparecerá instalado na sua tela inicial e na gaveta com seu ícone e nome.
+                            O app aparecerá instalado na sua gaveta de aplicativos com ícone e tela cheia.
                           </p>
                         </div>
                       </div>
@@ -446,7 +799,9 @@ Equipe ATR Studio / Bella PDV
                 </div>
               )}
 
-              {/* TAB 2: QR CODE */}
+              {/* ========================================================================= */}
+              {/* TAB 2: QR CODE                                                           */}
+              {/* ========================================================================= */}
               {activeTab === 'qrcode' && (
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row items-center gap-6 bg-[#111827]/70 border border-white/10 rounded-xl p-5">
@@ -475,9 +830,16 @@ Equipe ATR Studio / Bella PDV
                         </p>
                       </div>
 
+                      {rawAppUrl.includes('ais-dev-') && (
+                        <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[11px] text-blue-200">
+                          <Info className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                          <span>Usando link público pré-configurado para permitir abertura em qualquer dispositivo sem login.</span>
+                        </div>
+                      )}
+
                       <div className="bg-[#090D18] p-2.5 rounded-lg border border-white/5 flex items-center justify-between gap-2">
                         <span className="text-[11px] text-slate-300 truncate font-mono select-all">
-                          {appUrl}
+                          {currentTargetUrl}
                         </span>
                         <button
                           onClick={handleCopyLink}
@@ -496,7 +858,9 @@ Equipe ATR Studio / Bella PDV
                 </div>
               )}
 
-              {/* TAB 3: GERAR ARQUIVO APK / TWA */}
+              {/* ========================================================================= */}
+              {/* TAB 3: GERAR ARQUIVO APK / TWA                                           */}
+              {/* ========================================================================= */}
               {activeTab === 'apk_builder' && (
                 <div className="space-y-4">
                   {/* Card PWABuilder Oficial */}
@@ -512,7 +876,7 @@ Equipe ATR Studio / Bella PDV
                           </h4>
                         </div>
                         <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                          Ferramenta oficial da Microsoft e Google que empacota o PWA em um arquivo <strong>.apk</strong> assinado para distribuição ou <strong>.aab</strong> para a Google Play Store.
+                          Ferramenta oficial da Microsoft e Google que empacota o PWA em um arquivo <strong>.apk</strong> assinado para distribuição direta ou <strong>.aab</strong> para a Google Play Store.
                         </p>
                       </div>
                     </div>
@@ -532,11 +896,16 @@ Equipe ATR Studio / Bella PDV
                         onClick={handleDownloadZipPackage}
                         disabled={isGeneratingZip}
                         className="py-2.5 px-4 bg-white/10 hover:bg-white/15 text-white font-semibold text-xs rounded-lg border border-white/10 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+                        title="Baixar arquivos de configuração técnica (AndroidManifest.xml, ícones, assetlinks)"
                       >
                         <Download className="w-4 h-4 text-cyan-400" />
-                        {isGeneratingZip ? 'Compactando...' : 'Baixar Pacote Android (.zip)'}
+                        {isGeneratingZip ? 'Compactando...' : 'Baixar Código Fonte Android (.zip)'}
                       </button>
                     </div>
+
+                    <p className="text-[11px] text-amber-300/90 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                      ⚠️ <strong>Nota:</strong> O arquivo .zip é destinado a desenvolvedores. O Android não instala arquivos .zip. Para instalar no aparelho, use o PWABuilder para gerar o arquivo .apk ou instale direto pelo Google Chrome.
+                    </p>
                   </div>
 
                   {/* Instruções Bubblewrap CLI */}
@@ -559,7 +928,7 @@ Equipe ATR Studio / Bella PDV
 npm i -g @bubblewrap/cli
 
 # 2. Inicializar o projeto com o manifesto do Bella PDV
-bubblewrap init --manifest="${appUrl}/manifest.json"
+bubblewrap init --manifest="${currentTargetUrl}/manifest.json"
 
 # 3. Compilar o APK final assinado
 bubblewrap build`}
@@ -568,10 +937,92 @@ bubblewrap build`}
                       Gera o arquivo <code className="text-cyan-300 font-mono">app-release-signed.apk</code> pronto para ser instalado via cabo USB ou pendrive em qualquer tablet ou smartphone Android.
                     </p>
                   </div>
+
+                  {/* Integração Firebase Realtime Database (Android & Web) */}
+                  <div className="bg-[#111827] border border-amber-500/30 rounded-xl p-4 sm:p-5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          <Flame className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                            Firebase Realtime Database (Conexão Android & Web)
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Sincronização bidirecional em tempo real e persistência offline nativa
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleTestRtdb}
+                        disabled={isTestingRtdb}
+                        className="py-1.5 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all self-start sm:self-auto disabled:opacity-50"
+                      >
+                        <Database className="w-3.5 h-3.5" />
+                        {isTestingRtdb ? 'Testando...' : 'Testar Conexão RTDB'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {/* Kotlin Android Snippet */}
+                      <div className="p-3 bg-[#090D18] border border-white/10 rounded-lg flex flex-col justify-between space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-emerald-400">Android (Kotlin / build.gradle.kts)</span>
+                          <button
+                            onClick={handleCopyKotlin}
+                            className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                          >
+                            {copiedKotlin ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedKotlin ? 'Copiado' : 'Copiar'}
+                          </button>
+                        </div>
+                        <pre className="p-2 bg-black/60 rounded text-[10px] font-mono text-slate-300 overflow-x-auto leading-relaxed">
+{`// build.gradle.kts:
+implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+implementation("com.google.firebase:firebase-database")
+
+// Escrever:
+val database = Firebase.database
+database.getReference("message").setValue("Hello, World!")`}
+                        </pre>
+                      </div>
+
+                      {/* Web Snippet */}
+                      <div className="p-3 bg-[#090D18] border border-white/10 rounded-lg flex flex-col justify-between space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-cyan-400">Web App (TypeScript / JS)</span>
+                          <button
+                            onClick={handleCopyWebSnippet}
+                            className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                          >
+                            {copiedWebSnippet ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedWebSnippet ? 'Copiado' : 'Copiar'}
+                          </button>
+                        </div>
+                        <pre className="p-2 bg-black/60 rounded text-[10px] font-mono text-slate-300 overflow-x-auto leading-relaxed">
+{`import { getDatabase, ref, set } from "firebase/database";
+import { app } from "./lib/firebase";
+
+const database = getDatabase(app);
+set(ref(database, 'message'), "Hello, World!");`}
+                        </pre>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-black/30 rounded-lg border border-white/5 text-[11px] text-slate-300 space-y-1">
+                      <p className="font-semibold text-amber-300">💡 Boas Práticas Recomendadas:</p>
+                      <p>• <strong>Estrutura Plana:</strong> Mantenha os nós desnormalizados para evitar downloads pesados desnecessários.</p>
+                      <p>• <strong>Persistência Offline:</strong> O SDK do Android e PWA salvam os dados em disco local e sincronizam automaticamente ao reconectar.</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* TAB 4: SMARTPOS (MAQUININHAS DE CARTÃO ANDROID) */}
+              {/* ========================================================================= */}
+              {/* TAB 4: SMARTPOS (MAQUININHAS DE CARTÃO ANDROID)                          */}
+              {/* ========================================================================= */}
               {activeTab === 'smartpos' && (
                 <div className="space-y-4">
                   <div className="bg-[#111827] border border-purple-500/30 rounded-xl p-4 sm:p-5 space-y-3">
@@ -603,7 +1054,7 @@ bubblewrap build`}
                         Passo 2: Abrir o Navegador ou Leitor
                       </p>
                       <p className="text-slate-400 text-[11px] pl-3.5">
-                        Abra o Google Chrome ou o navegador integrado da maquininha e digite o endereço: <strong className="text-cyan-300">{appUrl}</strong> (ou escaneie o QR Code com a câmera traseira).
+                        Abra o Google Chrome ou o navegador integrado da maquininha e digite o endereço: <strong className="text-cyan-300">{currentTargetUrl}</strong> (ou escaneie o QR Code com a câmera traseira).
                       </p>
                     </div>
 
@@ -627,12 +1078,20 @@ bubblewrap build`}
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 <span>Compatível com Android 8.0, 9, 10, 11, 12, 13, 14 e 15+</span>
               </div>
-              <button
-                onClick={onClose}
-                className="w-full sm:w-auto px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-medium rounded-lg transition-colors text-center"
-              >
-                Fechar
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => setActiveTab('troubleshoot')}
+                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Ajuda de Instalação
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 sm:flex-none px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-medium rounded-lg transition-colors text-center"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
