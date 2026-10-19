@@ -7,6 +7,14 @@ import { subscribeToCatalog } from './catalog';
 import { subscribeToAppointments } from './appointments';
 import { subscribeToTransactions } from './transactions';
 import { subscribeToQueue } from './queue';
+import { useClientStore } from './clients';
+import { useCatalogStore } from './catalog';
+import { useAppointmentStore } from './appointments';
+import { useTransactionStore } from './transactions';
+import { useQueueStore } from './queue';
+import { useProfessionalStore } from './professionals';
+import { useApiKeysStore } from './apiKeys';
+import { setFirebaseTenantContext } from '../lib/firebaseTenant';
 import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
 
 export interface AuthUser {
@@ -46,14 +54,31 @@ const getStoredUser = (): AuthUser | null => {
   }
 };
 
-const initialUser = getStoredUser();
+let activeUserId: string | null = null;
+
+function clearTenantData() {
+  useClientStore.getState().setClients([]);
+  useCatalogStore.getState().setItems([]);
+  useAppointmentStore.getState().setAppointments([]);
+  useTransactionStore.getState().setTransactions([]);
+  useQueueStore.getState().setQueueItems([]);
+  useProfessionalStore.getState().setProfessionals([]);
+  useApiKeysStore.getState().clearKeys();
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isAuthReady: false,
   setUser: (user) => {
+    if (activeUserId !== (user?.id || null)) {
+      unsubscribes.forEach(unsub => unsub());
+      unsubscribes = [];
+      clearTenantData();
+      activeUserId = user?.id || null;
+    }
     if (user) {
+      setFirebaseTenantContext(user.id, user.companyId);
       try {
         localStorage.setItem('bellapdv_auth_user', JSON.stringify(user));
         localStorage.setItem('last_merchant_uid', user.companyId || user.id);
@@ -62,6 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       set({ user, isAuthenticated: true, isAuthReady: true });
     } else {
+      setFirebaseTenantContext(null);
       try {
         localStorage.removeItem('bellapdv_auth_user');
         localStorage.removeItem('last_merchant_uid');
@@ -84,11 +110,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       email: userData?.email || 'admin@bellapdv.com',
       role: userData?.role === 'admin' ? 'admin' : 'client',
       isPlatformAdmin: userData?.isPlatformAdmin === true,
+      isDemo: userData?.isDemo === true,
       companyId: company?.id || userData?.companyId,
       avatar: userData?.avatar,
       planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
     };
 
+    if (activeUserId !== fullUser.id) {
+      unsubscribes.forEach(unsub => unsub());
+      unsubscribes = [];
+      clearTenantData();
+      activeUserId = fullUser.id;
+    }
+    setFirebaseTenantContext(fullUser.id, fullUser.companyId);
     try {
       localStorage.setItem('bellapdv_auth_user', JSON.stringify(fullUser));
       localStorage.setItem('last_merchant_uid', fullUser.companyId || fullUser.id);
@@ -104,6 +138,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
   logout: async () => {
+    unsubscribes.forEach(unsub => unsub());
+    unsubscribes = [];
+    clearTenantData();
+    activeUserId = null;
+    setFirebaseTenantContext(null);
     try {
       localStorage.removeItem('bellapdv_auth_user');
       localStorage.removeItem('last_merchant_uid');
@@ -116,11 +155,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   }
 }));
 
-// Initialize Firebase Auth Listener
-let isListenerInitialized = false;
-
+// Wait for Firebase's first auth callback before deciding whether to redirect.
 onAuthStateChanged(auth, async (firebaseUser) => {
-  isListenerInitialized = true;
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
@@ -172,6 +208,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       isDemo: !!profile.isDemo
     };
     userData.isPlatformAdmin = await hasPlatformAdminClaim(firebaseUser);
+    if (auth.currentUser?.uid !== firebaseUser.uid) return;
     useAuthStore.getState().setUser(userData);
 
     // Start real-time data subscriptions
@@ -189,11 +226,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   } else {
     useAuthStore.getState().setUser(null);
   }
+}, (error) => {
+  console.error('Firebase auth initialization failed:', error);
+  useAuthStore.getState().setUser(null);
 });
-
-// Fallback safety timeout: ensure auth state is ready within 1s even if Firebase is sluggish
-setTimeout(() => {
-  if (!isListenerInitialized) {
-    useAuthStore.getState().setAuthReady(true);
-  }
-}, 1000);

@@ -22,7 +22,7 @@ service cloud.firestore {
     }
 
     function ownsTenant(data) {
-      return isSignedIn() && data.ownerId == tenantId();
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
     }
 
     match /users/{userId} {
@@ -82,12 +82,12 @@ service cloud.firestore {
     }
 
     match /company_licenses/{licenseId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (licenseId == tenantId() || isAdmin());
       allow write: if isAdmin();
     }
 
     match /feature_flags/{flagId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (flagId == tenantId() || isAdmin());
       allow write: if isAdmin();
     }
 

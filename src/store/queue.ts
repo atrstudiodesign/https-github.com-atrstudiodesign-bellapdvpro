@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
+import { useAuthStore } from './auth';
 
 export interface QueueItem {
   id: string;
@@ -41,6 +42,9 @@ export const useQueueStore = create<QueueStore>((set) => ({
     // Resolve ownerId gracefully: use active uid (if logged in as non-anonymous merchant), or URL query parameter, or last known merchant uid from localStorage, or default
     const user = auth.currentUser;
     const isAnonymous = user?.isAnonymous;
+    if ((!user || isAnonymous) && !useAuthStore.getState().user?.isDemo) {
+      throw new Error('Fila pública indisponível até configurar um endpoint seguro para este estabelecimento.');
+    }
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const merchantParam = urlParams ? urlParams.get('merchant') : null;
     let ownerId = (user && !isAnonymous) ? currentFirebaseTenantId() || user.uid : (merchantParam || localStorage.getItem('last_merchant_uid') || 'public');
@@ -54,19 +58,26 @@ export const useQueueStore = create<QueueStore>((set) => ({
     };
 
     // ALWAYS write to Firestore to bypass auth for client-side selection
+    if (isAnonymous || !user) {
+      set((state) => ({ queueItems: [...state.queueItems, newQueueItem] }));
+      return itemId;
+    }
     try {
       await setDoc(doc(db, 'queue', itemId), newQueueItem);
       set((state) => ({ queueItems: [...state.queueItems, newQueueItem] }));
     } catch (error) {
       console.error('Error writing queue item to Firestore:', error);
-      // Fallback to local state if Firestore write fails
-      set((state) => ({ queueItems: [...state.queueItems, newQueueItem] }));
+      throw error;
     }
 
     return itemId;
   },
 
   updateQueueItemStatus: async (id, status) => {
+    if (getAuth().currentUser?.isAnonymous) {
+      set((state) => ({ queueItems: state.queueItems.map((item) => item.id === id ? { ...item, status } : item) }));
+      return;
+    }
     try {
       await updateDoc(doc(db, 'queue', id), { status });
       set((state) => ({
@@ -76,15 +87,15 @@ export const useQueueStore = create<QueueStore>((set) => ({
       }));
     } catch (error) {
       console.error('Error updating queue item in Firestore:', error);
-      set((state) => ({
-        queueItems: state.queueItems.map((item) => 
-          item.id === id ? { ...item, status } : item
-        )
-      }));
+      throw error;
     }
   },
 
   deleteQueueItem: async (id) => {
+    if (getAuth().currentUser?.isAnonymous) {
+      set((state) => ({ queueItems: state.queueItems.filter((item) => item.id !== id) }));
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'queue', id));
       set((state) => ({
@@ -92,9 +103,7 @@ export const useQueueStore = create<QueueStore>((set) => ({
       }));
     } catch (error) {
       console.error('Error deleting queue item from Firestore:', error);
-      set((state) => ({
-        queueItems: state.queueItems.filter((item) => item.id !== id)
-      }));
+      throw error;
     }
   }
 }));

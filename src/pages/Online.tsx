@@ -7,10 +7,12 @@ import { Globe, Copy, ExternalLink, Share2, Palette, Box, Check, ArrowLeft, Cale
 import { toast, Toaster } from 'sonner';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useAuthStore } from '../store/auth';
 
 export default function Online({ publicMode = false }: { publicMode?: boolean }) {
   const { currentNiche, setNiche, getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
 
   const { items, setItems } = useCatalogStore();
   const { addAppointment } = useAppointmentStore();
@@ -114,7 +116,7 @@ export default function Online({ publicMode = false }: { publicMode?: boolean })
   // Use real catalog items if they exist, otherwise load template services
   const displayCatalog = realServices.length > 0 
     ? realServices 
-    : defaultNicheServices[currentNicheType].map((s, idx) => ({
+    : (isDemo ? defaultNicheServices[currentNicheType] : []).map((s, idx) => ({
         id: `tpl-${currentNicheType}-${idx}`,
         name: s.name,
         price: s.price,
@@ -159,7 +161,7 @@ export default function Online({ publicMode = false }: { publicMode?: boolean })
 
       toast.success('Agendamento Enviado com Sucesso!', {
         id: toastId,
-        description: 'As automações de confirmação foram encaminhadas via WhatsApp.'
+        description: isDemo ? 'Agendamento de demonstração registrado somente nesta sessão.' : 'Agendamento registrado.'
       });
 
       setPreviewScreen('success');

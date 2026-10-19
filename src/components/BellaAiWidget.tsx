@@ -76,20 +76,9 @@ export function BellaAiWidget() {
   const [handsFreeMode, setHandsFreeMode] = useState(() => voiceSettings.handsFree);
 
   const [chatHistory, setChatHistory] = useState<Message[]>(() => {
-    try {
-      const saved = localStorage.getItem('bella_ai_chat_history');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-        }
-      }
-    } catch (e) {
-      console.error('Error loading chat history from local storage:', e);
-    }
+    // Conversations may contain customer information. Never reload the old
+    // browser-wide history into a different tenant's session.
+    try { localStorage.removeItem('bella_ai_chat_history'); } catch { /* unavailable */ }
     return [
       {
         role: 'model',
@@ -150,17 +139,6 @@ export function BellaAiWidget() {
     }
   }, [isMinimized]);
 
-  useEffect(() => {
-    try {
-      if (chatHistory.length > 0) {
-        localStorage.setItem('bella_ai_chat_history', JSON.stringify(chatHistory));
-      } else {
-        localStorage.removeItem('bella_ai_chat_history');
-      }
-    } catch (e) {
-      console.error('Error saving chat history to local storage:', e);
-    }
-  }, [chatHistory]);
 
   const handleVoiceChange = (voice: VoicePersona) => {
     voiceNarration.updateSettings({ voice });

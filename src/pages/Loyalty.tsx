@@ -3,6 +3,7 @@ import { Gift, Award, Star, Search, Plus, Users, X, Minus, Share2, Settings, Pig
 import { motion, AnimatePresence } from 'motion/react';
 import { useNicheStore } from '../store/niche';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
 
 const initialClients = [
   { id: '1', name: 'João Silva', phone: '(11) 99999-9999', points: 450, tier: 'Gold', badges: ['🚀 VIP', '⭐ 1º do Ranking'], lastVisit: 'Última: 15 dias', churnRisk: 'Baixo' },
@@ -14,20 +15,21 @@ const initialClients = [
 export default function Loyalty() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const [activeTab, setActiveTab] = useState<'ranking' | 'referrals' | 'settings'>('ranking');
   const [searchTerm, setSearchTerm] = useState('');
-  const [clients, setClients] = useState(initialClients);
+  const [clients, setClients] = useState(isDemo ? initialClients : []);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   
   const [actionType, setActionType] = useState<'add' | 'redeem' | null>(null);
   const [amount, setAmount] = useState('');
 
   // Referral states (Módulo 8)
-  const [referrals, setReferrals] = useState([
+  const [referrals, setReferrals] = useState(isDemo ? [
     { id: 'ref1', referrer: 'João Silva', referee: 'Bruno Castro', date: '18/06/2026', reward: 'R$ 15,00 Saldo', status: 'Recompensado', code: 'JOSI-771' },
     { id: 'ref2', referrer: 'Carlos Oliveira', referee: 'Gabriela M.', date: '14/06/2026', reward: 'Escova Grátis', status: 'Recompensado', code: 'CAOL-885' },
     { id: 'ref3', referrer: 'Maria Santos', referee: 'Kátia Lima', date: '10/06/2026', reward: 'Cupom 15% OFF', status: 'Pendente', code: 'MASA-110' },
-  ]);
+  ] : []);
 
   // Referral creator states
   const [newReferrer, setNewReferrer] = useState('');

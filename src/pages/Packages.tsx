@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Package, Plus, Search, Scissors, Calendar, Shield, CreditCard, ChevronDown } from 'lucide-react';
 import { useNicheStore } from '../store/niche';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuthStore } from '../store/auth';
 
 const mockPackages = [
   { id: '1', name: 'Pacote 10 Sessões Drenagem', price: 950.00, servicesCount: 10, sold: 15, isActive: true },
@@ -17,9 +18,10 @@ const mockClubs = [
 export default function Packages() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
 
-  const [packages, setPackages] = useState(mockPackages);
-  const [clubs, setClubs] = useState(mockClubs);
+  const [packages, setPackages] = useState(isDemo ? mockPackages : []);
+  const [clubs, setClubs] = useState(isDemo ? mockClubs : []);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'packages' | 'clubs'>('packages');
   const [isModalOpen, setIsModalOpen] = useState(false);

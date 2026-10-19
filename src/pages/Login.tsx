@@ -26,6 +26,7 @@ import {
   signInWithPopup, 
   GoogleAuthProvider, 
   signInAnonymously,
+  signOut,
   updateProfile,
   RecaptchaVerifier,
   signInWithPhoneNumber,
@@ -83,15 +84,8 @@ export default function Login() {
   const handleQuickDemoLogin = async () => {
     setIsDemoLoading(true);
     try {
-      let uid = 'demo_' + Math.random().toString(36).substring(2, 9);
-      try {
-        const cred = await signInAnonymously(auth);
-        if (cred?.user?.uid) {
-          uid = cred.user.uid;
-        }
-      } catch (authErr) {
-        console.warn('Anonymous auth notice (operating with local demo session):', authErr);
-      }
+      const cred = await signInAnonymously(auth);
+      const uid = cred.user.uid;
 
       const demoUser = {
         id: uid,
@@ -102,26 +96,14 @@ export default function Login() {
         isDemo: true
       };
 
-      try {
-        await setDoc(doc(db, 'users', uid), {
-          ...demoUser,
-          companyName: 'Studio BellaPDV (Demonstração)',
-          niche: selectedNiche || 'barbershop',
-          lastLogin: new Date().toISOString(),
-          isDemo: true
-        }, { merge: true });
-      } catch (docErr) {
-        console.warn('Firestore doc sync notice:', docErr);
-      }
-
       const companyData = {
-        id: 'company-demo-1',
+        id: uid,
         name: 'Studio BellaPDV (Demonstração)',
         niche: selectedNiche || 'barbershop'
       };
 
       setNiche(selectedNiche || 'barbershop');
-      login(demoUser, 'demo-session-token', companyData);
+      login(demoUser, undefined, companyData);
 
       toast.success('Modo de Demonstração Ativado!', {
         description: 'Bem-vindo ao BellaPDV! Todos os recursos estão desbloqueados para teste.'
@@ -130,21 +112,7 @@ export default function Login() {
       navigate('/', { replace: true });
     } catch (err: any) {
       console.error('Demo login error:', err);
-      const fallbackDemoUser = {
-        id: 'demo-local-user',
-        name: 'Gestor Demo (BellaPDV)',
-        email: 'demo@bellapdv.com',
-        role: 'admin' as const,
-        planFeatures: ['pdv', 'agenda', 'crm', 'aiAssistant', 'whatsapp', 'marketplace', 'ia', 'automacoes', 'relatorios'],
-        isDemo: true
-      };
-      setNiche(selectedNiche || 'barbershop');
-      login(fallbackDemoUser, undefined, {
-        id: 'company-demo-1',
-        name: 'Studio BellaPDV (Demonstração)',
-        niche: selectedNiche || 'barbershop'
-      });
-      navigate('/', { replace: true });
+      toast.error('Não foi possível iniciar a demonstração. Tente novamente.');
     } finally {
       setIsDemoLoading(false);
     }
@@ -221,7 +189,11 @@ export default function Login() {
             lastLogin: new Date().toISOString()
           }, { merge: true });
         } catch (docErr) {
-          console.warn('Firestore doc creation error:', docErr);
+          console.error('Firestore profile creation failed:', docErr);
+          await signOut(auth);
+          useAuthStore.getState().setUser(null);
+          toast.error('Conta autenticada, mas não foi possível salvar o cadastro. Tente novamente após configurar o banco de dados.');
+          return;
         }
 
         setNiche(selectedNiche);
@@ -283,10 +255,6 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error('Authentication fatal error:', error);
-      if (email.trim().toLowerCase().includes('demo')) {
-        await handleQuickDemoLogin();
-        return;
-      }
       toast.error('Não foi possível entrar com estas credenciais. Utilize o Acesso Demo Instantâneo ou cadastre-se grátis.');
     } finally {
       setIsSubmitting(false);
@@ -332,9 +300,10 @@ export default function Login() {
       const userEmail = result.user.email || '';
 
       let profile: Record<string, any> = {};
+      let profileExists = false;
       try {
         const snapshot = await getDoc(doc(db, 'users', uid));
-        if (snapshot.exists()) profile = snapshot.data();
+        if (snapshot.exists()) { profile = snapshot.data(); profileExists = true; }
       } catch (err) {
         console.warn('Could not load Google user profile:', err);
       }
@@ -356,11 +325,18 @@ export default function Login() {
           name: displayName,
           email: userEmail,
           companyId: tenantId,
+          ...(!profileExists ? { role: 'client' } : {}),
           provider,
           lastLogin: new Date().toISOString()
         }, { merge: true });
       } catch (err) {
         console.warn('Error saving social user:', err);
+        if (!profileExists) {
+          await signOut(auth);
+          useAuthStore.getState().setUser(null);
+          toast.error('Não foi possível salvar o novo cadastro. Verifique a configuração do banco de dados.');
+          return;
+        }
       }
 
       const niche = typeof profile.niche === 'string' ? profile.niche as NicheType : selectedNiche;

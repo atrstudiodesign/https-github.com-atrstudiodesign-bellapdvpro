@@ -4,6 +4,7 @@ import { useNicheStore } from '../store/niche';
 import { Plus, Search, Edit, Trash2, Package, Tag, Filter, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
 
 const initialServices: CatalogItem[] = [
   { id: '1', name: 'Corte Degradê', category: 'Cabelo', price: 45.00, duration: '45 min', type: 'service' },
@@ -24,6 +25,7 @@ import { useCatalogStore, CatalogItem } from '../store/catalog';
 export default function Services() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
   const actionParam = searchParams.get('action');
@@ -280,7 +282,7 @@ export default function Services() {
           <p className="text-slate-400 text-sm">Organize seu catálogo, preços e estoque.</p>
         </div>
          <div className="flex gap-3 flex-wrap">
-          <button 
+          {isDemo && <button
             onClick={async () => {
               if (confirm(`Deseja preencher seu catálogo com os melhores serviços e produtos sugeridos para ${config.title}? Isso irá atualizar o Caixa (PDV), Autoatendimento e Agendamentos instantaneamente!`)) {
                 const toastId = toast.loading('Populando catálogo da loja...');
@@ -298,7 +300,7 @@ export default function Services() {
           >
             <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
             Povoar de Modelo
-          </button>
+          </button>}
           
           <button 
             onClick={() => setIsCategoriesModalOpen(true)}
@@ -365,9 +367,9 @@ export default function Services() {
                      <Sparkles className="w-12 h-12 text-indigo-400 mx-auto mb-4 animate-pulse" />
                      <h3 className="text-lg font-bold text-white mb-2">Sem {activeTab === 'services' ? 'Serviços' : 'Produtos'}</h3>
                      <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                        Sua lista de {activeTab === 'services' ? 'serviços ou procedimentos' : 'produtos em estoque'} está vazia. Importe modelos específicos de {config.title} e tenha todos os recursos 100% integrados hoje mesmo!
+                        {isDemo ? `Sua lista está vazia. Explore modelos de ${config.title} na demonstração.` : 'Sua lista está vazia. Cadastre seus próprios serviços e produtos para começar.'}
                      </p>
-                     <button 
+                     {isDemo && <button
                        onClick={async () => {
                          const toastId = toast.loading('Povoando catálogo da loja...');
                          try {
@@ -382,7 +384,8 @@ export default function Services() {
                      >
                         <Sparkles className="w-4 h-4 text-yellow-300" />
                         Povoar Catálogo Padrão
-                     </button>
+                     </button>}
+                     {!isDemo && <button onClick={() => handleOpenModal('add')} className="bg-blue-600 text-white font-bold rounded-xl px-5 py-3">Cadastrar {activeTab === 'services' ? 'Serviço' : 'Produto'}</button>}
                   </div>
                ) : (
                   filteredData.map((item) => (

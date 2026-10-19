@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format, addDays, startOfWeek, isSameDay, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
 
 interface Appointment {
   id: string;
@@ -27,6 +28,7 @@ import { useAppointmentStore } from '../store/appointments';
 export default function Schedule() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -48,7 +50,7 @@ export default function Schedule() {
       <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
          {/* NEW APPOINTMENT MODAL */}
        <AnimatePresence>
-          {isAiModalOpen && (
+          {isDemo && isAiModalOpen && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -232,12 +234,12 @@ export default function Schedule() {
               >
                 Novo Agendamento
              </button>
-             <button 
+             {isDemo && <button
                 onClick={() => setIsAiModalOpen(true)}
                 className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-purple-500 text-black font-semibold uppercase tracking-wider text-xs rounded-lg transition shadow-[0_0_15px_rgba(34,211,238,0.3)] ml-2 flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" /> IA Otimizar Agenda
-             </button>
+             </button>}
           </div>
        </div>
 

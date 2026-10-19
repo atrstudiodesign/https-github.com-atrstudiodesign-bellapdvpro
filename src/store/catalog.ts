@@ -1,6 +1,7 @@
 import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { auth, db } from '../lib/firebase';
+import { useAuthStore } from './auth';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
 export interface CatalogItem {
@@ -29,7 +30,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
   isLoaded: false,
   setItems: (items) => set({ items, isLoaded: true }),
   addItem: async (item) => {
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({ items: [...state.items, item], isLoaded: true }));
       return;
     }
@@ -37,7 +38,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
     await setDoc(doc(db, 'catalog', item.id), itemData);
   },
   updateItem: async (id, updates) => {
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         items: state.items.map((i) => (i.id === id ? { ...i, ...updates } : i)),
       }));
@@ -46,7 +47,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
     await updateDoc(doc(db, 'catalog', id), updates);
   },
   deleteItem: async (id) => {
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       set((state) => ({
         items: state.items.filter((i) => i.id !== id),
       }));
@@ -55,6 +56,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
     await deleteDoc(doc(db, 'catalog', id));
   },
   seedCatalog: async (nicheType) => {
+    if (!useAuthStore.getState().user?.isDemo) return;
     const uid = auth.currentUser?.uid;
     
     const defaults: Record<string, CatalogItem[]> = {
@@ -110,7 +112,7 @@ export const useCatalogStore = create<CatalogStore>((set) => ({
         ownerId: uid || 'public'
       };
       
-      if (uid) {
+      if (uid && !auth.currentUser?.isAnonymous) {
         await setDoc(doc(db, 'catalog', generatedId), itemData);
       }
       itemsToSet.push(itemData);

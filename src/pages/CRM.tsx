@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { whatsappService } from '../services/whatsappService';
 
 import { useApiKeysStore } from '../store/apiKeys';
+import { useAuthStore } from '../store/auth';
 
 interface ClientCRM {
   id: string;
@@ -139,18 +140,19 @@ const INITIAL_PIPELINE_LEADS = [
 export default function CRM() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const { geminiKey } = useApiKeysStore();
 
   const [activeTab, setActiveTab] = useState<'funil' | 'database' | 'upsell' | 'assistant'>('funil');
-  const [pipelineLeads, setPipelineLeads] = useState(INITIAL_PIPELINE_LEADS);
-  const [clients, setClients] = useState<ClientCRM[]>(INITIAL_CRM_CLIENTS);
+  const [pipelineLeads, setPipelineLeads] = useState(isDemo ? INITIAL_PIPELINE_LEADS : []);
+  const [clients, setClients] = useState<ClientCRM[]>(isDemo ? INITIAL_CRM_CLIENTS : []);
 
   // Módulo 10 — Upsell Inteligente states
-  const [upsells, setUpsells] = useState([
+  const [upsells, setUpsells] = useState(isDemo ? [
     { id: 'u1', service: 'Mechas + Tratamento', target: 'Home Care Kit de Tratamento Wella', delayDays: 0, active: true },
     { id: 'u2', service: 'Corte + Selagem', target: 'Pomada Modeladora Homem Premium', delayDays: 0, active: true },
     { id: 'u3', service: 'Design Cílios + Sobrancelha', target: 'Sérum Ativador de Crescimento', delayDays: 14, active: true }
-  ]);
+  ] : []);
   const [newUpsellService, setNewUpsellService] = useState('Mechas + Tratamento');
   const [newUpsellTarget, setNewUpsellTarget] = useState('');
   const [newUpsellDays, setNewUpsellDays] = useState('0');
@@ -158,7 +160,7 @@ export default function CRM() {
   // Módulo 12 — IA Assistente do Dono (Insights CRM) states
   const [assistantPrompt, setAssistantPrompt] = useState('');
   const [chatHistory, setChatHistory] = useState([
-    { role: 'assistant', text: 'Olá! Sou seu conselheiro SaaS Enterprise de Growth. Analisei o faturamento recente e a base de dados. Como posso te apoiar com recomendações de promoção, retenção ou marketing de relacionamento hoje?' },
+    { role: 'assistant', text: isDemo ? 'Olá! Sou seu conselheiro SaaS Enterprise de Growth. Analisei o faturamento recente e a base de dados. Como posso te apoiar com recomendações de promoção, retenção ou marketing de relacionamento hoje?' : 'Olá! Cadastre clientes e vendas reais para gerar recomendações.' },
   ]);
   const [isAsking, setIsAsking] = useState(false);
 
