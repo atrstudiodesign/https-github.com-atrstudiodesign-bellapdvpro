@@ -1,3 +1,4 @@
+import { hasBellaSupabaseSession, bellaList, bellaInsert, bellaUpdate, bellaDelete } from '../lib/bellaOperational';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
@@ -100,6 +101,21 @@ export const useQueueStore = create<QueueStore>((set) => ({
 
 // Setup automatic listener for real-time sync with Firestore
 export const subscribeToQueue = () => {
+  if (hasBellaSupabaseSession()) {
+    let active = true;
+    let busy = false;
+    const refresh = async () => {
+      if (!active || busy) return;
+      busy = true;
+      try { const rows = await bellaList<QueueItem>('queue'); if (active) useQueueStore.getState().setQueueItems(rows); }
+      catch (error) { console.error('Falha ao carregar queue do Supabase:', error); }
+      finally { busy = false; }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }
+
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
 
