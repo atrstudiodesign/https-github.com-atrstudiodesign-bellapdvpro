@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "900779146185",
+    "project_id": "bellapdv-15ae0",
+    "storage_bucket": "bellapdv-15ae0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:900779146185:android:46245c0db76fee7a640618",
+        "android_client_info": {
+          "package_name": "bellapdv.pro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "900779146185-ctjpdqpor05sfhdg90linhvca297ffb7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQGhhaoiwquz1P3mBD8cDVKMw7RWCCGTc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "900779146185-ctjpdqpor05sfhdg90linhvca297ffb7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
