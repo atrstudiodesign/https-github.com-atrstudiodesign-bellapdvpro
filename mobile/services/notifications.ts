@@ -1,5 +1,4 @@
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { db } from './firebase';
@@ -27,7 +26,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   try {
-    if (!Device.isDevice) {
+    if (!Constants.isDevice) {
       console.log('Must use a physical device for Push Notifications. Simulators/emulators will not receive push tokens.');
       // Keep going in development to allow flow testing, but return a mock or null
       return null;
