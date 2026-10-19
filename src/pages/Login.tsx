@@ -25,7 +25,10 @@ import {
   signInWithPopup, 
   GoogleAuthProvider, 
   signInAnonymously,
-  updateProfile 
+  updateProfile,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  type ConfirmationResult
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -42,6 +45,10 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [phoneMode, setPhoneMode] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneCode, setPhoneCode] = useState('');
+  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
   const { login, loginSupabase, isAuthenticated } = useAuthStore();
   const { setNiche } = useNicheStore();
@@ -290,6 +297,32 @@ export default function Login() {
     }
   };
 
+  const handlePhoneAuth = async () => {
+    setLoginError('');
+    setIsSubmitting(true);
+    try {
+      if (!phoneConfirmation) {
+        const normalized = phoneNumber.replace(/\\s|[()-]/g, '');
+        if (!/^\\+[1-9]\\d{7,14}$/.test(normalized)) throw new Error('Use o telefone internacional, por exemplo +5511999999999.');
+        const verifier = new RecaptchaVerifier(auth, 'bella-phone-recaptcha', { size: 'invisible' });
+        try {
+          const result = await signInWithPhoneNumber(auth, normalized, verifier);
+          setPhoneConfirmation(result);
+          toast.success('Código SMS enviado.');
+        } finally { verifier.clear(); }
+        return;
+      }
+      if (!/^\\d{6}$/.test(phoneCode.trim())) throw new Error('Informe o código de 6 dígitos.');
+      const result = await phoneConfirmation.confirm(phoneCode.trim());
+      // The Firebase listener is the authority for profile and permissions;
+      // do not assign admin rights or manufacture a company here.
+      toast.success('Telefone confirmado.');
+      if (result.user) navigate('/', { replace: true });
+    } catch (error: any) {
+      setLoginError(error?.message || 'Não foi possível verificar o telefone.');
+    } finally { setIsSubmitting(false); }
+  };
+
   const handleSocialAuth = async (provider: 'Google' | 'Apple' | 'Microsoft') => {
     setIsSubmitting(true);
     try {
@@ -412,6 +445,28 @@ export default function Login() {
                 </>
               )}
             </button>
+          </div>
+
+          <div className="mb-5">
+            <button type="button" onClick={() => { setPhoneMode(!phoneMode); setPhoneConfirmation(null); setPhoneCode(''); }}
+              className="w-full rounded-lg border border-cyan-700 px-3 py-2 text-xs text-cyan-300">
+              {phoneMode ? 'Ocultar acesso por telefone' : 'Entrar com telefone (SMS)'}
+            </button>
+            {phoneMode && (
+              <div className="mt-3 space-y-2">
+                <input type="tel" autoComplete="tel" disabled={!!phoneConfirmation} value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
+                  placeholder="+5511999999999" aria-label="Telefone com código do país"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-sm text-white" />
+                {phoneConfirmation && <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                  value={phoneCode} onChange={e => setPhoneCode(e.target.value)} placeholder="Código SMS de 6 dígitos"
+                  aria-label="Código SMS" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-sm text-white" />}
+                <div id="bella-phone-recaptcha" />
+                <button type="button" onClick={handlePhoneAuth} disabled={isSubmitting}
+                  className="w-full rounded-lg bg-cyan-600 p-3 text-xs font-bold text-white disabled:opacity-50">
+                  {phoneConfirmation ? 'Confirmar código SMS' : 'Enviar código SMS'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Social Logins */}
