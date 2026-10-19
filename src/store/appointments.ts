@@ -1,3 +1,4 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
@@ -34,7 +35,7 @@ export const useAppointmentStore = create<AppointmentStore>((set) => ({
     const urlParams = new URLSearchParams(window.location.search);
     const user = auth.currentUser;
     const isAnonymous = user?.isAnonymous;
-    const ownerId = (user && !isAnonymous) ? user.uid : (urlParams.get('merchant') || localStorage.getItem('last_merchant_uid') || 'public');
+    const ownerId = (user && !isAnonymous) ? currentFirebaseTenantId() || user.uid : (urlParams.get('merchant') || localStorage.getItem('last_merchant_uid') || 'public');
     const data = { ...appointment, ownerId };
 
     if (ownerId !== 'public') {
@@ -83,7 +84,7 @@ export const subscribeToAppointments = () => {
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
   
-  const q = query(collection(db, 'appointments'), where('ownerId', '==', auth.currentUser.uid));
+  const q = query(collection(db, 'appointments'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
   return onSnapshot(q, (snapshot) => {
     const appointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
     useAppointmentStore.getState().setAppointments(appointments);
