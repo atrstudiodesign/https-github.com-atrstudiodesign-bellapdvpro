@@ -19,54 +19,9 @@ interface Service {
   name: string;
   price: number;
   category: string;
+  type?: 'service' | 'product';
+  stock?: number;
 }
-
-// Temporary mock data mapping
-const dbServices: Record<string, Service[]> = {
-  barbershop: [
-    { id: 'b1', name: 'Corte Degradê', price: 45, category: 'Cabelo' },
-    { id: 'b2', name: 'Corte Social', price: 40, category: 'Cabelo' },
-    { id: 'b3', name: 'Corte Infantil', price: 35, category: 'Cabelo' },
-    { id: 'b4', name: 'Barba Tradicional', price: 35, category: 'Barba' },
-    { id: 'b5', name: 'Barbera Terapia', price: 60, category: 'Barba' },
-    { id: 'b6', name: 'Sobrancelha', price: 15, category: 'Cuidado Facial' },
-    { id: 'b7', name: 'Limpeza de Pele', price: 80, category: 'Cuidado Facial' },
-    { id: 'b8', name: 'Luzes', price: 90, category: 'Química' },
-    { id: 'b9', name: 'Platinado', price: 150, category: 'Química' },
-    { id: 'b10', name: 'Pomada Modeladora', price: 45, category: 'Produtos' },
-    { id: 'b11', name: 'Óleo para Barba', price: 55, category: 'Produtos' },
-    { id: 'b12', name: 'Shampoo 3 em 1', price: 40, category: 'Produtos' },
-    { id: 'b13', name: 'Cerveja Artesanal', price: 18, category: 'Bebidas' },
-    { id: 'b14', name: 'Refrigerante', price: 6, category: 'Bebidas' }
-  ],
-  salon: [
-    { id: 's1', name: 'Corte Feminino', price: 80, category: 'Cabelo' },
-    { id: 's2', name: 'Corte Bordado', price: 120, category: 'Cabelo' },
-    { id: 's3', name: 'Escova Modeladora', price: 60, category: 'Cabelo' },
-    { id: 's4', name: 'Manicure', price: 35, category: 'Unhas' },
-    { id: 's5', name: 'Pedicure', price: 40, category: 'Unhas' },
-    { id: 's6', name: 'Spa dos Pés', price: 70, category: 'Unhas' },
-    { id: 's7', name: 'Maquiagem Social', price: 150, category: 'Maquiagem' },
-    { id: 's8', name: 'Maquiagem Noiva', price: 450, category: 'Maquiagem' },
-    { id: 's9', name: 'Mechas', price: 350, category: 'Química' },
-    { id: 's10', name: 'Progressiva', price: 250, category: 'Química' },
-    { id: 's11', name: 'Shampoo Profissional', price: 120, category: 'Produtos' },
-    { id: 's12', name: 'Máscara de Hidratação', price: 150, category: 'Produtos' }
-  ],
-  clinic: [
-    { id: 'c1', name: 'Consulta Avaliação', price: 100, category: 'Consultas' },
-    { id: 'c2', name: 'Limpeza de Pele Profunda', price: 180, category: 'Facial' },
-    { id: 'c3', name: 'Peeling Químico', price: 250, category: 'Facial' },
-    { id: 'c4', name: 'Botox (Sessão)', price: 800, category: 'Injetáveis' },
-    { id: 'c5', name: 'Preenchimento Labial', price: 1200, category: 'Injetáveis' },
-    { id: 'c6', name: 'Drenagem Linfática', price: 120, category: 'Corporal' },
-    { id: 'c7', name: 'Massagem Relaxante', price: 150, category: 'Corporal' },
-    { id: 'c8', name: 'Depilação a Laser (Axilas)', price: 90, category: 'Laser' },
-    { id: 'c9', name: 'Depilação a Laser (Perna)', price: 200, category: 'Laser' },
-    { id: 'c10', name: 'Sérum Vitamina C', price: 180, category: 'Produtos' },
-    { id: 'c11', name: 'Protetor Solar FPS 70', price: 120, category: 'Produtos' }
-  ]
-};
 
 interface CartItem extends Service {
   quantity: number;
@@ -92,6 +47,7 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card' | 'cash' | 'split'>('pix');
   const [cashAmount, setCashAmount] = useState<string>('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name-asc'); // name-asc, name-desc, price-asc, price-desc
@@ -417,74 +373,83 @@ Responda APENAS com um arquivo JSON válido e nada mais:
   };
 
   const handleCheckout = async () => {
+    if (isProcessingCheckout) return;
+
     if (cart.length === 0) {
-       toast.error('Carrinho vazio', { description: 'Adicione itens antes de finalizar.' });
-       return;
+      toast.error('Carrinho vazio', { description: 'Adicione itens antes de finalizar.' });
+      return;
     }
-    
+
     if (nfCpf && !validateCPF(nfCpf)) {
-       setCpfError(true);
-       toast.error('CPF Inválido', { description: 'Verifique o CPF informado.' });
-       return;
+      setCpfError(true);
+      toast.error('CPF Inválido', { description: 'Verifique o CPF informado.' });
+      return;
     }
 
-    if (emitirNfce) {
-      setIsEmittingNfce(true);
-      const toastId = toast.loading('Processando pagamento e emitindo NFC-e...');
-      try {
-        const response = await fiscalService.emitNfce({
-          total: total,
-          items: cart,
-          customer: clientType === 'registered' ? selectedClient : null,
-          paymentMethod: paymentMethod
-        });
+    const sale = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      total,
+      paymentMethod,
+      status: 'completed' as const,
+      items: cart.map(item => ({
+        id: String(item.id),
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        professionalId: item.professionalId,
+        category: item.category,
+        type: item.type
+      })),
+      date: new Date().toISOString()
+    };
 
-        if (response.success) {
+    setIsProcessingCheckout(true);
+    try {
+      if (emitirNfce) {
+        setIsEmittingNfce(true);
+        const toastId = toast.loading('Processando pagamento e emitindo NFC-e...');
+        try {
+          const response = await fiscalService.emitNfce({
+            total,
+            items: cart,
+            customer: clientType === 'registered' ? selectedClient : null,
+            paymentMethod
+          });
+
+          if (!response.success) {
+            toast.error('Falha na Emissão', { id: toastId, description: response.error });
+            return;
+          }
+
+          await addTransaction(sale);
           setNfceData(response);
           setIsSuccess(true);
-          toast.success('Venda e NFC-e concluídas!', { id: toastId, description: `Protocolo da nota recebido.` });
-        } else {
-          toast.error('Falha na Emissão', { id: toastId, description: response.error });
+          toast.success('Venda e NFC-e concluídas!', { id: toastId, description: 'Venda registrada e estoque atualizado.' });
+        } catch (err) {
+          toast.error('Falha ao concluir venda com NFC-e', { id: toastId, description: err instanceof Error ? err.message : 'Operação não concluída.' });
+          console.error(err);
+        } finally {
+          setIsEmittingNfce(false);
         }
-      } catch(err) {
-        toast.error('Falha no Servidor Fiscal', { id: toastId });
-      } finally {
-        setIsEmittingNfce(false);
-      }
-    } else {
-      const toastId = toast.loading('Processando Pagamento...');
-      try {
-          await addTransaction({
-            id: Date.now().toString(),
-            total,
-            paymentMethod,
-            status: 'completed',
-            items: cart.map(item => ({
-              id: String(item.id),
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity,
-              professionalId: item.professionalId,
-              category: item.category
-            })),
-            date: new Date().toISOString()
-          });
+      } else {
+        const toastId = toast.loading('Processando Pagamento...');
+        try {
+          await addTransaction(sale);
           setIsSuccess(true);
           toast.success('Venda concluída!', { id: toastId, description: `R$ ${total.toFixed(2)} recebidos com sucesso.` });
-          
+
           if (window.bella?.isDesktopApp) {
-             window.bella.printer.openCashDrawer().then(res => {
-                 if (res.success) {
-                     console.log("Gaveta aberta!");
-                 } else {
-                     console.error("Gaveta erro: ", res.error);
-                 }
-             });
+            window.bella.printer.openCashDrawer().then(res => {
+              if (!res.success) console.error('Gaveta erro: ', res.error);
+            });
           }
-      } catch (err) {
-          toast.error('Erro ao salvar venda', { id: toastId });
+        } catch (err) {
+          toast.error('Erro ao concluir venda', { id: toastId, description: err instanceof Error ? err.message : 'A venda não foi gravada.' });
           console.error(err);
+        }
       }
+    } finally {
+      setIsProcessingCheckout(false);
     }
   };
 
