@@ -41,8 +41,17 @@ jobs:
       - name: Align Expo SDK dependencies
         run: npx expo install --fix --npm
 
+      - name: Normalize Android assets
+        run: |
+          cp ../public/pwa-512x512.png assets/icon.png
+          cp ../public/pwa-maskable-512x512.png assets/adaptive-icon.png
+          cp ../public/pwa-512x512.png assets/splash-icon.png
+          cp ../public/pwa-192x192.png assets/favicon.png
+
       - name: Generate Android project
-        run: npx expo prebuild --platform android --non-interactive
+        env:
+          CI: "1"
+        run: npx expo prebuild --platform android
 
       - name: Build installable debug APK
         run: |
