@@ -34,6 +34,10 @@ interface AuthState {
 let unsubscribes: Array<() => void> = [];
 
 const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
+const SUPER_ADMIN_EMAIL = 'tramposshop@gmail.com';
+
+const isSuperAdminEmail = (email?: string | null) =>
+  (email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
 
 const getStoredUser = (): AuthUser | null => {
   try {
@@ -138,24 +142,36 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     const displayName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
     const email = firebaseUser.email || '';
 
+    // Mark Firebase authentication ready immediately. Firestore profile hydration must
+    // never block the whole app if the network/rules are slow.
+    const provisionalUser: AuthUser = {
+      id: firebaseUser.uid,
+      email,
+      name: displayName,
+      role: isSuperAdminEmail(email) ? 'admin' : 'client',
+      companyId: firebaseUser.uid,
+      avatar: firebaseUser.photoURL || undefined,
+      planFeatures: DEFAULT_FEATURES
+    };
+    useAuthStore.getState().setUser(provisionalUser);
+
     let profile: Record<string, any> = {};
     try {
-      const snapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
-      if (snapshot.exists()) profile = snapshot.data();
+      const profileRead = getDoc(doc(db, 'users', firebaseUser.uid));
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1800));
+      const snapshot = await Promise.race([profileRead, timeout]);
+      if (snapshot && snapshot.exists()) profile = snapshot.data();
     } catch (error) {
       console.warn('Cannot retrieve authenticated profile:', error);
     }
+
     const userData: AuthUser = {
-      id: firebaseUser.uid,
-      email: email,
-      name: displayName,
-      role: profile.role === 'admin' ? 'admin' : 'client',
+      ...provisionalUser,
+      role: isSuperAdminEmail(email) || profile.role === 'admin' ? 'admin' : 'client',
       companyId: typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : firebaseUser.uid,
-      avatar: firebaseUser.photoURL || undefined,
       planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
       isDemo: !!profile.isDemo
     };
-
     useAuthStore.getState().setUser(userData);
 
     // Start real-time data subscriptions

@@ -117,25 +117,11 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // 🔥 WHITE-LABEL (POR EMPRESA / DOMÍNIO) SIMULATION
-    const simulateCompanyFetch = async () => {
-       const domain = window.location.host;
-       await new Promise(resolve => setTimeout(resolve, 800));
-
-       const company = {
-         id: "bella-studio",
-         name: "Bella Studio",
-         primaryColor: "#3b82f6",
-         secondaryColor: "#0ea5e9",
-         domain: domain
-       };
-       
-       document.documentElement.style.setProperty("--primary", company.primaryColor);
-       document.documentElement.style.setProperty("--secondary", company.secondaryColor);
-       setIsLoading(false);
-    };
-    
-    simulateCompanyFetch();
+    // Apply the base theme synchronously. Company-specific theming can hydrate later
+    // without blocking the first screen.
+    document.documentElement.style.setProperty("--primary", "#3b82f6");
+    document.documentElement.style.setProperty("--secondary", "#0ea5e9");
+    setIsLoading(false);
 
     return () => {
       window.removeEventListener('online', handleOnline);
