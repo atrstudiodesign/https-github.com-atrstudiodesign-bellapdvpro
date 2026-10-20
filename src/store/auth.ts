@@ -15,7 +15,7 @@ import { useQueueStore } from './queue';
 import { useProfessionalStore } from './professionals';
 import { useApiKeysStore } from './apiKeys';
 import { setFirebaseTenantContext } from '../lib/firebaseTenant';
-import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
+import { hasPlatformAdminClaim } from '../lib/superAdmins';
 
 export interface AuthUser {
   id: string;
@@ -54,7 +54,18 @@ const getStoredUser = (): AuthUser | null => {
   }
 };
 
-let activeUserId: string | null = null;
+let activeIdentityKey: string | null = null;
+let authChangeVersion = 0;
+
+function identityKey(user: AuthUser | null): string | null {
+  return user ? `${user.id}:${user.companyId || user.id}:${user.isDemo === true}` : null;
+}
+
+function resetSubscriptionsAndTenant() {
+  unsubscribes.forEach(unsub => unsub());
+  unsubscribes = [];
+  clearTenantData();
+}
 
 function clearTenantData() {
   useClientStore.getState().setClients([]);
@@ -71,11 +82,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   isAuthReady: false,
   setUser: (user) => {
-    if (activeUserId !== (user?.id || null)) {
-      unsubscribes.forEach(unsub => unsub());
-      unsubscribes = [];
-      clearTenantData();
-      activeUserId = user?.id || null;
+    if (activeIdentityKey !== identityKey(user)) {
+      resetSubscriptionsAndTenant();
+      activeIdentityKey = identityKey(user);
     }
     if (user) {
       setFirebaseTenantContext(user.id, user.companyId);
@@ -116,11 +125,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
     };
 
-    if (activeUserId !== fullUser.id) {
-      unsubscribes.forEach(unsub => unsub());
-      unsubscribes = [];
-      clearTenantData();
-      activeUserId = fullUser.id;
+    if (activeIdentityKey !== identityKey(fullUser)) {
+      resetSubscriptionsAndTenant();
+      activeIdentityKey = identityKey(fullUser);
     }
     setFirebaseTenantContext(fullUser.id, fullUser.companyId);
     try {
@@ -141,7 +148,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     unsubscribes.forEach(unsub => unsub());
     unsubscribes = [];
     clearTenantData();
-    activeUserId = null;
+    activeIdentityKey = null;
+    authChangeVersion++;
     setFirebaseTenantContext(null);
     try {
       localStorage.removeItem('bellapdv_auth_user');
@@ -157,6 +165,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // Wait for Firebase's first auth callback before deciding whether to redirect.
 onAuthStateChanged(auth, async (firebaseUser) => {
+  const version = ++authChangeVersion;
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
@@ -173,42 +182,38 @@ onAuthStateChanged(auth, async (firebaseUser) => {
       }
       return;
     }
-    const displayName = firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário');
-    const email = firebaseUser.email || '';
+    // Resolve the tenant before allowing protected routes or subscriptions.
+    // A fallback companyId=uid is only valid for a genuinely missing profile.
+    useAuthStore.getState().setAuthReady(false);
+    let profile: Record<string, any> = {};
+    try {
+      const snapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (snapshot.exists()) profile = snapshot.data();
+    } catch (error) {
+      console.error('Cannot verify company membership:', error);
+      if (version === authChangeVersion) {
+        useAuthStore.getState().setUser(null);
+        useAuthStore.getState().setAuthReady(false);
+      }
+      return;
+    }
 
-    // Mark Firebase authentication ready immediately. Firestore profile hydration must
-    // never block the whole app if the network/rules are slow.
-    const provisionalUser: AuthUser = {
+    const email = firebaseUser.email || '';
+    const displayName = firebaseUser.displayName || (email ? email.split('@')[0] : 'Usuário');
+    const isPlatformAdmin = await hasPlatformAdminClaim(firebaseUser);
+    if (version !== authChangeVersion || auth.currentUser?.uid !== firebaseUser.uid) return;
+
+    const userData: AuthUser = {
       id: firebaseUser.uid,
       email,
       name: displayName,
-      role: isSuperAdminEmail(email) ? 'admin' : 'client',
-      isPlatformAdmin: false,
-      companyId: firebaseUser.uid,
-      avatar: firebaseUser.photoURL || undefined,
-      planFeatures: DEFAULT_FEATURES
-    };
-    useAuthStore.getState().setUser(provisionalUser);
-
-    let profile: Record<string, any> = {};
-    try {
-      const profileRead = getDoc(doc(db, 'users', firebaseUser.uid));
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1800));
-      const snapshot = await Promise.race([profileRead, timeout]);
-      if (snapshot && snapshot.exists()) profile = snapshot.data();
-    } catch (error) {
-      console.warn('Cannot retrieve authenticated profile:', error);
-    }
-
-    const userData: AuthUser = {
-      ...provisionalUser,
-      role: isSuperAdminEmail(email) || profile.role === 'admin' ? 'admin' : 'client',
+      role: isPlatformAdmin || profile.role === 'admin' ? 'admin' : 'client',
+      isPlatformAdmin,
       companyId: typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : firebaseUser.uid,
+      avatar: firebaseUser.photoURL || undefined,
       planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : DEFAULT_FEATURES,
-      isDemo: !!profile.isDemo
+      isDemo: false
     };
-    userData.isPlatformAdmin = await hasPlatformAdminClaim(firebaseUser);
-    if (auth.currentUser?.uid !== firebaseUser.uid) return;
     useAuthStore.getState().setUser(userData);
 
     // Start real-time data subscriptions
