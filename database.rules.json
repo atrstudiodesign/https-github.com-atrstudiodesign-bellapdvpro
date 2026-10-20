@@ -1,0 +1,20 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "tenants": {
+      "$companyId": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.uid === $companyId || auth.token.companyId === $companyId)",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.uid === $companyId || auth.token.companyId === $companyId)",
+        "message": {
+          ".validate": "newData.isString() && newData.val().length <= 1000"
+        },
+        "terminals": {
+          "$terminalId": {
+            ".validate": "newData.hasChildren(['isOpen', 'operator', 'lastPing']) && newData.child('isOpen').isBoolean() && newData.child('operator').isString() && newData.child('operator').val().length <= 120 && newData.child('lastPing').isNumber()"
+          }
+        }
+      }
+    }
+  }
+}
