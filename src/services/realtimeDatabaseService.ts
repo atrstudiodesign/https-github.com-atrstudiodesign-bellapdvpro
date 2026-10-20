@@ -3,7 +3,7 @@ import { rtdb } from '../lib/firebase';
 
 /**
  * Serviço do Firebase Realtime Database
- * Oferece leitura e escrita em tempo real com baixa latência e suporte offline
+ * Oferece leitura e escrita em tempo real com baixa latência e suporte offline seguro
  */
 export const realtimeDatabaseService = {
   /**
@@ -11,11 +11,15 @@ export const realtimeDatabaseService = {
    */
   async setMessage(message: string): Promise<boolean> {
     try {
+      if (!rtdb) {
+        console.warn('[RTDB] Instância do Realtime Database indisponível no projeto.');
+        return false;
+      }
       const messageRef = ref(rtdb, 'message');
       await set(messageRef, message);
       return true;
     } catch (error) {
-      console.error('[RTDB] Erro ao gravar mensagem:', error);
+      console.warn('[RTDB] Erro ao gravar mensagem:', error);
       return false;
     }
   },
@@ -25,11 +29,14 @@ export const realtimeDatabaseService = {
    */
   async getMessage(): Promise<string | null> {
     try {
+      if (!rtdb) {
+        return null;
+      }
       const messageRef = ref(rtdb, 'message');
       const snapshot = await get(messageRef);
       return snapshot.exists() ? (snapshot.val() as string) : null;
     } catch (error) {
-      console.error('[RTDB] Erro ao buscar mensagem:', error);
+      console.warn('[RTDB] Erro ao buscar mensagem:', error);
       return null;
     }
   },
@@ -38,21 +45,29 @@ export const realtimeDatabaseService = {
    * Escuta alterações em tempo real na chave 'message'
    */
   subscribeToMessage(callback: (val: string | null) => void): () => void {
-    const messageRef = ref(rtdb, 'message');
-    const unsubscribe = onValue(
-      messageRef,
-      (snapshot) => {
-        const val = snapshot.exists() ? (snapshot.val() as string) : null;
-        callback(val);
-      },
-      (error) => {
-        console.warn('[RTDB] Erro no listener de mensagem:', error);
-      }
-    );
+    if (!rtdb) {
+      return () => {};
+    }
+    try {
+      const messageRef = ref(rtdb, 'message');
+      const unsubscribe = onValue(
+        messageRef,
+        (snapshot) => {
+          const val = snapshot.exists() ? (snapshot.val() as string) : null;
+          callback(val);
+        },
+        (error) => {
+          console.warn('[RTDB] Erro no listener de mensagem:', error);
+        }
+      );
 
-    return () => {
-      off(messageRef);
-    };
+      return () => {
+        off(messageRef);
+      };
+    } catch (err) {
+      console.warn('[RTDB] Falha ao registrar listener:', err);
+      return () => {};
+    }
   },
 
   /**
@@ -60,6 +75,9 @@ export const realtimeDatabaseService = {
    */
   async updateCashierStatus(terminalId: string, status: { isOpen: boolean; operator: string; lastPing?: any }): Promise<void> {
     try {
+      if (!rtdb) {
+        return;
+      }
       const statusRef = ref(rtdb, `terminals/${terminalId}`);
       await set(statusRef, {
         ...status,

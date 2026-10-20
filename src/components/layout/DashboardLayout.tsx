@@ -480,7 +480,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     <select
                       value={user?.role || 'client'}
                       onChange={(e) => {
-                         useAuthStore.getState().setUser({ ...user, role: e.target.value });
+                         useAuthStore.getState().setUser({ ...user, role: e.target.value as 'admin' | 'client' });
                       }}
                       className="bg-[#09111D] border border-emerald-500/50 text-emerald-400 rounded px-2 py-0.5 text-[10px] outline-none opacity-50 hover:opacity-100 transition-opacity"
                     >

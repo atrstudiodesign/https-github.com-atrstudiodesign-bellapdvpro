@@ -230,7 +230,7 @@ export default function Licensing() {
       const licenseRef = doc(db, 'company_licenses', companyId);
       const currentLicense = licenses[companyId] || {};
       const updatedLimits = {
-        ...(currentLicense.usageLimits || {
+        ...((currentLicense as any).usageLimits || {
           maxUsers: 5,
           aiUsageLimit: 100,
           waUsageLimit: 500,
@@ -528,7 +528,7 @@ export default function Licensing() {
                               <span className="text-slate-500 uppercase tracking-tight text-[9px] font-bold">Max Users:</span>
                               <input
                                 type="number"
-                                value={companyLic.usageLimits?.maxUsers ?? companyLic.maxUsers ?? 5}
+                                value={(companyLic as any).usageLimits?.maxUsers ?? companyLic.maxUsers ?? 5}
                                 onChange={(e) => handleUpdateUsageLimitValue(c.id, 'maxUsers', parseInt(e.target.value) || 0)}
                                 className="bg-[#0C1222] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-300 w-16 text-center focus:outline-none focus:border-cyan-500 transition-colors"
                               />
@@ -538,7 +538,7 @@ export default function Licensing() {
                               <span className="text-slate-500 uppercase tracking-tight text-[9px] font-bold">Filiais:</span>
                               <input
                                 type="number"
-                                value={companyLic.usageLimits?.unitsLimit ?? companyLic.unitsCount ?? 1}
+                                value={(companyLic as any).usageLimits?.unitsLimit ?? companyLic.unitsCount ?? 1}
                                 onChange={(e) => handleUpdateUsageLimitValue(c.id, 'unitsLimit', parseInt(e.target.value) || 0)}
                                 className="bg-[#0C1222] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-300 w-16 text-center focus:outline-none focus:border-cyan-500 transition-colors"
                               />
@@ -548,7 +548,7 @@ export default function Licensing() {
                               <span className="text-slate-500 uppercase tracking-tight text-[9px] font-bold">Cota IA:</span>
                               <input
                                 type="number"
-                                value={companyLic.usageLimits?.aiUsageLimit ?? 100}
+                                value={(companyLic as any).usageLimits?.aiUsageLimit ?? 100}
                                 onChange={(e) => handleUpdateUsageLimitValue(c.id, 'aiUsageLimit', parseInt(e.target.value) || 0)}
                                 className="bg-[#0C1222] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-cyan-400 font-bold w-16 text-center focus:outline-none focus:border-cyan-500 transition-colors"
                               />
@@ -558,7 +558,7 @@ export default function Licensing() {
                               <span className="text-slate-500 uppercase tracking-tight text-[9px] font-bold">Cota WA:</span>
                               <input
                                 type="number"
-                                value={companyLic.usageLimits?.waUsageLimit ?? 500}
+                                value={(companyLic as any).usageLimits?.waUsageLimit ?? 500}
                                 onChange={(e) => handleUpdateUsageLimitValue(c.id, 'waUsageLimit', parseInt(e.target.value) || 0)}
                                 className="bg-[#0C1222] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-emerald-400 font-bold w-16 text-center focus:outline-none focus:border-cyan-500 transition-colors"
                               />

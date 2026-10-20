@@ -67,7 +67,7 @@ export default function Clients() {
 
   const handleSaveEditClient = () => {
     if (!editingClient.name || (!editingClient.email && !editingClient.phone)) return;
-    updateClient(editingClient.id, editingClient);
+    updateClient(editingClient.id, editingClient as any);
     setIsEditClientModalOpen(false);
     if (selectedClient && selectedClient.id === editingClient.id) {
        setSelectedClient({ ...selectedClient, ...editingClient });
