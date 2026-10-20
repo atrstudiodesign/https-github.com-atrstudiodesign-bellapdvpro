@@ -8,6 +8,9 @@ on:
       - 'firebase.json'
       - 'scripts/test-rtdb-rules.mjs'
       - 'scripts/test-firestore-rules.mjs'
+      - 'scripts/assign-company-claim.py'
+      - 'src/store/auth.ts'
+      - 'src/main.tsx'
       - '.github/workflows/rtdb-rules.yml'
   workflow_dispatch:
 
@@ -28,6 +31,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm ci
+      - run: npm run lint && npm run build
+      - run: python3 -m py_compile scripts/assign-company-claim.py
       - run: npm install --no-save --package-lock=false firebase-tools @firebase/rules-unit-testing@5
       - run: npx firebase emulators:exec --only database --project demo-bellapdv-p0 'node --test scripts/test-rtdb-rules.mjs'
       - run: npx firebase emulators:exec --only firestore --project demo-bellapdv-p0 'node --test scripts/test-firestore-rules.mjs'
