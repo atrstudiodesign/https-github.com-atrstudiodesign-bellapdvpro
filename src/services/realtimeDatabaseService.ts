@@ -1,18 +1,30 @@
-import { ref, set, onValue, off, get, serverTimestamp } from 'firebase/database';
-import { rtdb } from '../lib/firebase';
+import { ref, set, onValue, get, serverTimestamp } from 'firebase/database';
+import { auth, rtdb } from '../lib/firebase';
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
 
 /**
- * Serviço do Firebase Realtime Database
- * Oferece leitura e escrita em tempo real com baixa latência e suporte offline
+ * RTDB operations are always scoped to the authenticated company's tenant.
+ * The server must enforce the matching company in database.rules.json.
  */
+function tenantPath(segment: 'message' | 'terminals', id?: string) {
+  const user = auth.currentUser;
+  const companyId = currentFirebaseTenantId();
+  if (!user || user.isAnonymous || !companyId) {
+    throw new Error('Empresa autenticada não identificada.');
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(companyId)) {
+    throw new Error('Identificador de empresa inválido.');
+  }
+  if (id !== undefined && !/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new Error('Identificador de terminal inválido.');
+  }
+  return `tenants/${companyId}/${segment}${id ? '/' + id : ''}`;
+}
+
 export const realtimeDatabaseService = {
-  /**
-   * Escreve uma mensagem de teste ou status no Realtime Database
-   */
   async setMessage(message: string): Promise<boolean> {
     try {
-      const messageRef = ref(rtdb, 'message');
-      await set(messageRef, message);
+      await set(ref(rtdb, tenantPath('message')), message);
       return true;
     } catch (error) {
       console.error('[RTDB] Erro ao gravar mensagem:', error);
@@ -20,13 +32,9 @@ export const realtimeDatabaseService = {
     }
   },
 
-  /**
-   * Lê o valor atual da mensagem
-   */
   async getMessage(): Promise<string | null> {
     try {
-      const messageRef = ref(rtdb, 'message');
-      const snapshot = await get(messageRef);
+      const snapshot = await get(ref(rtdb, tenantPath('message')));
       return snapshot.exists() ? (snapshot.val() as string) : null;
     } catch (error) {
       console.error('[RTDB] Erro ao buscar mensagem:', error);
@@ -34,39 +42,32 @@ export const realtimeDatabaseService = {
     }
   },
 
-  /**
-   * Escuta alterações em tempo real na chave 'message'
-   */
   subscribeToMessage(callback: (val: string | null) => void): () => void {
-    const messageRef = ref(rtdb, 'message');
-    const unsubscribe = onValue(
-      messageRef,
-      (snapshot) => {
-        const val = snapshot.exists() ? (snapshot.val() as string) : null;
-        callback(val);
-      },
-      (error) => {
-        console.warn('[RTDB] Erro no listener de mensagem:', error);
-      }
-    );
-
-    return () => {
-      off(messageRef);
-    };
+    let messageRef;
+    try {
+      messageRef = ref(rtdb, tenantPath('message'));
+    } catch (error) {
+      console.warn('[RTDB] Assinatura não autorizada:', error);
+      callback(null);
+      return () => {};
+    }
+    return onValue(messageRef, (snapshot) => {
+      callback(snapshot.exists() ? (snapshot.val() as string) : null);
+    }, (error) => {
+      console.warn('[RTDB] Erro no listener:', error);
+      callback(null);
+    });
   },
 
-  /**
-   * Atualiza o status em tempo real do caixa / operador (estrutura plana desnormalizada)
-   */
-  async updateCashierStatus(terminalId: string, status: { isOpen: boolean; operator: string; lastPing?: any }): Promise<void> {
-    try {
-      const statusRef = ref(rtdb, `terminals/${terminalId}`);
-      await set(statusRef, {
-        ...status,
-        lastPing: serverTimestamp()
-      });
-    } catch (err) {
-      console.warn('[RTDB] Erro ao atualizar status do caixa:', err);
-    }
+  async updateCashierStatus(
+    terminalId: string,
+    status: { isOpen: boolean; operator: string; lastPing?: unknown }
+  ): Promise<void> {
+    const statusRef = ref(rtdb, tenantPath('terminals', terminalId));
+    await set(statusRef, {
+      isOpen: status.isOpen,
+      operator: status.operator,
+      lastPing: serverTimestamp()
+    });
   }
 };
