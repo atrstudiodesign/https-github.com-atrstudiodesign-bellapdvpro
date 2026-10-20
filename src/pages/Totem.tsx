@@ -123,7 +123,7 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
     setKioskStep('printing');
 
     try {
-      await addQueueItem({
+      const queueId = await addQueueItem({
         clientName: customerName,
         clientPhone: customerPhone,
         serviceId: service.id,
@@ -132,8 +132,7 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
         professionalId: 'sem-pref',
         professionalName: 'Sem Preferência'
       });
-      const codeLetter = currentNicheType === 'barbershop' ? 'B' : currentNicheType === 'salon' ? 'S' : 'A';
-      setTicketNumber(`${codeLetter}-${Math.floor(Math.random() * 100) + 10}`);
+      setTicketNumber(queueId);
       setKioskStep('ticket');
       toast.success('Entrada registrada na fila de espera.');
     } catch (err) {
@@ -332,7 +331,7 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
                   </div>
                   
                   <div className="text-center py-4">
-                     <span className="text-4xl font-extrabold tracking-widest text-cyan-600 font-mono">{ticketNumber}</span>
+                     <span className="text-lg font-extrabold break-all text-cyan-600 font-mono">{ticketNumber}</span>
                   </div>
 
                   <div className="space-y-1.5 border-t border-dashed border-slate-300 pt-3 text-[10px]">
