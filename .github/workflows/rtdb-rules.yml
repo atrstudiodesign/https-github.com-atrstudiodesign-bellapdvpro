@@ -1,11 +1,13 @@
-name: RTDB rules isolation
+name: Firebase rules isolation
 
 on:
   pull_request:
     paths:
       - 'database.rules.json'
+      - 'firestore.rules'
       - 'firebase.json'
       - 'scripts/test-rtdb-rules.mjs'
+      - 'scripts/test-firestore-rules.mjs'
       - '.github/workflows/rtdb-rules.yml'
   workflow_dispatch:
 
@@ -28,3 +30,4 @@ jobs:
       - run: npm ci
       - run: npm install --no-save --package-lock=false firebase-tools @firebase/rules-unit-testing@5
       - run: npx firebase emulators:exec --only database --project demo-bellapdv-p0 'node --test scripts/test-rtdb-rules.mjs'
+      - run: npx firebase emulators:exec --only firestore --project demo-bellapdv-p0 'node --test scripts/test-firestore-rules.mjs'
