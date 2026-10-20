@@ -27,13 +27,12 @@ export default function DemoShowcase() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const navigate = useNavigate();
 
   const requestAccess = () => setLeadOpen(true);
   const register = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = new URLSearchParams({ signup: 'true', email: email.trim(), company: company.trim(), phone: phone.trim(), source: 'demo' });
+    const query = new URLSearchParams({ signup: 'true', email: email.trim(), company: company.trim(), source: 'demo' });
     navigate('/login?' + query.toString());
   };
   const current = modules[selected];
@@ -99,11 +98,10 @@ export default function DemoShowcase() {
       {leadOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" role="presentation" onClick={() => setLeadOpen(false)}>
         <section role="dialog" aria-modal="true" aria-label="Ativar teste grátis" onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-cyan-400/25 bg-[#101b2d] p-6 shadow-2xl">
           <div className="flex items-center justify-between"><h2 className="text-xl font-bold">15 dias para testar tudo</h2><button onClick={() => setLeadOpen(false)} aria-label="Fechar"><X size={19}/></button></div>
-          <p className="mt-3 text-sm leading-6 text-slate-400">Informe seus dados para continuar o cadastro e liberar as funções completas. Seus dados serão enviados ao cadastro, não a uma lista de leads independente.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-400">Informe os dados para continuar o cadastro e ativar o teste gratuito. O envio deste formulário não cria uma conta nem salva um lead até que o cadastro seja concluído.</p>
           <form className="mt-5 space-y-3" onSubmit={register}>
             <label className="block text-sm">Empresa<input value={company} onChange={e => setCompany(e.target.value)} required maxLength={100} placeholder="Nome da empresa" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
             <label className="block text-sm">E-mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} required maxLength={160} placeholder="voce@empresa.com.br" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
-            <label className="block text-sm">WhatsApp (opcional)<input type="tel" value={phone} onChange={e => setPhone(e.target.value)} maxLength={25} placeholder="(11) 99999-9999" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
             <button type="submit" className="w-full rounded-xl bg-cyan-400 p-3 font-bold text-slate-950 hover:bg-cyan-300">Continuar cadastro gratuito <ArrowRight size={16} className="ml-2 inline"/></button>
           </form>
           <p className="mt-3 text-xs text-slate-500">15 dias gratuitos sujeitos à ativação da conta e às condições do serviço.</p>
