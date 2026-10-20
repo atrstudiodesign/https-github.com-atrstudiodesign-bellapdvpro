@@ -2,10 +2,6 @@ import { StrictMode, ReactNode, Suspense, lazy, useState, useEffect } from 'reac
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import App from './App.tsx';
-import Landing from './pages/Landing.tsx';
-import Login from './pages/Login.tsx';
-import Legal from './pages/Legal.tsx';
 import { useAuthStore } from './store/auth';
 import { LicenseRouteGuard } from './components/LicenseRouteGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -13,6 +9,10 @@ import './index.css';
 import { Loader2 } from 'lucide-react';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
+const App = lazy(() => import('./App.tsx'));
+const Landing = lazy(() => import('./pages/Landing.tsx'));
+const Login = lazy(() => import('./pages/Login.tsx'));
+const Legal = lazy(() => import('./pages/Legal.tsx'));
 const DemoShowcase = lazy(() => import('./pages/DemoShowcase.tsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
 const Professionals = lazy(() => import('./pages/Professionals.tsx'));
