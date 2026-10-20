@@ -25,7 +25,6 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  signInAnonymously,
   signOut,
   updateProfile,
   RecaptchaVerifier,
@@ -45,7 +44,7 @@ export default function Login() {
   const [selectedNiche, setSelectedNiche] = useState<NicheType>('barbershop');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const isDemoLoading = false;
   const [loginError, setLoginError] = useState('');
   const [phoneMode, setPhoneMode] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -57,14 +56,16 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If signup param is present, activate register tab
+    // Prefill the registration from the read-only demo CTA.
     if (searchParams.get('signup') === 'true') {
       setIsRegister(true);
+      setEmail(searchParams.get('email') || '');
+      setCompanyName(searchParams.get('company') || '');
     }
 
     // If demo param is present, activate demo mode immediately
     if (searchParams.get('demo') === 'true') {
-      handleQuickDemoLogin();
+      navigate('/demo', { replace: true });
       return;
     }
 
@@ -81,41 +82,9 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, [searchParams, isAuthenticated, navigate]);
 
-  const handleQuickDemoLogin = async () => {
-    setIsDemoLoading(true);
-    try {
-      const cred = await signInAnonymously(auth);
-      const uid = cred.user.uid;
-
-      const demoUser = {
-        id: uid,
-        name: 'Gestor Demo (BellaPDV)',
-        email: 'demo@bellapdv.com',
-        role: 'admin' as const,
-        planFeatures: ['pdv', 'agenda', 'crm', 'aiAssistant', 'whatsapp', 'marketplace', 'ia', 'automacoes', 'relatorios'],
-        isDemo: true
-      };
-
-      const companyData = {
-        id: uid,
-        name: 'Studio BellaPDV (Demonstração)',
-        niche: selectedNiche || 'barbershop'
-      };
-
-      setNiche(selectedNiche || 'barbershop');
-      login(demoUser, undefined, companyData);
-
-      toast.success('Modo de Demonstração Ativado!', {
-        description: 'Bem-vindo ao BellaPDV! Todos os recursos estão desbloqueados para teste.'
-      });
-
-      navigate('/', { replace: true });
-    } catch (err: any) {
-      console.error('Demo login error:', err);
-      toast.error('Não foi possível iniciar a demonstração. Tente novamente.');
-    } finally {
-      setIsDemoLoading(false);
-    }
+  const handleQuickDemoLogin = () => {
+    // Demo is a static, public, read-only showcase; no anonymous Firebase login.
+    navigate('/demo');
   };
 
   const fillTestCredentials = () => {
@@ -131,7 +100,7 @@ export default function Login() {
     e.preventDefault();
 
     if (email.trim().toLowerCase() === 'demo@bellapdv.com') {
-      await handleQuickDemoLogin();
+      handleQuickDemoLogin();
       return;
     }
 

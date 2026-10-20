@@ -2,10 +2,6 @@ import { StrictMode, ReactNode, Suspense, lazy, useState, useEffect } from 'reac
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import App from './App.tsx';
-import Landing from './pages/Landing.tsx';
-import Login from './pages/Login.tsx';
-import Legal from './pages/Legal.tsx';
 import { useAuthStore } from './store/auth';
 import { LicenseRouteGuard } from './components/LicenseRouteGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -13,6 +9,11 @@ import './index.css';
 import { Loader2 } from 'lucide-react';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
+const App = lazy(() => import('./App.tsx'));
+const Landing = lazy(() => import('./pages/Landing.tsx'));
+const Login = lazy(() => import('./pages/Login.tsx'));
+const Legal = lazy(() => import('./pages/Legal.tsx'));
+const DemoShowcase = lazy(() => import('./pages/DemoShowcase.tsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
 const Professionals = lazy(() => import('./pages/Professionals.tsx'));
 const Services = lazy(() => import('./pages/Services.tsx'));
@@ -109,6 +110,7 @@ createRoot(document.getElementById('root')!).render(
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}>
           <Routes>
             <Route path="/landing" element={<Landing />} />
+          <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/login" element={<Login />} />
             <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
