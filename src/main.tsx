@@ -13,6 +13,7 @@ import './index.css';
 import { Loader2 } from 'lucide-react';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
+const DemoShowcase = lazy(() => import('./pages/DemoShowcase.tsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
 const Professionals = lazy(() => import('./pages/Professionals.tsx'));
 const Services = lazy(() => import('./pages/Services.tsx'));
@@ -109,6 +110,7 @@ createRoot(document.getElementById('root')!).render(
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}>
           <Routes>
             <Route path="/landing" element={<Landing />} />
+          <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/login" element={<Login />} />
             <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
