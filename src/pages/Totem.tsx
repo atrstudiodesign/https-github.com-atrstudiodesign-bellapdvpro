@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNicheStore } from '../store/niche';
 import { useCatalogStore } from '../store/catalog';
-import { useAppointmentStore } from '../store/appointments';
 import { useQueueStore } from '../store/queue';
 import { Smartphone, MonitorPlay, QrCode, CreditCard, ChevronRight, CheckCircle2, ArrowLeft, Printer, Box, Check, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,7 +15,6 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
   const config = getConfig();
   const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const { items, setItems } = useCatalogStore();
-  const { addAppointment } = useAppointmentStore();
   const { addQueueItem } = useQueueStore();
 
   const isActuallyPublic = publicMode || window.location.pathname === '/totem-view';
@@ -124,44 +122,25 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
     setSelectedService(service);
     setKioskStep('printing');
 
-    const codeLetter = currentNicheType === 'barbershop' ? 'B' : currentNicheType === 'salon' ? 'S' : 'A';
-    const seq = Math.floor(Math.random() * 100) + 10;
-    const generatedTicket = `${codeLetter}-${seq}`;
-    setTicketNumber(generatedTicket);
-
-    // Save selection directly into 'queue' collection in Firestore (bypassing auth)
     try {
       await addQueueItem({
         clientName: customerName,
         clientPhone: customerPhone,
         serviceId: service.id,
         serviceName: service.name,
-        estimatedWaitMinutes: Math.floor(Math.random() * 15) + 5,
+        estimatedWaitMinutes: 0,
         professionalId: 'sem-pref',
         professionalName: 'Sem Preferência'
       });
+      const codeLetter = currentNicheType === 'barbershop' ? 'B' : currentNicheType === 'salon' ? 'S' : 'A';
+      setTicketNumber(`${codeLetter}-${Math.floor(Math.random() * 100) + 10}`);
+      setKioskStep('ticket');
+      toast.success('Entrada registrada na fila de espera.');
     } catch (err) {
       console.error('Error saving queue selection:', err);
+      setKioskStep('services');
+      toast.error('Não foi possível registrar a entrada na fila. Tente novamente.');
     }
-
-    // Simulate printer feedback and proceed to printed ticket
-    setTimeout(() => {
-      setKioskStep('ticket');
-
-      // Also create a pending appointment for shared state visual sync
-      addAppointment({
-        id: `totem-${Date.now()}`,
-        client: customerName,
-        clientPhone: customerPhone,
-        service: service.name,
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toISOString().split('T')[0],
-        employee: 'Sem Preferência',
-        status: 'pending'
-      }).then(() => {
-         toast.success('Senha de autoatendimento registrada na Fila de Espera!');
-      });
-    }, 2000);
   };
 
   const handleResetKiosk = () => {
@@ -342,7 +321,7 @@ export default function Totem({ publicMode = false }: { publicMode?: boolean }) 
                </div>
 
                <h4 className="text-base font-bold text-white mb-2">Check-In Realizado!</h4>
-               <p className="text-xs text-slate-400 mb-6">Retire sua via impressa do totem e aguarde ser chamado no painel.</p>
+               <p className="text-xs text-slate-400 mb-6">Entrada registrada. Aguarde ser chamado no painel.</p>
 
                {/* Virtual Paper Ticket Animation */}
                <div className="bg-white text-slate-900 p-5 rounded-xl shadow-2xl text-left font-mono text-xs max-w-xs mx-auto mb-6 relative border-t-8 border-cyan-500 animate-slideUp">
