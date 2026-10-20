@@ -242,6 +242,6 @@ export function useFeature(featureKey: string) {
     featureFlags,
     license,
     plan: license?.plan || 'Bronze',
-    status: license?.status || 'inactive'
+    status: license?.status ?? ('inactive' as const)
   };
 }
