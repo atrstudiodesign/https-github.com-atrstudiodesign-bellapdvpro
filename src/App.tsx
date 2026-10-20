@@ -15,16 +15,17 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const { user } = useAuthStore();
+  const companyId = user?.companyId || user?.id;
   const { setStatus } = useSubscriptionStore();
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!companyId) return;
 
     let previousStatus: string | null = null;
     let previousFlagsKeys: string | null = null;
 
     // 🔄 Real-time subscription to company license status
-    const unsubLicense = subscribeToCompanyLicense(user.id, (license) => {
+    const unsubLicense = subscribeToCompanyLicense(companyId, (license) => {
       if (!license) return;
 
       console.log('Real-time License Update:', license);
@@ -61,7 +62,7 @@ export default function App() {
     });
 
     // 🔄 Real-time subscription to feature flags / active modules
-    const unsubFlags = subscribeToFeatureFlags(user.id, (flags) => {
+    const unsubFlags = subscribeToFeatureFlags(companyId, (flags) => {
       if (!flags) return;
 
       console.log('Real-time Feature Flags Update:', flags);
@@ -87,7 +88,7 @@ export default function App() {
       unsubLicense();
       unsubFlags();
     };
-  }, [user?.id, setStatus]);
+  }, [companyId, setStatus]);
 
   useEffect(() => {
     // 🌍 Monitor de Rede (Online/Offline Real)
