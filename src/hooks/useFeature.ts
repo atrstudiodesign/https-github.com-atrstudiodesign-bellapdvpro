@@ -106,9 +106,7 @@ export function useFeature(featureKey: string) {
     }
 
     const companyId = user.companyId || user.id;
-    const normalized = normalizeKey(featureKey);
-
-    // Initial safe defaults based on user role and permissions
+    // Initial safe defaults for missing or inaccessible license records
     const fallbackFlags: FeatureFlags = {
       companyId,
       pdv: false,
@@ -136,7 +134,7 @@ export function useFeature(featureKey: string) {
       modules: []
     };
 
-    // ⏱️ Safety failsafe timeout: NEVER let the user stay stuck in "Verificando licença..." for more than 600ms
+    // End loading after a timeout while keeping access denied until both records allow it.
     const safetyTimer = setTimeout(() => {
       setFeatureFlags((prev) => prev || fallbackFlags);
       setLicense((prev) => prev || fallbackLicense);
@@ -204,7 +202,8 @@ export function useFeature(featureKey: string) {
 
     if (activeFlags || activeLicense) {
       const normalized = normalizeKey(featureKey);
-      const isExpired = activeLicense ? activeLicense.status === 'expired' : false;
+      const expiresAt = activeLicense?.expireDate ? Date.parse(activeLicense.expireDate) : NaN;
+      const isExpired = !activeLicense || activeLicense.status === 'expired' || !Number.isFinite(expiresAt) || expiresAt < Date.now();
       const isFlagOn = activeFlags ? !!activeFlags[normalized] : false;
       
       let isLicensePlanAllowed = false;
