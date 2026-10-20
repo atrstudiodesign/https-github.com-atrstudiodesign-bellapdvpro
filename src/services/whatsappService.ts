@@ -6,18 +6,10 @@ export interface WhatsappSendMessage {
   variables?: Record<string, string>;
 }
 
+// Do not report delivery without a provider response and message ID.
 export const whatsappService = {
-  // Simula a Meta Cloud API for WhatsApp Business
-  sendMessage: async (data: WhatsappSendMessage): Promise<{ success: boolean; messageId?: string; error?: string }> => {
-    console.log("[WhatsApp Cloud API] Enviando mensagem via API Oficial...", data);
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          messageId: 'wamid.' + Math.random().toString(36).substring(7).toUpperCase()
-        });
-      }, 1200);
-    });
-  }
+  sendMessage: async (_data: WhatsappSendMessage): Promise<{ success: boolean; messageId?: string; error?: string }> => ({
+    success: false,
+    error: 'Envio WhatsApp indisponível até integrar e homologar o provedor.'
+  })
 };
