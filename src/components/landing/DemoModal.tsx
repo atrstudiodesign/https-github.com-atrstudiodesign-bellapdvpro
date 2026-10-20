@@ -70,8 +70,16 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
           <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Solicite uma demonstração do <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF]">BellaPDV Pro</span>
           </h3>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+              ⚡ 15 Dias de Teste Grátis
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold border border-cyan-500/30">
+              Plano Básico: De R$ 89,90 por R$ 29,90 nos 3 primeiros meses
+            </span>
+          </div>
           <p className="text-sm text-[#A9BAD5] mt-2">
-            Descubra em detalhes como organizar agendamentos, acelerar suas vendas no caixa e fidelizar seus clientes.
+            Descubra em detalhes como organizar agendamentos, acelerar suas vendas no caixa e fidelizar seus clientes sem compromisso.
           </p>
         </div>
 

@@ -396,7 +396,7 @@ export default function Licensing() {
           <div className="bg-[#0B101E] border border-cyan-500/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-cyan-500/35 transition-all">
             <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/5 rounded-full blur-xl"></div>
             <span className="text-[10px] text-cyan-400 font-black uppercase tracking-wider font-mono flex items-center gap-1.5">
-              <Crown className="w-3.5 h-3.5 text-cyan-400" /> Empresas Ouro
+              <Crown className="w-3.5 h-3.5 text-cyan-400" /> Premium / Ouro (R$ 249,90)
             </span>
             <h3 className="text-3xl font-black text-cyan-400 mt-2.5">{ouroCount}</h3>
           </div>
@@ -404,7 +404,7 @@ export default function Licensing() {
           <div className="bg-[#0B101E] border border-purple-500/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-purple-500/35 transition-all">
             <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
             <span className="text-[10px] text-purple-400 font-black uppercase tracking-wider font-mono flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-purple-400" /> Empresas Prata
+              <Zap className="w-3.5 h-3.5 text-purple-400" /> Pro / Prata (R$ 149,90)
             </span>
             <h3 className="text-3xl font-black text-purple-400 mt-2.5">{prataCount}</h3>
           </div>
@@ -412,7 +412,7 @@ export default function Licensing() {
           <div className="bg-[#0B101E] border border-amber-500/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-amber-500/35 transition-all">
             <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/5 rounded-full blur-xl"></div>
             <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider font-mono flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-amber-400" /> Bronze ou Trial
+              <Sliders className="w-3.5 h-3.5 text-amber-400" /> Básico / Promo (R$ 29,90)
             </span>
             <h3 className="text-3xl font-black text-amber-400 mt-2.5">{bronzeCount}</h3>
           </div>
@@ -485,7 +485,7 @@ export default function Licensing() {
                               className="w-full bg-[#0D1527] border border-white/10 rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none focus:border-cyan-500 font-bold cursor-pointer transition-colors"
                             >
                               <option value="active">✓ Ativo / Pago</option>
-                              <option value="trial">⚡ Teste / Trial</option>
+                              <option value="trial">⚡ Teste Grátis (15 dias)</option>
                               <option value="expired">✗ Bloqueado</option>
                             </select>
                             
@@ -510,9 +510,9 @@ export default function Licensing() {
                               onChange={(e) => handleUpdateLicenseField(c.id, { plan: e.target.value })}
                               className="w-full bg-[#0D1527] border border-white/10 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500 font-extrabold cursor-pointer transition-colors"
                             >
-                              <option value="Bronze">Bronze</option>
-                              <option value="Prata">Prata</option>
-                              <option value="Ouro">Ouro</option>
+                              <option value="Bronze">Básico (R$ 89,90)</option>
+                              <option value="Prata">Pro (R$ 149,90)</option>
+                              <option value="Ouro">Premium (R$ 249,90)</option>
                             </select>
                             <span className="text-[8px] text-slate-500 font-mono text-center tracking-wider uppercase mt-1">
                               Alteração atualiza limites padrão

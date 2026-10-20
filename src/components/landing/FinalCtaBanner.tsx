@@ -36,8 +36,14 @@ export function FinalCtaBanner({ onRequestDemo }: FinalCtaBannerProps) {
                 </p>
 
                 {/* Subtext info */}
-                <div className="pt-2 text-xs text-slate-400">
-                  Sem compromisso. Atendimento consultivo e suporte para migração de dados.
+                <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    ⚡ 15 Dias de Teste Grátis
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                    Plano Básico de R$ 89,90 por R$ 29,90/mês
+                  </span>
+                  <span className="text-slate-400">Sem fidelidade e sem cartão.</span>
                 </div>
               </div>
 
@@ -55,7 +61,7 @@ export function FinalCtaBanner({ onRequestDemo }: FinalCtaBannerProps) {
                 <div className="space-y-2 text-xs text-slate-300 w-full sm:w-auto">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Instalação rápida</span>
+                    <span>15 dias de teste grátis sem cartão</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

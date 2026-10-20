@@ -568,9 +568,14 @@ export default function Marketplace() {
     setAutomations(p => p.map(x => x.id === id ? { ...x, enabled: !x.enabled } : x));
   };
 
-  // Calculations for Admin Stats Card
+  // Calculations for Admin Stats Card with exact BellaPDV Pro plan prices
   const totalSubscribers = licenses.length;
-  const mrrFromPlans = licenses.reduce((sum, item) => sum + (item.plan === 'Ouro' ? 299 : item.plan === 'Prata' ? 149 : 79), 0);
+  const mrrFromPlans = licenses.reduce((sum, item) => {
+    const p = (item.plan || '').toLowerCase();
+    if (p.includes('ouro') || p.includes('premium')) return sum + 249.90;
+    if (p.includes('prata') || p.includes('pro')) return sum + 149.90;
+    return sum + 89.90; // Plano Básico / Bronze (R$ 89,90)
+  }, 0);
   const mrrFromAddons = addonRequests.filter(r => r.status === 'approved' || r.status === 'active').reduce((sum, item) => sum + item.cost, 0);
   const totalMrr = mrrFromPlans + mrrFromAddons;
 
@@ -1254,9 +1259,9 @@ export default function Marketplace() {
                             onChange={(e) => setLicFormPlan(e.target.value as any)}
                             className="w-full bg-[#141d34] border border-white/10 rounded px-2 py-1.5 text-xs text-white"
                           >
-                            <option value="Bronze">Bronze (R$ 79/m)</option>
-                            <option value="Prata">Prata (R$ 149/m)</option>
-                            <option value="Ouro">Ouro (R$ 299/m)</option>
+                            <option value="Bronze">Plano Básico / Bronze (R$ 89,90/m • Promo R$ 29,90)</option>
+                            <option value="Prata">Plano Pro / Prata (R$ 149,90/m)</option>
+                            <option value="Ouro">Plano Premium / Ouro (R$ 249,90/m)</option>
                           </select>
                         </div>
                         <div className="space-y-1">

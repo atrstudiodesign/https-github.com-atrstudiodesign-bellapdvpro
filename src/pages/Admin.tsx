@@ -836,7 +836,7 @@ export default function AdminPanel() {
                           <div className="flex justify-between items-center pb-4 border-b border-white/5">
                              <div>
                                 <p className="text-sm font-semibold text-white">Plano Básico</p>
-                                <p className="text-xs text-slate-500">R$ 89,90/mês</p>
+                                <p className="text-xs text-slate-400">R$ 89,90/mês <span className="text-emerald-400 font-semibold">• Promo: R$ 29,90/mês (3 meses) • 15 dias teste</span></p>
                                 <a href={paymentLinks.basic} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 hover:underline mt-1 inline-block truncate max-w-[200px]">{paymentLinks.basic}</a>
                              </div>
                              <button onClick={() => { setEditingLink({ id: 'basic', name: 'Plano Básico', price: '89,90', url: paymentLinks.basic }); setNewLinkUrl(paymentLinks.basic); }} className="text-xs px-3 py-1.5 rounded bg-white/5 text-slate-300 hover:text-white border border-white/10">Editar Link</button>

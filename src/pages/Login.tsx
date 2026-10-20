@@ -179,14 +179,34 @@ export default function Login() {
           planFeatures: ['pdv', 'agenda']
         };
 
+        const expire15Days = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         try {
           await setDoc(doc(db, 'users', uid), {
             ...newUser,
             companyName: companyName.trim(),
             niche: selectedNiche,
             companyId: uid,
+            plan: 'Bronze',
+            status: 'Trial',
+            trialDays: 15,
+            expire: expire15Days,
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString()
+          }, { merge: true });
+
+          // Initialize company_licenses with 15-day trial on Plano Básico (Bronze)
+          await setDoc(doc(db, 'company_licenses', uid), {
+            id: uid,
+            name: companyName.trim() || email.trim().split('@')[0],
+            plan: 'Bronze',
+            status: 'trial',
+            trialDays: 15,
+            expireDate: expire15Days,
+            maxUsers: 1,
+            aiUsage: 0,
+            waUsage: 0,
+            unitsCount: 1,
+            activeModules: ['pdv', 'agenda', 'crm']
           }, { merge: true });
         } catch (docErr) {
           console.error('Firestore profile creation failed:', docErr);
@@ -525,6 +545,19 @@ export default function Login() {
                 <Zap className="w-3 h-3 text-cyan-400" />
                 <span>Preencher credenciais de teste (demo)</span>
               </button>
+            </div>
+          )}
+
+          {/* Registration 15 Days Free Trial Callout */}
+          {isRegister && (
+            <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-emerald-500/15 via-cyan-500/15 to-purple-500/15 border border-emerald-400/30">
+              <div className="flex items-center gap-1.5 text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>15 Dias de Teste Grátis Incluso</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-tight">
+                Plano Básico de <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white">R$ 29,90/mês</strong> nos 3 primeiros meses! Sem necessidade de cartão de crédito.
+              </p>
             </div>
           )}
 

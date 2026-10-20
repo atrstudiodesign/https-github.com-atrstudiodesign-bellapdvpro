@@ -67,11 +67,25 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
     <header 
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-[#030817]/90 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.5)]' 
-          : 'bg-[#030817]/70 backdrop-blur-md border-b border-transparent'
+          ? 'bg-[#030817]/95 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.5)]' 
+          : 'bg-[#030817]/80 backdrop-blur-md border-b border-transparent'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+      {/* Top Promotional Announcement Bar */}
+      <div className="bg-gradient-to-r from-[#030817] via-[#071329] to-[#030817] border-b border-[#00D9FF]/25 py-1.5 px-3 text-center text-[11px] sm:text-xs text-slate-300">
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            15 DIAS DE TESTE GRÁTIS
+          </span>
+          <span>Oferta exclusiva: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-extrabold text-[#00D9FF]">R$ 29,90 nos primeiros 3 meses</strong></span>
+          <a href="#planos" className="text-[#00D9FF] hover:text-white underline font-bold inline-flex items-center gap-0.5">
+            Aproveitar oferta <ChevronRight className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 sm:h-20 flex items-center justify-between">
         
         {/* Left: BellaPDV Pro Logo */}
         <div 
