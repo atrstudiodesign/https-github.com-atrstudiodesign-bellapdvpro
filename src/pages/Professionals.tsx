@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Calendar, MoreVertical, Plus, Star, ArrowUpRight, Scissors, Edit, Trash2, X, Download, Share2, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 export default function Professionals() {
   const { getConfig } = useNicheStore();
@@ -13,7 +14,7 @@ export default function Professionals() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   
-  const { professionals, setProfessionals } = useProfessionalStore();
+  const { professionals, addProfessional, updateProfessional, deleteProfessional } = useProfessionalStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [currentProf, setCurrentProf] = useState<Partial<Professional>>({});
@@ -39,20 +40,36 @@ export default function Professionals() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (!currentProf.name) return;
-
-    if (modalMode === 'add') {
-      setProfessionals([...professionals, { ...currentProf, id: Date.now().toString() } as Professional]);
-    } else {
-      setProfessionals(professionals.map(p => p.id === currentProf.id ? currentProf as Professional : p));
+  const handleSave = async () => {
+    if (!currentProf.name?.trim()) {
+      toast.error('Informe o nome do profissional.');
+      return;
     }
-    setIsModalOpen(false);
+    try {
+      if (modalMode === 'add') {
+        await addProfessional({
+          ...currentProf,
+          id: crypto.randomUUID(),
+          name: currentProf.name.trim()
+        } as Professional);
+      } else {
+        if (!currentProf.id) throw new Error('Profissional inválido.');
+        await updateProfessional(currentProf as Professional);
+      }
+      setIsModalOpen(false);
+      toast.success('Profissional salvo.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o profissional.');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm(`Tem certeza que deseja excluir este ${config.terminology.employee}?`)) {
-      setProfessionals(professionals.filter(p => p.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm(`Tem certeza que deseja excluir este ${config.terminology.employee}?`)) return;
+    try {
+      await deleteProfessional(id);
+      toast.success('Profissional excluído.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível excluir o profissional.');
     }
   };
 

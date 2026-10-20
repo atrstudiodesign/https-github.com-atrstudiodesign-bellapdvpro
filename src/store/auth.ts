@@ -12,7 +12,7 @@ import { useCatalogStore } from './catalog';
 import { useAppointmentStore } from './appointments';
 import { useTransactionStore } from './transactions';
 import { useQueueStore } from './queue';
-import { useProfessionalStore } from './professionals';
+import { useProfessionalStore, subscribeToProfessionals } from './professionals';
 import { useApiKeysStore } from './apiKeys';
 import { setFirebaseTenantContext } from '../lib/firebaseTenant';
 import { hasPlatformAdminClaim } from '../lib/superAdmins';
@@ -236,7 +236,8 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
         subscribeToCatalog(),
         subscribeToAppointments(),
         subscribeToTransactions(),
-        subscribeToQueue()
+        subscribeToQueue(),
+        subscribeToProfessionals()
       );
     } catch (err) {
       console.warn('Could not start Firestore subscriptions:', err);

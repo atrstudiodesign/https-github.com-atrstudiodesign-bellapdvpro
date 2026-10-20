@@ -62,6 +62,13 @@ service cloud.firestore {
       allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
+    match /professionals/{professionalId} {
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data);
+      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if ownsTenant(resource.data) || isAdmin();
+    }
+
     match /queue/{itemId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if ownsTenant(request.resource.data);

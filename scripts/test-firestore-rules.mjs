@@ -25,6 +25,8 @@ await env.withSecurityRulesDisabled(async context => {
   await setDoc(doc(db, 'clients/clientA'), { ownerId: 'companyA', name: 'A' });
   await setDoc(doc(db, 'clients/clientB'), { ownerId: 'companyB', name: 'B' });
   await setDoc(doc(db, 'clients/demo'), { ownerId: 'demo', name: 'Demonstração' });
+  await setDoc(doc(db, 'professionals/profA'), { ownerId: 'companyA', name: 'A' });
+  await setDoc(doc(db, 'professionals/profB'), { ownerId: 'companyB', name: 'B' });
   await setDoc(doc(db, 'transactions/transactionA'), { ownerId: 'companyA', total: 10, items: ['x'], status: 'completed', paymentMethod: 'pix' });
 });
 
@@ -78,4 +80,20 @@ test('vendas de outra empresa e coleções não previstas são negadas', async (
   await assertFails(deleteDoc(doc(a, 'transactions/transactionA')));
   await assertFails(getDoc(doc(a, 'unscoped/record')));
   await assertFails(setDoc(doc(a, 'unscoped/record'), { ownerId: 'companyA' }));
+});
+
+test('profissionais persistem somente no tenant; ownerId não pode mudar', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(getDoc(doc(a, 'professionals/profA')));
+  await assertSucceeds(getDoc(doc(employee, 'professionals/profA')));
+  await assertFails(getDoc(doc(b, 'professionals/profA')));
+  await assertFails(getDoc(doc(a, 'professionals/profB')));
+  await assertFails(getDoc(doc(guest, 'professionals/profA')));
+  await assertFails(getDoc(doc(anonymous, 'professionals/profA')));
+  await assertFails(setDoc(doc(a, 'professionals/forged'), { ownerId: 'companyB', name: 'Forjado' }));
+  await assertSucceeds(setDoc(doc(a, 'professionals/newA'), { ownerId: 'companyA', name: 'Novo' }));
+  await assertFails(updateDoc(doc(a, 'professionals/profA'), { ownerId: 'companyB' }));
+  await assertFails(deleteDoc(doc(b, 'professionals/profA')));
+  await assertSucceeds(updateDoc(doc(a, 'professionals/profA'), { name: 'Atualizado' }));
+  await assertSucceeds(deleteDoc(doc(a, 'professionals/newA')));
 });
