@@ -1,4 +1,5 @@
 import React from 'react';
+import { MessageCircle, Mail } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { AtrStudioBadge } from '../ui/AtrStudioBadge';
 
@@ -63,7 +64,10 @@ export function LandingFooter() {
                 <a href="/legal/suporte" className="hover:text-white transition-colors">Central de Ajuda</a>
               </li>
               <li>
-                <a href="/legal/contato" className="hover:text-white transition-colors">Fale com a Equipe</a>
+                <a href="https://wa.me/5511939026928?text=Ol%C3%A1%21%20Quero%20falar%20com%20o%20suporte%20do%20Bella%20PDV%20Pro." target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-[#25D366] transition-colors"><MessageCircle className="h-4 w-4" /> Suporte via WhatsApp ATR Studio</a>
+              </li>
+              <li>
+                <a href="mailto:atrstudiodesign@gmai.com" className="inline-flex items-center gap-2 hover:text-white transition-colors"><Mail className="h-4 w-4" /> atrstudiodesign@gmai.com</a>
               </li>
               <li>
                 <a href="/legal/termos-de-uso" className="hover:text-white transition-colors">Termos de Uso</a>
