@@ -38,7 +38,7 @@ export default function Schedule() {
   const handleCancelAppointment = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await deleteAppointment(id);
-    toast.success('Agendamento cancelado', { description: 'O cliente e o profissional foram notificados.' });
+    toast.success('Agendamento removido. Nenhuma notificação externa foi enviada.');
   };
 
   
