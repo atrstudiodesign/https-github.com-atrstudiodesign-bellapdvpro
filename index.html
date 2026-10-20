@@ -5,8 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>Bella PDV - O Sistema ERP & PDV Inteligente com IA</title>
     <script>
-      // Ignorar avisos benignos de WebSocket do Vite HMR no ambiente proxy do AI Studio
+      // Gracefully handle Vite HMR WebSockets in AI Studio preview environment (where HMR is disabled)
       (function() {
+        var OrigWebSocket = window.WebSocket;
+        if (OrigWebSocket) {
+          window.WebSocket = function(url, protocols) {
+            var isViteHmr = false;
+            if (typeof protocols === 'string') {
+              if (protocols === 'vite-hmr' || protocols === 'vite-ping') isViteHmr = true;
+            } else if (Array.isArray(protocols)) {
+              if (protocols.indexOf('vite-hmr') !== -1 || protocols.indexOf('vite-ping') !== -1) isViteHmr = true;
+            }
+            if (!isViteHmr && typeof url === 'string' && (url.indexOf('vite-hmr') !== -1 || (url.indexOf('token=') !== -1 && url.indexOf('ws') !== -1))) {
+              isViteHmr = true;
+            }
+
+            if (isViteHmr) {
+              var listeners = {};
+              var dummyWs = {
+                readyState: 1, // OPEN
+                OPEN: 1,
+                CONNECTING: 0,
+                CLOSING: 2,
+                CLOSED: 3,
+                url: url,
+                protocol: typeof protocols === 'string' ? protocols : (protocols && protocols[0]) || 'vite-hmr',
+                bufferedAmount: 0,
+                extensions: '',
+                binaryType: 'blob',
+                send: function(data) {},
+                close: function() {
+                  dummyWs.readyState = 3;
+                  var cbs = listeners['close'] || [];
+                  cbs.forEach(function(cb) {
+                    try { cb({ wasClean: true, code: 1000, reason: '' }); } catch (e) {}
+                  });
+                },
+                addEventListener: function(event, callback) {
+                  listeners[event] = listeners[event] || [];
+                  listeners[event].push(callback);
+                  if (event === 'open') {
+                    Promise.resolve().then(function() {
+                      try { callback(new Event('open')); } catch (e) {}
+                    });
+                  }
+                },
+                removeEventListener: function(event, callback) {
+                  if (!listeners[event]) return;
+                  listeners[event] = listeners[event].filter(function(cb) { return cb !== callback; });
+                },
+                dispatchEvent: function(event) { return true; }
+              };
+              var onopenHandler = null;
+              Object.defineProperty(dummyWs, 'onopen', {
+                get: function() { return onopenHandler; },
+                set: function(fn) {
+                  onopenHandler = fn;
+                  if (fn) {
+                    Promise.resolve().then(function() {
+                      try { fn(new Event('open')); } catch(e) {}
+                    });
+                  }
+                }
+              });
+              return dummyWs;
+            }
+
+            return new OrigWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = OrigWebSocket.prototype;
+          window.WebSocket.CONNECTING = OrigWebSocket.CONNECTING;
+          window.WebSocket.OPEN = OrigWebSocket.OPEN;
+          window.WebSocket.CLOSING = OrigWebSocket.CLOSING;
+          window.WebSocket.CLOSED = OrigWebSocket.CLOSED;
+        }
+
         var origConsoleError = console.error;
         console.error = function() {
           var msg = '';
