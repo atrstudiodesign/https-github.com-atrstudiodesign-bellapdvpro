@@ -350,6 +350,10 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
   };
 
   const handleAction = async (actionId: string) => {
+    if (actionId === 'message' && isDemo) {
+      toast.info('Envio de cupom disponível apenas com clientes reais cadastrados.');
+      return;
+    }
     setProcessingAction(actionId);
     
     if (actionId === 'message') {
@@ -866,7 +870,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                </button>
             </div>
             
-            <div className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+            {isDemo ? <div className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                <div className="bg-[#050B14]/80 border border-purple-500/20 rounded-xl p-5 shadow-inner">
                   <div className="flex justify-between items-start mb-2">
                      <span className="text-[10px] uppercase font-bold tracking-widest text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/20">Alerta de Queda</span>
@@ -896,7 +900,11 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                     {processingAction === 'message' ? 'Enviando...' : 'Enviar Cupom de Retorno'}
                   </button>
                </div>
-            </div>
+            </div> : <div className="md:w-2/3 rounded-xl border border-purple-500/20 bg-[#050B14]/80 p-5 text-sm text-slate-300">
+              {transactions.length || appointments.length
+                ? 'Gere um relatório baseado nas transações e agendamentos da sua empresa.'
+                : 'Os insights aparecerão quando sua empresa registrar vendas e agendamentos.'}
+            </div>}
          </div>
       </div>
     </div>
