@@ -480,6 +480,7 @@ export default function Marketplace() {
 
   // Request activation of addon handler
   const requestAddonActivation = (addonId: string, addonName: string, cost: number) => {
+    if (!isDemo) { toast.error('Solicitações de add-ons ainda não são enviadas ao administrador.'); return; }
     // Check if progress already requested
     const exists = addonRequests.find(r => r.addon === addonId && (r.status === 'pending' || r.status === 'analyzing'));
     if (exists) {
@@ -514,6 +515,7 @@ export default function Marketplace() {
 
   // Superadmin approvals & actions
   const changeRequestStatus = (id: string, nextStatus: 'pending' | 'analyzing' | 'approved' | 'active' | 'rejected') => {
+    if (!isDemo) { toast.error('Aprovação e cobrança indisponíveis até integrar o gateway.'); return; }
     setAddonRequests(prev => prev.map(req => {
       if (req.id === id) {
         if (nextStatus === 'approved') {
@@ -554,7 +556,7 @@ export default function Marketplace() {
 
     setAutomations(prev => [newFlow, ...prev]);
     setNewFlowName('');
-    toast.success('Fluxo sem programação configurado com sucesso! Bella AI começará a monitorar.');
+    toast.info('Rascunho salvo neste navegador. Execução automática não configurada.');
   };
 
   const handleDeleteFlow = (id: string) => {

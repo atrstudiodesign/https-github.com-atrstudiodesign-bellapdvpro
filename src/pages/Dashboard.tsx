@@ -441,7 +441,7 @@ Olá! Analisei as métricas reais do seu **Spa** e elaborei este de relatório d
                     >
                        <div className="whitespace-pre-wrap font-medium">{aiReport}</div>
                        <div className="mt-8 pt-6 border-t border-[#1A2C47] flex gap-3">
-                         <button onClick={() => { setIsAiModalOpen(false); toast.success("Automações criadas com base nas recomendações!"); }} className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center gap-2">
+                         <button onClick={() => { setIsAiModalOpen(false); toast.info("Automação automática indisponível até configurar o worker."); }} className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center gap-2">
                             <Sparkles className="w-4 h-4" /> Transformar Ações em Automação
                          </button>
                        </div>

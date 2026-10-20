@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface FeatureFlags {
   companyId: string;
@@ -48,11 +48,16 @@ const normalizeKey = (key: string): string => {
 export function useFeature(featureKey: string) {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [isAllowed, setIsAllowed] = useState<boolean>(true);
+  const [isAllowed, setIsAllowed] = useState<boolean>(false);
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags | null>(null);
   const [license, setLicense] = useState<CompanyLicense | null>(null);
 
   useEffect(() => {
+    setIsAllowed(false);
+    setLoading(true);
+    setFeatureFlags(null);
+    setLicense(null);
+
     // If no user is logged in
     if (!user) {
       setIsAllowed(false);
@@ -61,7 +66,12 @@ export function useFeature(featureKey: string) {
     }
 
     // 🌟 Instant Full Access for Demo or Admin Users (prevents any infinite loading or permissions hang)
-    const isDemoUser = user.isDemo === true || (user.email && user.email.toLowerCase().includes('demo'));
+    const isDemoUser = user.isDemo === true;
+    if (user.isPlatformAdmin === true) {
+      setIsAllowed(true);
+      setLoading(false);
+      return;
+    }
     if (isDemoUser) {
       const demoFlags: FeatureFlags = {
         companyId: user.id,
@@ -95,38 +105,36 @@ export function useFeature(featureKey: string) {
       return;
     }
 
-    const companyId = user.id;
-    const normalized = normalizeKey(featureKey);
-
-    // Initial safe defaults based on user role and permissions
+    const companyId = user.companyId || user.id;
+    // Initial safe defaults for missing or inaccessible license records
     const fallbackFlags: FeatureFlags = {
       companyId,
-      pdv: true,
-      agenda: true,
-      crm: true,
-      whatsapp: true,
-      aiAssistant: true,
-      cashback: true,
-      whiteLabel: user.role === 'admin',
-      marketplace: true,
-      mobileApp: true
+      pdv: false,
+      agenda: false,
+      crm: false,
+      whatsapp: false,
+      aiAssistant: false,
+      cashback: false,
+      whiteLabel: false,
+      marketplace: false,
+      mobileApp: false
     };
 
     const fallbackLicense: CompanyLicense = {
       id: companyId,
       name: user.name || 'Minha Empresa',
-      plan: user.role === 'admin' ? 'Ouro' : 'Prata',
-      status: 'active',
+      plan: 'Bronze',
+      status: 'expired',
       expireDate: '2026-12-31',
       aiUsage: 0,
       waUsage: 0,
       unitsCount: 1,
       maxUsers: 10,
-      addons: ['bella_ia_marketing', 'whatsapp_premium'],
-      modules: ['pdv', 'agenda', 'crm', 'aiAssistant', 'whatsapp', 'marketplace']
+      addons: [],
+      modules: []
     };
 
-    // ⏱️ Safety failsafe timeout: NEVER let the user stay stuck in "Verificando licença..." for more than 600ms
+    // End loading after a timeout while keeping access denied until both records allow it.
     const safetyTimer = setTimeout(() => {
       setFeatureFlags((prev) => prev || fallbackFlags);
       setLicense((prev) => prev || fallbackLicense);
@@ -140,11 +148,6 @@ export function useFeature(featureKey: string) {
 
       if (!flagDocSnap.exists()) {
         flags = fallbackFlags;
-        try {
-          await setDoc(flagDocRef, flags, { merge: true });
-        } catch {
-          // Non-blocking warning
-        }
       } else {
         flags = flagDocSnap.data() as FeatureFlags;
       }
@@ -162,11 +165,6 @@ export function useFeature(featureKey: string) {
 
       if (!licDocSnap.exists()) {
         lic = fallbackLicense;
-        try {
-          await setDoc(licDocRef, lic, { merge: true });
-        } catch {
-          // Non-blocking warning
-        }
       } else {
         lic = licDocSnap.data() as CompanyLicense;
       }
@@ -182,7 +180,7 @@ export function useFeature(featureKey: string) {
       unsubscribeFlags();
       unsubscribeLicense();
     };
-  }, [user?.id, user?.isDemo, user?.email, user?.role, featureKey]);
+  }, [user?.id, user?.companyId, user?.isDemo, user?.isPlatformAdmin, featureKey]);
 
   // Combined logic check
   useEffect(() => {
@@ -192,7 +190,7 @@ export function useFeature(featureKey: string) {
       return;
     }
 
-    if (user.isDemo || (user.email && user.email.toLowerCase().includes('demo'))) {
+    if (user.isDemo || user.isPlatformAdmin === true) {
       setIsAllowed(true);
       setLoading(false);
       return;
@@ -204,10 +202,11 @@ export function useFeature(featureKey: string) {
 
     if (activeFlags || activeLicense) {
       const normalized = normalizeKey(featureKey);
-      const isExpired = activeLicense ? activeLicense.status === 'expired' : false;
-      const isFlagOn = activeFlags ? !!activeFlags[normalized] : true;
+      const expiresAt = activeLicense?.expireDate ? Date.parse(activeLicense.expireDate) : NaN;
+      const isExpired = !activeLicense || activeLicense.status === 'expired' || !Number.isFinite(expiresAt) || expiresAt < Date.now();
+      const isFlagOn = activeFlags ? !!activeFlags[normalized] : false;
       
-      let isLicensePlanAllowed = true;
+      let isLicensePlanAllowed = false;
       if (activeLicense) {
         if (activeLicense.status === 'active' || activeLicense.status === 'trial') {
           if (normalized === 'pdv' || normalized === 'agenda') {
@@ -230,7 +229,7 @@ export function useFeature(featureKey: string) {
         }
       }
 
-      const allowed = !isExpired && (isFlagOn || isLicensePlanAllowed);
+      const allowed = !!activeFlags && !!activeLicense && !isExpired && isFlagOn && isLicensePlanAllowed;
       setIsAllowed(allowed);
       setLoading(false);
     }
@@ -241,7 +240,7 @@ export function useFeature(featureKey: string) {
     loading,
     featureFlags,
     license,
-    plan: license?.plan || (user?.role === 'admin' ? 'Ouro' : 'Prata'),
-    status: license?.status || 'active'
+    plan: license?.plan || 'Bronze',
+    status: license?.status ?? ('inactive' as const)
   };
 }

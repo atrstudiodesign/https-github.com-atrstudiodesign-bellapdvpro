@@ -22,6 +22,7 @@ import { useClientStore, Client } from '../../store/clients';
 import { useCatalogStore, CatalogItem } from '../../store/catalog';
 import { useTransactionStore, Transaction } from '../../store/transactions';
 import { useNicheStore } from '../../store/niche';
+import { useAuthStore } from '../../store/auth';
 
 // Sample fallback clients when store is empty (e.g. freshly loaded or demo session)
 const DEMO_FALLBACK_CLIENTS: Client[] = [
@@ -176,21 +177,22 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
   const storeClients = useClientStore((s) => s.clients);
   const storeItems = useCatalogStore((s) => s.items);
   const storeTransactions = useTransactionStore((s) => s.transactions);
+  const isDemo = useAuthStore((s) => s.user?.isDemo === true);
   const { getConfig } = useNicheStore();
   const config = getConfig();
 
   // Combine store data with fallback demo data so search is always populated
   const clients = useMemo(() => {
-    return storeClients.length > 0 ? storeClients : DEMO_FALLBACK_CLIENTS;
-  }, [storeClients]);
+    return isDemo && storeClients.length === 0 ? DEMO_FALLBACK_CLIENTS : storeClients;
+  }, [storeClients, isDemo]);
 
   const services = useMemo(() => {
-    return storeItems.length > 0 ? storeItems : DEMO_FALLBACK_SERVICES;
-  }, [storeItems]);
+    return isDemo && storeItems.length === 0 ? DEMO_FALLBACK_SERVICES : storeItems;
+  }, [storeItems, isDemo]);
 
   const transactions = useMemo(() => {
-    return storeTransactions.length > 0 ? storeTransactions : DEMO_FALLBACK_TRANSACTIONS;
-  }, [storeTransactions]);
+    return isDemo && storeTransactions.length === 0 ? DEMO_FALLBACK_TRANSACTIONS : storeTransactions;
+  }, [storeTransactions, isDemo]);
 
   // Global Keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {

@@ -180,8 +180,7 @@ export default function CRM() {
         body: JSON.stringify({
           model: 'gemini-3.5-flash',
           contents: `Você é um assessor sênior e arquiteto de SaaS de Beleza e Estética no CRM Bella PDV.
-          Temos ${clients.length} clientes cadastrados dos quais dezenas pertencem aos níveis VIP e de risco de churn.
-          Dados operacionais atuais: faturamento de R$ 24.500 no período, frequência média de visitas de 3x ao ano, 1.240 participantes no clube de milhas e cashback configurado comercialmente em 5%.
+          Existem ${clients.length} clientes nesta visualização. Não atribua faturamento, frequência, cashback ou classificação sem dados reais disponíveis.
           Dê conselhos pragmáticos, focados em retenção, fidelidade, aumento de ticket médio e marketing com WhatsApp.
           Responda em formato markdown, de forma direta, sem larping de terminal nem cabeçalhos corporativos vazios.
 
@@ -987,15 +986,13 @@ export default function CRM() {
               <div>
                 <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase">Fórmula de Visibilidade IA</span>
                 <p className="text-xs text-slate-300 mt-1 max-w-3xl">
-                  Seus clientes VIP geram **64% da sua receita**. No momento, **{riskClients.filter(rc => rc.classification === 'VIP' || rc.totalSpent > 1000).length} clientes de alto valor** estão prestes a entrar em inatividade neste trimestre. Execute ações de cashback imediatas.
+                  {isDemo ? 'Exemplo de campanha de retenção na demonstração.' : 'Dados insuficientes para calcular receita VIP e risco de inatividade.'}
                 </p>
               </div>
             </div>
             <button 
               onClick={() => {
-                toast.success('Disparando automações de retorno', { 
-                  description: 'Iniciando robô de agendamento automático pelo canal cadastrado.' 
-                });
+                toast.error('Envio em lote indisponível até configurar o worker e o provedor de mensagens.');
               }}
               className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-[#2563EB] text-black font-bold text-xs uppercase rounded-xl hover:opacity-90 shadow-md transition-all shrink-0"
             >

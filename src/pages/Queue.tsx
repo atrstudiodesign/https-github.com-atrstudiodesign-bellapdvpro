@@ -127,28 +127,10 @@ export default function Queue() {
          </div>
          <div className="flex gap-3">
             <button 
-               onClick={async () => {
-                  const toastId = toast.loading('Inicializando Câmera (FaceAPI / TensorFlow)...');
-                  setTimeout(async () => {
-                     toast.success('Cliente Reconhecido: Marcos Andrade', { id: toastId, description: 'Check-in realizado via biometria facial.' });
-                     try {
-                        await addQueueItem({
-                          clientName: 'Marcos Andrade',
-                          serviceId: 'facial-auto',
-                          serviceName: 'Cuidado Vip (Automático)',
-                          estimatedWaitMinutes: 5,
-                          professionalId: 'sem-pref',
-                          professionalName: 'Sem Preferência'
-                        });
-                     } catch (err) {
-                        console.error(err);
-                     }
-                  }, 2200);
-               }}
-               className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 cursor-pointer"
+               disabled title="Biometria facial ainda não integrada" className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 cursor-pointer"
             >
                <UserCircle className="w-5 h-5" />
-               Self Check-in Facial
+               Check-in facial indisponível
             </button>
             <button 
               onClick={() => setIsAddModalOpen(true)}

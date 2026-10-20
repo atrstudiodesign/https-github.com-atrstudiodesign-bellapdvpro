@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNicheStore } from '../store/niche';
 import { useProfessionalStore, Professional } from '../store/professionals';
+import { useAuthStore } from '../store/auth';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Calendar, MoreVertical, Plus, Star, ArrowUpRight, Scissors, Edit, Trash2, X, Download, Share2, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function Professionals() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
+  const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -320,7 +322,7 @@ export default function Professionals() {
         </div>
         
         <div className="flex items-center gap-4">
-           <div className="hidden md:flex items-center gap-2 bg-[#09111D] border border-blue-500/20 px-5 py-2.5 rounded-lg max-w-[350px] overflow-hidden relative shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+           {isDemo && <div className="hidden md:flex items-center gap-2 bg-[#09111D] border border-blue-500/20 px-5 py-2.5 rounded-lg max-w-[350px] overflow-hidden relative shadow-[0_0_15px_rgba(59,130,246,0.1)]">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
               <AnimatePresence mode="popLayout">
                  <motion.span 
@@ -334,7 +336,7 @@ export default function Professionals() {
                     {breakingNews[newsIndex]}
                  </motion.span>
               </AnimatePresence>
-           </div>
+           </div>}
 
            <button 
              onClick={() => handleOpenModal('add')}

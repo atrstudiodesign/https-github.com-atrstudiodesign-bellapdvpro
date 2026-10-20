@@ -50,7 +50,7 @@ export default function Packages() {
             </div>
             <div>
                <p className="text-sm text-slate-400">Receita Recorrente (MRR)</p>
-               <p className="text-2xl font-bold text-white">R$ 10.995,40</p>
+               <p className="text-2xl font-bold text-white">{isDemo ? "R$ 10.995,40" : "Não apurado"}</p>
             </div>
          </div>
          <div className="glass-card flex items-center gap-4">
@@ -59,7 +59,7 @@ export default function Packages() {
             </div>
             <div>
                <p className="text-sm text-slate-400">Assinantes Ativos</p>
-               <p className="text-2xl font-bold text-white">46</p>
+               <p className="text-2xl font-bold text-white">{isDemo ? "46" : "0"}</p>
             </div>
          </div>
          <div className="glass-card flex items-center gap-4">
@@ -68,7 +68,7 @@ export default function Packages() {
             </div>
             <div>
                <p className="text-sm text-slate-400">Pacotes Vendidos</p>
-               <p className="text-2xl font-bold text-white">65</p>
+               <p className="text-2xl font-bold text-white">{isDemo ? "65" : "0"}</p>
             </div>
          </div>
       </div>

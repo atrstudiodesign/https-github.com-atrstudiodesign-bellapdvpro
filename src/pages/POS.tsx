@@ -386,6 +386,15 @@ Responda APENAS com um arquivo JSON válido e nada mais:
       return;
     }
 
+    if (emitirNfce) {
+      toast.error('NFC-e indisponível até integrar um provedor fiscal. Nenhuma nota será emitida.');
+      return;
+    }
+    if (paymentMethod !== 'cash') {
+      toast.error('PIX, cartão e pagamento dividido indisponíveis sem confirmação do provedor. Nenhuma venda foi registrada.');
+      return;
+    }
+
     const sale = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       total,
@@ -436,7 +445,7 @@ Responda APENAS com um arquivo JSON válido e nada mais:
         try {
           await addTransaction(sale);
           setIsSuccess(true);
-          toast.success('Venda concluída!', { id: toastId, description: `R$ ${total.toFixed(2)} recebidos com sucesso.` });
+          toast.success('Venda em dinheiro registrada!', { id: toastId, description: `R$ ${total.toFixed(2)} lançados no histórico de vendas.` });
 
           if (window.bella?.isDesktopApp) {
             window.bella.printer.openCashDrawer().then(res => {
@@ -451,16 +460,6 @@ Responda APENAS com um arquivo JSON válido e nada mais:
     } finally {
       setIsProcessingCheckout(false);
     }
-  };
-
-  const handleAiPayment = () => {
-     const toastId = toast.loading('Simulador de Banco IA', {
-       description: 'Aguardando ping do banco Central...'
-     });
-     setTimeout(() => {
-          toast.dismiss(toastId);
-          handleCheckout();
-     }, 2500);
   };
 
   const [nfCpf, setNfCpf] = useState('');
@@ -1186,13 +1185,7 @@ Responda APENAS com um arquivo JSON válido e nada mais:
                       exit={{ opacity: 0, height: 0 }}
                       className="mt-4 p-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 flex flex-col items-center justify-center overflow-hidden"
                     >
-                       <QrCode className="w-24 h-24 text-cyan-400 mb-2" />
-                       <p className="text-xs text-center text-slate-300">
-                          Aponte a câmera para pagar <strong>R$ {total.toFixed(2)}</strong>
-                       </p>
-                       <button onClick={handleAiPayment} className="mt-3 text-[10px] text-cyan-400 font-semibold border border-cyan-500/30 px-3 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors uppercase tracking-widest">
-                          Simular Pagamento IA
-                       </button>
+                       <p className="text-xs text-center text-slate-300">PIX indisponível até integrar e confirmar o pagamento com um provedor.</p>
                     </motion.div>
                  )}
                  {paymentMethod === 'cash' && (
@@ -1263,10 +1256,10 @@ Responda APENAS com um arquivo JSON válido e nada mais:
           <div className="mt-4 flex items-center justify-between bg-[#0C1627] border border-[#1A2C47] rounded-xl p-4">
              <div>
                <p className="text-sm font-semibold text-white">Emissão Fiscal</p>
-               <p className="text-[10px] text-slate-400 mt-0.5">Gerar NFC-e/SAT automaticamente</p>
+               <p className="text-[10px] text-slate-400 mt-0.5">Indisponível até homologar um provedor fiscal</p>
              </div>
              <button
-               onClick={() => setEmitirNfce(!emitirNfce)}
+               disabled title="Emissão fiscal ainda não integrada"
                className={`relative w-12 h-6 rounded-full transition-colors ${emitirNfce ? 'bg-blue-600' : 'bg-slate-700'}`}
              >
                <motion.div

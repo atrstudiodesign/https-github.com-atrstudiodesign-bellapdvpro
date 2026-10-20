@@ -197,7 +197,7 @@ export default function Reports() {
                  </PieChart>
                </ResponsiveContainer>
                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                 <span className="text-2xl font-bold text-white">100%</span>
+                 <span className="text-2xl font-bold text-white">{isDemo ? "100%" : "Sem dados"}</span>
                </div>
             </div>
             <div className="mt-4 flex gap-4 justify-center">

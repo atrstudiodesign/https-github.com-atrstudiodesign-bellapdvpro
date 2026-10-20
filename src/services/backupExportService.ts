@@ -1,3 +1,5 @@
+import { currentFirebaseTenantId } from '../lib/firebaseTenant';
+import { useAuthStore } from '../store/auth';
 import { db, auth } from '../lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useClientStore, Client } from '../store/clients';
@@ -35,70 +37,38 @@ export interface BackupDataResult {
  */
 export async function fetchAllUserDataForBackup(): Promise<BackupDataResult> {
   const currentUser = auth.currentUser;
-  const uid = currentUser?.uid;
+  const account = useAuthStore.getState().user;
+  if (!account || (!account.isDemo && (!currentUser || currentUser.isAnonymous))) {
+    throw new Error('Entre na conta para exportar dados deste estabelecimento.');
+  }
+  const uid = currentFirebaseTenantId();
+  if (!account.isDemo && !uid) {
+    throw new Error('Aguarde a identificação do estabelecimento antes de exportar.');
+  }
 
   let clients: Client[] = [];
   let catalog: CatalogItem[] = [];
   let transactions: Transaction[] = [];
   let appointments: Appointment[] = [];
-  let source: 'firestore' | 'local_store' | 'mixed' = 'local_store';
+  let source: 'firestore' | 'local_store' | 'mixed' = account.isDemo ? 'local_store' : 'firestore';
 
-  if (uid) {
-    try {
-      // 1. Clientes
-      const clientsQuery = query(collection(db, 'clients'), where('ownerId', '==', uid));
-      const clientsSnap = await getDocs(clientsQuery);
-      if (!clientsSnap.empty) {
-        clients = clientsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Client));
-        source = 'firestore';
-      }
-
-      // 2. Catálogo (Serviços / Produtos)
-      const catalogQuery = query(collection(db, 'catalog'), where('ownerId', '==', uid));
-      const catalogSnap = await getDocs(catalogQuery);
-      if (!catalogSnap.empty) {
-        catalog = catalogSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CatalogItem));
-      }
-
-      // 3. Transações Financeiras
-      const transQuery = query(collection(db, 'transactions'), where('ownerId', '==', uid));
-      const transSnap = await getDocs(transQuery);
-      if (!transSnap.empty) {
-        transactions = transSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction));
-      }
-
-      // 4. Agendamentos
-      const appQuery = query(collection(db, 'appointments'), where('ownerId', '==', uid));
-      const appSnap = await getDocs(appQuery);
-      if (!appSnap.empty) {
-        appointments = appSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Appointment));
-      }
-    } catch (e) {
-      console.warn('Falha na consulta ao Firestore, usando dados locais em cache:', e);
-    }
-  }
-
-  // Fallback para os dados locais caso o Firestore esteja vazio ou sem conexão
-  const storeClients = useClientStore.getState().clients;
-  const storeCatalog = useCatalogStore.getState().items;
-  const storeTransactions = useTransactionStore.getState().transactions;
-  const storeAppointments = useAppointmentStore.getState().appointments;
-
-  if (clients.length === 0 && storeClients.length > 0) {
-    clients = storeClients;
-    if (source === 'firestore') source = 'mixed';
-  }
-  if (catalog.length === 0 && storeCatalog.length > 0) {
-    catalog = storeCatalog;
-    if (source === 'firestore') source = 'mixed';
-  }
-  if (transactions.length === 0 && storeTransactions.length > 0) {
-    transactions = storeTransactions;
-    if (source === 'firestore') source = 'mixed';
-  }
-  if (appointments.length === 0 && storeAppointments.length > 0) {
-    appointments = storeAppointments;
-    if (source === 'firestore') source = 'mixed';
+  if (account.isDemo) {
+    clients = useClientStore.getState().clients;
+    catalog = useCatalogStore.getState().items;
+    transactions = useTransactionStore.getState().transactions;
+    appointments = useAppointmentStore.getState().appointments;
+  } else {
+    // A real backup must either read this tenant's collections in full or fail.
+    // Never replace empty/failed remote reads with possibly stale data from another login.
+    const ownerId = uid as string;
+    const collections = ['clients', 'catalog', 'transactions', 'appointments'] as const;
+    const snapshots = await Promise.all(
+      collections.map(name => getDocs(query(collection(db, name), where('ownerId', '==', ownerId))))
+    );
+    clients = snapshots[0].docs.map(d => ({ id: d.id, ...d.data() } as Client));
+    catalog = snapshots[1].docs.map(d => ({ id: d.id, ...d.data() } as CatalogItem));
+    transactions = snapshots[2].docs.map(d => ({ id: d.id, ...d.data() } as Transaction));
+    appointments = snapshots[3].docs.map(d => ({ id: d.id, ...d.data() } as Appointment));
   }
 
   const now = new Date();
@@ -109,8 +79,8 @@ export async function fetchAllUserDataForBackup(): Promise<BackupDataResult> {
     exportDate: now.toISOString(),
     exportDateFormatted,
     version: '1.0.0',
-    userEmail: currentUser?.email || 'demo@bellapdv.com',
-    userId: uid || 'local_user',
+    userEmail: account.email,
+    userId: uid || account.id,
     source,
     totalRecords: {
       clients: clients.length,
