@@ -71,7 +71,7 @@ const legalData: Record<string, { title: string, content: string }> = {
   'contato': {
     title: 'Contato',
     content: `
-      <p>Preencha nosso formulário de atendimento no painel ou envie um email diretamente para <strong>suporte@bellapdv.com</strong>. Nosso tempo de resposta é de até 2 horas úteis.</p>
+      <p>Preencha nosso formulário de atendimento no painel ou envie um email diretamente para <strong>atrstudiodesign@gmai.com</strong>. Para atendimento direto, <a href="https://wa.me/5511939026928?text=Ol%C3%A1%21%20Preciso%20de%20suporte%20com%20o%20Bella%20PDV%20Pro." target="_blank" rel="noopener noreferrer">fale com a ATR Studio pelo WhatsApp (11) 93902-6928</a>.</p>
     `
   },
   'suporte': {
