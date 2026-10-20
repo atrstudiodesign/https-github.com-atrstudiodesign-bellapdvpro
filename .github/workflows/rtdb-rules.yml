@@ -11,6 +11,11 @@ on:
       - 'scripts/assign-company-claim.py'
       - 'src/store/auth.ts'
       - 'src/main.tsx'
+      - 'src/pages/**'
+      - 'src/services/**'
+      - 'src/components/**'
+      - 'src/hooks/**'
+      - 'src/store/**'
       - '.github/workflows/rtdb-rules.yml'
   workflow_dispatch:
 
