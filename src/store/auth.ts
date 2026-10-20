@@ -33,8 +33,10 @@ interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isAuthReady: boolean;
+  authError: string | null;
   setUser: (user: AuthUser | null) => void;
   setAuthReady: (ready: boolean) => void;
+  retryAuth: () => Promise<void>;
   hasFeature: (feature: string) => boolean;
   login: (userData: any, token?: string, company?: any) => void;
   logout: () => Promise<void>;
@@ -77,10 +79,18 @@ function clearTenantData() {
   useApiKeysStore.getState().clearKeys();
 }
 
+function failAuth(message: string) {
+  resetSubscriptionsAndTenant();
+  activeIdentityKey = null;
+  setFirebaseTenantContext(null);
+  useAuthStore.setState({ user: null, isAuthenticated: false, isAuthReady: true, authError: message });
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isAuthReady: false,
+  authError: null,
   setUser: (user) => {
     if (activeIdentityKey !== identityKey(user)) {
       resetSubscriptionsAndTenant();
@@ -94,7 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (err) {
         console.warn('Could not cache user locally:', err);
       }
-      set({ user, isAuthenticated: true, isAuthReady: true });
+      set({ user, isAuthenticated: true, isAuthReady: true, authError: null });
     } else {
       setFirebaseTenantContext(null);
       try {
@@ -103,10 +113,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (err) {
         console.warn('Could not remove cached user:', err);
       }
-      set({ user: null, isAuthenticated: false, isAuthReady: true });
+      set({ user: null, isAuthenticated: false, isAuthReady: true, authError: null });
     }
   },
   setAuthReady: (ready: boolean) => set({ isAuthReady: ready }),
+  retryAuth: async () => {
+    await hydrateFirebaseUser(auth.currentUser);
+  },
   hasFeature: (feature: string) => {
     const user = get().user;
     if (!user) return false;
@@ -138,10 +151,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.warn('Failed to save auth to localStorage', e);
     }
 
-    set({ 
+    set({
       isAuthenticated: true, 
       user: fullUser,
-      isAuthReady: true
+      isAuthReady: true,
+      authError: null
     });
   },
   logout: async () => {
@@ -159,12 +173,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err) {
       console.warn('Error signing out:', err);
     }
-    set({ isAuthenticated: false, user: null, isAuthReady: true });
+    set({ isAuthenticated: false, user: null, isAuthReady: true, authError: null });
   }
 }));
 
 // Wait for Firebase's first auth callback before deciding whether to redirect.
-onAuthStateChanged(auth, async (firebaseUser) => {
+async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
   const version = ++authChangeVersion;
   // Clear previous subscriptions
   unsubscribes.forEach(unsub => unsub());
@@ -184,7 +198,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     }
     // Resolve the tenant before allowing protected routes or subscriptions.
     // A fallback companyId=uid is only valid for a genuinely missing profile.
-    useAuthStore.getState().setAuthReady(false);
+    useAuthStore.setState({ isAuthReady: false, authError: null });
     let profile: Record<string, any> = {};
     try {
       const snapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -192,8 +206,7 @@ onAuthStateChanged(auth, async (firebaseUser) => {
     } catch (error) {
       console.error('Cannot verify company membership:', error);
       if (version === authChangeVersion) {
-        useAuthStore.getState().setUser(null);
-        useAuthStore.getState().setAuthReady(false);
+        failAuth('Não foi possível confirmar sua empresa. Verifique a conexão e tente novamente.');
       }
       return;
     }
@@ -231,7 +244,9 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   } else {
     useAuthStore.getState().setUser(null);
   }
-}, (error) => {
+}
+
+onAuthStateChanged(auth, hydrateFirebaseUser, (error) => {
   console.error('Firebase auth initialization failed:', error);
-  useAuthStore.getState().setUser(null);
+  failAuth('Não foi possível iniciar a sessão. Tente novamente.');
 });

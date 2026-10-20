@@ -36,13 +36,24 @@ const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isAuthReady } = useAuthStore();
+  const { isAuthenticated, isAuthReady, authError, retryAuth } = useAuthStore();
   
   if (!isAuthReady) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#05070F] gap-3">
         <Loader2 className="w-9 h-9 text-cyan-400 animate-spin" />
         <p className="text-slate-400 text-xs font-medium tracking-wide">Carregando ambiente...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#05070F] gap-4 px-5 text-center">
+        <p className="text-slate-200 text-sm">{authError}</p>
+        <button className="rounded-lg bg-cyan-600 px-5 py-2 text-white" onClick={() => void retryAuth()}>
+          Tentar novamente
+        </button>
       </div>
     );
   }
