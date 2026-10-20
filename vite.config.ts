@@ -95,6 +95,53 @@ export default defineConfig(({mode}) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      dedupe: ['firebase', '@firebase/app'],
+    },
+    optimizeDeps: {
+      include: [
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+        'firebase/database',
+        '@firebase/app',
+      ],
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              // Code-splitting das dependências pesadas do Firebase
+              if (
+                id.includes('@firebase/firestore') || 
+                id.includes('firebase/firestore') || 
+                id.includes('@firebase/webchannel-wrapper')
+              ) {
+                return 'firebase-firestore';
+              }
+              if (
+                id.includes('@firebase/auth') || 
+                id.includes('firebase/auth')
+              ) {
+                return 'firebase-auth';
+              }
+              if (
+                id.includes('@firebase/database') || 
+                id.includes('firebase/database')
+              ) {
+                return 'firebase-database';
+              }
+              if (
+                id.includes('firebase') || 
+                id.includes('@firebase')
+              ) {
+                return 'firebase-core';
+              }
+            }
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

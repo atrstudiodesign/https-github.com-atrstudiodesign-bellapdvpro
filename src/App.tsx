@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useEffect, useState } from 'react';
 import { Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
@@ -159,7 +160,13 @@ export default function App() {
       )}
 
       <DashboardLayout>
-        <Outlet />
+        <ErrorBoundary 
+          inline={true} 
+          title="Erro ao exibir módulo" 
+          description="Ocorreu uma falha ao renderizar o conteúdo desta tela. Você pode tentar novamente ou navegar para outro menu através da barra lateral."
+        >
+          <Outlet />
+        </ErrorBoundary>
       </DashboardLayout>
 
       <BellaAiWidget />

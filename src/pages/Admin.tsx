@@ -331,7 +331,7 @@ export default function AdminPanel() {
     );
   }
 
-  const handleImpersonate = (clientId: number, clientName: string) => {
+  const handleImpersonate = (clientId: number | string, clientName: string) => {
     toast.success(`Iniciando sessão como: ${clientName}...`, {
       description: "Você está sendo redirecionado (Modo Impersonate)."
     });
@@ -1563,7 +1563,7 @@ export default function AdminPanel() {
                                    return;
                                 }
                                 const targetPlanName = editingLink.id === 'basic' ? 'Básico' : editingLink.id === 'pro' ? 'Pro' : 'Premium';
-                                setClients(clients.map(c => c.id === clientId ? { ...c, plan: targetPlanName } : c));
+                                setClients(clients.map(c => String(c.id) === String(clientId) ? { ...c, plan: targetPlanName } : c));
                                 toast.success(`Plano do cliente alterado para ${targetPlanName}!`);
                                 select.value = '';
                              }} 
