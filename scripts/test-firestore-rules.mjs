@@ -1,0 +1,81 @@
+import { readFileSync } from 'node:fs';
+import { after, test } from 'node:test';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
+
+const env = await initializeTestEnvironment({
+  projectId: 'demo-bellapdv-p0',
+  firestore: { rules: readFileSync('firestore.rules', 'utf8') }
+});
+after(async () => env.cleanup());
+
+const token = { firebase: { sign_in_provider: 'google.com' } };
+const a = env.authenticatedContext('companyA', token).firestore();
+const b = env.authenticatedContext('companyB', token).firestore();
+const adminA = env.authenticatedContext('adminA', { ...token, admin: true }).firestore();
+const adminB = env.authenticatedContext('adminB', { ...token, admin: true }).firestore();
+const anonymous = env.authenticatedContext('anon', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+const guest = env.unauthenticatedContext().firestore();
+
+await env.withSecurityRulesDisabled(async context => {
+  const db = context.firestore();
+  await setDoc(doc(db, 'users/companyA'), { role: 'client', companyId: 'companyA' });
+  await setDoc(doc(db, 'users/companyB'), { role: 'client', companyId: 'companyB' });
+  await setDoc(doc(db, 'users/employee'), { role: 'client', companyId: 'companyA' });
+  await setDoc(doc(db, 'clients/clientA'), { ownerId: 'companyA', name: 'A' });
+  await setDoc(doc(db, 'clients/clientB'), { ownerId: 'companyB', name: 'B' });
+  await setDoc(doc(db, 'clients/demo'), { ownerId: 'demo', name: 'Demonstração' });
+  await setDoc(doc(db, 'transactions/transactionA'), { ownerId: 'companyA', total: 10, items: ['x'], status: 'completed', paymentMethod: 'pix' });
+});
+
+test('A e B leem e alteram apenas seus clientes; demo fica isolada', async () => {
+  await assertSucceeds(getDoc(doc(a, 'clients/clientA')));
+  await assertSucceeds(getDoc(doc(b, 'clients/clientB')));
+  await assertFails(getDoc(doc(a, 'clients/clientB')));
+  await assertFails(getDoc(doc(b, 'clients/clientA')));
+  await assertFails(getDoc(doc(a, 'clients/demo')));
+  await assertFails(getDoc(doc(b, 'clients/demo')));
+  await assertFails(updateDoc(doc(a, 'clients/clientB'), { name: 'alterado' }));
+  await assertFails(deleteDoc(doc(b, 'clients/clientA')));
+  await assertFails(setDoc(doc(a, 'clients/newB'), { ownerId: 'companyB' }));
+  await assertSucceeds(setDoc(doc(a, 'clients/newA'), { ownerId: 'companyA' }));
+});
+
+test('colaborador vinculado acessa somente sua empresa', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(getDoc(doc(employee, 'clients/clientA')));
+  await assertFails(getDoc(doc(employee, 'clients/clientB')));
+});
+
+test('cadastro não permite criar perfil administrativo ou mudar empresa', async () => {
+  const newUser = env.authenticatedContext('newUser', token).firestore();
+  await assertFails(setDoc(doc(newUser, 'users/newUser'), { role: 'admin', companyId: 'newUser' }));
+  await assertFails(setDoc(doc(newUser, 'users/newUser'), { role: 'client', companyId: 'companyA' }));
+  await assertSucceeds(setDoc(doc(newUser, 'users/newUser'), { role: 'client', companyId: 'newUser' }));
+  await assertFails(updateDoc(doc(newUser, 'users/newUser'), { companyId: 'companyA' }));
+  await assertFails(updateDoc(doc(a, 'users/companyB'), { role: 'admin' }));
+});
+
+test('duas claims administrativas acessam dados globais; flag de perfil não basta', async () => {
+  for (const admin of [adminA, adminB]) {
+    await assertSucceeds(getDoc(doc(admin, 'clients/clientA')));
+    await assertSucceeds(getDoc(doc(admin, 'clients/clientB')));
+    await assertSucceeds(getDoc(doc(admin, 'transactions/transactionA')));
+  }
+  const forged = env.authenticatedContext('fakeAdmin', token).firestore();
+  await assertFails(getDoc(doc(forged, 'clients/clientA')));
+});
+
+test('visitante e login anônimo não leem dados das empresas', async () => {
+  for (const db of [guest, anonymous]) {
+    await assertFails(getDoc(doc(db, 'clients/clientA')));
+    await assertFails(getDoc(doc(db, 'clients/clientB')));
+  }
+});
+
+test('vendas de outra empresa e coleções não previstas são negadas', async () => {
+  await assertFails(getDoc(doc(b, 'transactions/transactionA')));
+  await assertFails(deleteDoc(doc(a, 'transactions/transactionA')));
+  await assertFails(getDoc(doc(a, 'unscoped/record')));
+  await assertFails(setDoc(doc(a, 'unscoped/record'), { ownerId: 'companyA' }));
+});
