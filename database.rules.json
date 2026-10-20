@@ -4,14 +4,20 @@
     ".write": false,
     "tenants": {
       "$companyId": {
-        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.uid === $companyId || auth.token.companyId === $companyId)",
-        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.uid === $companyId || auth.token.companyId === $companyId)",
         "message": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.token.companyId === $companyId || (auth.token.companyId == null && auth.uid === $companyId))",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.token.companyId === $companyId || (auth.token.companyId == null && auth.uid === $companyId)) && newData.isString() && newData.val().length <= 1000",
           ".validate": "newData.isString() && newData.val().length <= 1000"
         },
         "terminals": {
           "$terminalId": {
-            ".validate": "newData.hasChildren(['isOpen', 'operator', 'lastPing']) && newData.child('isOpen').isBoolean() && newData.child('operator').isString() && newData.child('operator').val().length <= 120 && newData.child('lastPing').isNumber()"
+            ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.token.companyId === $companyId || (auth.token.companyId == null && auth.uid === $companyId))",
+            ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (auth.token.companyId === $companyId || (auth.token.companyId == null && auth.uid === $companyId)) && newData.hasChildren(['isOpen', 'operator', 'lastPing']) && newData.child('isOpen').isBoolean() && newData.child('operator').isString() && newData.child('operator').val().length <= 120 && newData.child('lastPing').isNumber()",
+            ".validate": "newData.hasChildren(['isOpen', 'operator', 'lastPing']) && newData.child('isOpen').isBoolean() && newData.child('operator').isString() && newData.child('operator').val().length <= 120 && newData.child('lastPing').isNumber()",
+            "isOpen": { ".validate": "newData.isBoolean()" },
+            "operator": { ".validate": "newData.isString() && newData.val().length <= 120" },
+            "lastPing": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
           }
         }
       }
