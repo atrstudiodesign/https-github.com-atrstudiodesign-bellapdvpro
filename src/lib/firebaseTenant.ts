@@ -9,5 +9,5 @@ export function setFirebaseTenantContext(uid: string | null, companyId?: string)
 export function currentFirebaseTenantId(): string | null {
   const user = auth.currentUser;
   if (!user || user.isAnonymous) return null;
-  return tenantContext?.uid === user.uid ? tenantContext.companyId : user.uid;
+  return tenantContext?.uid === user.uid ? tenantContext.companyId : null;
 }
