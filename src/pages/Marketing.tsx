@@ -69,19 +69,11 @@ export default function Marketing() {
   };
 
   const handleSend = () => {
-     const toastId = toast.loading('Preparando disparos...');
-     setTimeout(() => {
-           toast.success('Disparo Concluído!', {
-              id: toastId,
-              description: `Campanha enviada para os ${config.terminology.client}s elegíveis.`
-           });
-     }, 2500);
+    toast.error('Disparo indisponível: nenhum provedor de mensagens está integrado.');
   };
 
   const handleActivateAI = () => {
-     toast.success('Motor de Retenção IA Ativado', {
-        description: 'A IA agora monitora churn e envia campanhas de resgate automaticamente.'
-     });
+    toast.error('Retenção automática indisponível: não há worker de execução configurado.');
   };
 
   const faqs = [
