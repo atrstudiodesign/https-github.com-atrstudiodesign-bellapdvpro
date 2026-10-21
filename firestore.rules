@@ -162,7 +162,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId == request.auth.uid
         && request.resource.data.source == 'bella_web'
-        && request.resource.data.event in ['account_created', 'trial_started', 'account_login']
+        && request.resource.data.event == 'account_login'
         && request.resource.data.occurredAt == request.time;
       allow read, delete: if isAdmin();
       allow update: if false;
