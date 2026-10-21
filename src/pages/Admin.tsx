@@ -1,3 +1,4 @@
+import { AdminAnalyticsStatus } from '../components/admin/AdminAnalyticsStatus';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,18 +12,9 @@ import { Logo } from '../components/ui/Logo';
 import { useAuthStore } from '../store/auth';
 import { isSuperAdminEmail } from '../lib/superAdmins';
 import { toast } from 'sonner';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { db } from '../lib/firebase';
 import { collection, query, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { migrateCompanyLicenses } from '../services/migration';
-
-const mockCompanyGrowth = [
-  { name: 'Jan', empresas: 120 },
-  { name: 'Fev', empresas: 150 },
-  { name: 'Mar', empresas: 180 },
-  { name: 'Abr', empresas: 220 },
-  { name: 'Mai', empresas: 284 },
-];
 
 type Client = {
   id: string;
@@ -432,31 +424,7 @@ export default function AdminPanel() {
                     </div>
                  </div>
 
-                 {/* GRAFICO AQUI */}
-                 <div className="bg-[#0A0A0A] p-6 rounded-xl border border-white/10 mt-6 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-                     <h3 className="text-lg font-bold text-white mb-6">Crescimento de Assinantes</h3>
-                     <div className="h-[250px] w-full">
-                         <ResponsiveContainer width="100%" height="100%">
-                             <AreaChart data={mockCompanyGrowth}>
-                                 <CartesianGrid strokeDasharray="3 3" stroke="#1A2C47" />
-                                 <XAxis dataKey="name" stroke="#64748B" />
-                                 <YAxis stroke="#64748B" />
-                                 <Tooltip contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', color: '#fff' }} />
-                                 <Area type="monotone" dataKey="empresas" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.2} />
-                             </AreaChart>
-                         </ResponsiveContainer>
-                     </div>
-                 </div>
-
-                 {/* Recent Activity Mini-logs */}
-                 <div className="mt-8">
-                   <h3 className="text-sm font-semibold text-white mb-4 uppercase tracking-widest">Logs em Tempo Real</h3>
-                   <div className="bg-[#0A0A0A] border border-white/10 rounded-xl overflow-hidden text-xs font-mono text-slate-400 divide-y divide-white/5">
-                      <div className="p-3 flex items-center gap-4 hover:bg-white/5"><span className="text-emerald-400">SUCCESS</span><span>bella-studio</span><span>Assinatura Pro confirmada via webhook Asaas</span></div>
-                      <div className="p-3 flex items-center gap-4 hover:bg-white/5"><span className="text-yellow-400">WARNING</span><span>clinica-uniao</span><span>Tentativa de falha no cartão de crédito (Dunning iniciado)</span></div>
-                      <div className="p-3 flex items-center gap-4 hover:bg-white/5"><span className="text-blue-400">INFO</span><span>system</span><span>Nova empresa "Barbearia do João" iniciou trial de 14 dias</span></div>
-                   </div>
-                 </div>
+                 <AdminAnalyticsStatus />
               </motion.div>
            )}
 
@@ -888,78 +856,9 @@ export default function AdminPanel() {
            )}
 
            {activeTab === 'analytics' && (
-              <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                 <h2 className="text-2xl font-display font-semibold text-white tracking-tight">Analytics Master</h2>
-                 <p className="text-sm text-slate-400 mb-6">Métricas do Produto, Negócio, LTV, CAC e Retenção.</p>
-                 
-                 <div className="grid grid-cols-4 gap-6 mb-6">
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_20px_rgba(255,255,255,0.02)]">
-                       <span className="text-gray-400 text-sm">Custo Aquisição (CAC)</span>
-                       <h2 className="text-2xl font-bold text-white tracking-tight mt-2">R$ 142,50</h2>
-                       <span className="text-emerald-400 text-sm mt-1 inline-block">-12% vs last month</span>
-                    </div>
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_20px_rgba(255,255,255,0.02)]">
-                       <span className="text-gray-400 text-sm">LTV Médio</span>
-                       <h2 className="text-2xl font-bold text-white tracking-tight mt-2">R$ 2.450</h2>
-                       <span className="text-emerald-400 text-sm mt-1 inline-block">+5% vs last month</span>
-                    </div>
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_20px_rgba(255,255,255,0.02)]">
-                       <span className="text-gray-400 text-sm">Retenção (M3)</span>
-                       <h2 className="text-2xl font-bold text-white tracking-tight mt-2">86%</h2>
-                       <span className="text-emerald-400 text-sm mt-1 inline-block">+2pp vs last month</span>
-                    </div>
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_20px_rgba(255,255,255,0.02)]">
-                       <span className="text-gray-400 text-sm">Tempo Médio Uso</span>
-                       <h2 className="text-2xl font-bold text-white tracking-tight mt-2">4h 12m</h2>
-                       <span className="text-emerald-400 text-sm mt-1 inline-block">+14m hoje</span>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-xl">
-                       <h3 className="text-lg font-semibold text-white mb-6">Funil Trial → Pago (Últimos 30 dias)</h3>
-                       <div className="space-y-4">
-                          <div>
-                             <div className="flex justify-between text-sm mb-1"><span className="text-slate-300">Início de Trial</span><span className="text-white font-bold">450</span></div>
-                             <div className="w-full bg-white/5 rounded-full h-3"><div className="bg-indigo-500 h-3 rounded-full" style={{ width: '100%' }}></div></div>
-                          </div>
-                          <div>
-                             <div className="flex justify-between text-sm mb-1"><span className="text-slate-300">Configurou PDV</span><span className="text-white font-bold">320 (71%)</span></div>
-                             <div className="w-full bg-white/5 rounded-full h-3"><div className="bg-blue-500 h-3 rounded-full" style={{ width: '71%' }}></div></div>
-                          </div>
-                          <div>
-                             <div className="flex justify-between text-sm mb-1"><span className="text-slate-300">Fez primeira venda</span><span className="text-white font-bold">250 (55%)</span></div>
-                             <div className="w-full bg-white/5 rounded-full h-3"><div className="bg-cyan-500 h-3 rounded-full" style={{ width: '55%' }}></div></div>
-                          </div>
-                          <div>
-                             <div className="flex justify-between text-sm mb-1"><span className="text-slate-300">Converteu Pago</span><span className="text-white font-bold">185 (41%)</span></div>
-                             <div className="w-full bg-white/5 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full" style={{ width: '41%' }}></div></div>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-xl">
-                       <h3 className="text-lg font-semibold text-white mb-6">Features Mais Usadas</h3>
-                       <div className="space-y-4">
-                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                             <div className="flex items-center gap-3"><Monitor className="w-5 h-5 text-indigo-400" /><span className="text-slate-300">PDV / Frente de Caixa</span></div>
-                             <span className="text-white font-bold text-sm">89%</span>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                             <div className="flex items-center gap-3"><Users className="w-5 h-5 text-blue-400" /><span className="text-slate-300">Gestão de Clientes</span></div>
-                             <span className="text-white font-bold text-sm">62%</span>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                             <div className="flex items-center gap-3"><CalendarDays className="w-5 h-5 text-purple-400" /><span className="text-slate-300">Agendamentos</span></div>
-                             <span className="text-white font-bold text-sm">45%</span>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                             <div className="flex items-center gap-3"><Bot className="w-5 h-5 text-cyan-400" /><span className="text-slate-300">IA Generativa (Descrições)</span></div>
-                             <span className="text-white font-bold text-sm">28%</span>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </motion.div>
+             <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+               <AdminAnalyticsStatus />
+             </motion.div>
            )}
 
            {activeTab === 'ia_admin' && (
