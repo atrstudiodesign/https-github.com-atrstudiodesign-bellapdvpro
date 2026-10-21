@@ -43,7 +43,7 @@ export async function logBellaEvent(event: BellaAnalyticsEvent, params: Paramete
   window.dataLayer.push({ event: 'bella_' + event, ...safe });
   // Firebase Analytics shares the GA4 measurement ID; do not also call gtag('event').
   const analytics = await firebaseAnalytics();
-  if (analytics && hasConsent()) logEvent(analytics, event, safe);
+  if (analytics && hasConsent()) logEvent(analytics, event, safe as Record<string, string | number | boolean>);
   if (!hasConsent() || !window.fbq) return;
   if (event === 'trial_started') window.fbq('track', 'CompleteRegistration', { content_name: 'BellaPDV Trial' });
   else if (event === 'trial_cta_click') window.fbq('trackCustom', 'TrialCtaClick', safe);
