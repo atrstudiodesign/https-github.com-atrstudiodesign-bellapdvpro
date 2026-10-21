@@ -1,3 +1,4 @@
+import { VisitorTracker } from '../components/VisitorTracker';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LandingHeader } from '../components/landing/LandingHeader';
@@ -85,6 +86,7 @@ export default function Landing() {
 
       </div>
 
+      <VisitorTracker page="/landing" />
       {/* Interactive Modals */}
       <DemoModal 
         isOpen={isDemoModalOpen} 

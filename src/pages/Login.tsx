@@ -33,6 +33,7 @@ import {
   type ConfirmationResult
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { recordAuthenticatedEvent } from '../services/commercialEvents';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -163,25 +164,22 @@ export default function Login() {
             lastLogin: new Date().toISOString()
           }, { merge: true });
 
-          // Initialize company_licenses with 15-day trial on Plano Básico (Bronze)
-          await setDoc(doc(db, 'company_licenses', uid), {
-            id: uid,
-            name: companyName.trim() || email.trim().split('@')[0],
-            plan: 'Bronze',
-            status: 'trial',
-            trialDays: 15,
-            expireDate: expire15Days,
-            maxUsers: 1,
-            aiUsage: 0,
-            waUsage: 0,
-            unitsCount: 1,
-            activeModules: ['pdv', 'agenda', 'crm']
-          }, { merge: true });
+          // The trial is created once by a verified server identity; clients cannot edit licenses.
+          const idToken = await firebaseUser.getIdToken();
+          const trialResponse = await fetch('/api/trials/activate', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + idToken, 'Content-Type': 'application/json' }
+          });
+          if (!trialResponse.ok) throw new Error('Falha ao provisionar trial pelo backend: ' + trialResponse.status);
+          const trialStatus = await trialResponse.json();
+          if (trialStatus.status !== 'trial' && trialStatus.status !== 'already_provisioned') {
+            throw new Error('Provisionamento não confirmado');
+          }
         } catch (docErr) {
           console.error('Firestore profile creation failed:', docErr);
           await signOut(auth);
           useAuthStore.getState().setUser(null);
-          toast.error('Conta autenticada, mas não foi possível salvar o cadastro. Tente novamente após configurar o banco de dados.');
+          toast.error('Conta criada, mas o teste gratuito não pôde ser ativado. Entre em contato com o suporte.');
           return;
         }
 
@@ -236,6 +234,7 @@ export default function Login() {
           setNiche(companyData.niche as NicheType);
         }
 
+        void recordAuthenticatedEvent('account_login', uid);
         login(loggedUser, undefined, companyData);
         toast.success('Login realizado com sucesso!', {
           description: `Bem-vindo de volta, ${loggedUser.name}!`

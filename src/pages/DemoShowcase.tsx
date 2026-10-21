@@ -1,3 +1,4 @@
+import { VisitorTracker } from '../components/VisitorTracker';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Eye, LockKeyhole, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
@@ -38,6 +39,7 @@ export default function DemoShowcase() {
   const current = modules[selected];
   return (
     <div className="min-h-screen bg-[#080f1b] text-slate-100">
+      <VisitorTracker page="/demo" />
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-[#0a1221]/95 px-5 py-4 backdrop-blur-lg lg:px-10">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-300"><Sparkles size={20}/></div>

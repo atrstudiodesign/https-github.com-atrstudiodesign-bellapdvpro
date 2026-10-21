@@ -139,6 +139,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    // Anonymous visitors may create only their own minimal, consented page-view events.
+    // No public reads; enterprise analytics is available only to platform admins.
+    match /visitor_events/{eventId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['event', 'visitorId', 'route', 'occurredAt', 'source'])
+        && request.resource.data.event == 'page_view'
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.source == 'bella_web'
+        && request.resource.data.route in ['/landing', '/demo', '/login']
+        && request.resource.data.occurredAt == request.time;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // Authenticated customer lifecycle; only platform admins can list across accounts.
+    match /commercial_events/{eventId} {
+      allow create: if isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['event', 'userId', 'companyId', 'occurredAt', 'source'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.source == 'bella_web'
+        && request.resource.data.event == 'account_login'
+        && request.resource.data.occurredAt == request.time;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
     match /voice_settings/{userId} {
       allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
