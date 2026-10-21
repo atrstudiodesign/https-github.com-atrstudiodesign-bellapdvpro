@@ -1,3 +1,4 @@
+import { logBellaEvent } from '../../services/analytics';
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Check, ArrowRight, MessageSquare, Play, Shield, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -127,6 +128,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
   };
 
   const handleCreateAccount = () => {
+    void logBellaEvent('trial_cta_click', { source: 'demo_modal' });
     trackTrialStartClick({
       source: 'demo_modal_create_account_button',
       plan: preselectedPlan || 'Plano Básico',
