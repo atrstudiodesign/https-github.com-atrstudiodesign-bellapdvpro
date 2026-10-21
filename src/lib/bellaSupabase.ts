@@ -8,14 +8,19 @@ export async function checkBellaSupabase(): Promise<{ connected: boolean; messag
     return { connected: false, message: 'Supabase não configurado nesta publicação.' };
   }
   try {
-    const response = await fetch(bellaSupabaseUrl + '/rest/v1/bella_companies?select=id&limit=1', {
+    // Check an API endpoint that does not require tenant table access.
+    // A public table returning 401 is not a reliable health check when RLS applies.
+    const response = await fetch(bellaSupabaseUrl + '/auth/v1/settings', {
       headers: { apikey: publishableKey },
       signal: AbortSignal.timeout(7000),
     });
-    if (!response.ok) {
-      return { connected: false, message: 'Conexão Supabase retornou HTTP ' + response.status };
+    if (response.status === 401 || response.status === 403) {
+      return { connected: false, message: 'Supabase respondeu HTTP ' + response.status + ': chave pública inválida, desatualizada ou sem permissão. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no Vercel.' };
     }
-    return { connected: true, message: 'Supabase conectado. Dados protegidos por RLS; Firebase ainda é o login principal.' };
+    if (!response.ok) {
+      return { connected: false, message: 'Supabase Auth respondeu HTTP ' + response.status + '. Verifique configuração do projeto.' };
+    }
+    return { connected: true, message: 'API Supabase acessível com chave pública. Acesso às tabelas depende de login Supabase e RLS; Firebase continua sendo o login principal.' };
   } catch {
     return { connected: false, message: 'Supabase indisponível ou bloqueado pela rede.' };
   }
