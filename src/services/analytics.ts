@@ -15,8 +15,12 @@ export function initializeMetaPixel(): void {
   pixelLoaded = true;
   if (!window.fbq) {
     const queue: unknown[][] = [];
-    const fbq = (...args: unknown[]) => { queue.push(args); };
-    Object.assign(fbq, { queue, loaded: true, version: '2.0' });
+    const fbq = (...args: unknown[]) => {
+      const handler = (fbq as typeof fbq & { callMethod?: (...args: unknown[]) => void }).callMethod;
+      if (handler) handler(...args);
+      else queue.push(args);
+    };
+    Object.assign(fbq, { queue, loaded: true, version: '2.0', push: fbq });
     window.fbq = fbq;
     const script = document.createElement('script');
     script.async = true;
