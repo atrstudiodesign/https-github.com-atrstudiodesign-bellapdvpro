@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { logBellaEvent } from '../services/analytics';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuthStore } from '../store/auth';
@@ -47,6 +48,9 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isDemoLoading = false;
   const [loginError, setLoginError] = useState('');
+  const trialFormRef = useRef({ active: false, dirty: false, complete: false });
+  trialFormRef.current = { ...trialFormRef.current, active: isRegister, dirty: !!(email || companyName || password) };
+  useEffect(() => () => { const f = trialFormRef.current; if (f.active && f.dirty && !f.complete) void logBellaEvent('form_abandoned', { source: 'signup_form' }); }, []);
   const [phoneMode, setPhoneMode] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
@@ -244,6 +248,7 @@ export default function Login() {
       let uid = firebaseUser?.uid || '';
 
       if (isRegister) {
+        void logBellaEvent('signup_started', { source: 'signup_form' });
         // --- REGISTRO ---
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         firebaseUser = cred.user;
@@ -304,6 +309,8 @@ export default function Login() {
         }
 
         setNiche(selectedNiche);
+        trialFormRef.current.complete = true;
+        void logBellaEvent('trial_started', { source: 'signup_form', trial_days: 15 });
         login(newUser, undefined, companyData);
 
         // Track successful signup lead capture completion

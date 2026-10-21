@@ -1,3 +1,4 @@
+import { logBellaEvent, trackMetaPageView } from '../services/analytics';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Eye, LockKeyhole, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
@@ -34,6 +35,7 @@ export default function DemoShowcase() {
 
   useEffect(() => {
     trackPageView('BellaPDV Pro — Vitrine de Demonstração', '/demo');
+    trackMetaPageView('/demo');
   }, []);
 
   const getFieldsCompleted = () => {
@@ -44,6 +46,7 @@ export default function DemoShowcase() {
   };
 
   const requestAccess = () => {
+    void logBellaEvent('trial_cta_click', { source: 'demo_showcase' });
     trackTrialStartClick({
       source: 'demo_showcase_modal_open',
       buttonLabel: '15 dias grátis'
