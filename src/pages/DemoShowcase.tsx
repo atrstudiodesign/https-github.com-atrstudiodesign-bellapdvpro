@@ -1,7 +1,7 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Eye, LockKeyhole, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { trackPageView, trackTrialStartClick, trackLeadGenerated } from '../services/analyticsService';
+import { trackPageView, trackTrialStartClick, trackLeadGenerated, trackLeadCaptureAttempt } from '../services/analyticsService';
 
 const modules = [
   { title: 'Visão geral', subtitle: 'Indicadores, faturamento e atendimentos', metrics: ['Resumo de receitas', 'Ocupação de agenda', 'Indicadores de crescimento'] },
@@ -28,27 +28,91 @@ export default function DemoShowcase() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
+  const [lastFieldFocused, setLastFieldFocused] = useState<string>('none');
+  const isSubmittedSuccessRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     trackPageView('BellaPDV Pro — Vitrine de Demonstração', '/demo');
   }, []);
 
+  const getFieldsCompleted = () => {
+    const fields: string[] = [];
+    if (company.trim()) fields.push('company');
+    if (email.trim()) fields.push('email');
+    return fields;
+  };
+
   const requestAccess = () => {
     trackTrialStartClick({
       source: 'demo_showcase_modal_open',
       buttonLabel: '15 dias grátis'
     });
+    trackLeadCaptureAttempt({
+      form_name: 'demo_showcase_modal',
+      step: 'start',
+      status: 'started',
+      source: modules[selected]?.title || 'demo_showcase',
+      plan_name: 'Plano Básico'
+    });
+    isSubmittedSuccessRef.current = false;
     setLeadOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    if (!isSubmittedSuccessRef.current) {
+      trackLeadCaptureAttempt({
+        form_name: 'demo_showcase_modal',
+        step: 'abandoned',
+        status: 'abandoned',
+        last_field_focused: lastFieldFocused,
+        fields_completed: getFieldsCompleted(),
+        fields_count: getFieldsCompleted().length,
+        has_company: !!company.trim(),
+        has_email: !!email.trim(),
+        source: modules[selected]?.title || 'demo_showcase',
+        plan_name: 'Plano Básico'
+      });
+    }
+    setLeadOpen(false);
   };
 
   const register = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    trackLeadCaptureAttempt({
+      form_name: 'demo_showcase_modal',
+      step: 'submit_attempt',
+      status: 'in_progress',
+      last_field_focused: lastFieldFocused,
+      fields_completed: getFieldsCompleted(),
+      fields_count: getFieldsCompleted().length,
+      has_company: !!company.trim(),
+      has_email: !!email.trim(),
+      source: modules[selected]?.title || 'demo_showcase',
+      plan_name: 'Plano Básico'
+    });
+
     trackLeadGenerated({
       leadType: 'trial_signup',
       source: 'demo_showcase_lead_form',
       hasBusinessName: !!company.trim()
     });
+
+    isSubmittedSuccessRef.current = true;
+    trackLeadCaptureAttempt({
+      form_name: 'demo_showcase_modal',
+      step: 'completed',
+      status: 'completed',
+      last_field_focused: lastFieldFocused,
+      fields_completed: getFieldsCompleted(),
+      fields_count: getFieldsCompleted().length,
+      has_company: !!company.trim(),
+      has_email: !!email.trim(),
+      source: modules[selected]?.title || 'demo_showcase',
+      plan_name: 'Plano Básico'
+    });
+
     const query = new URLSearchParams({ signup: 'true', email: email.trim(), company: company.trim(), source: 'demo' });
     navigate('/login?' + query.toString());
   };
@@ -112,13 +176,13 @@ export default function DemoShowcase() {
         </main>
       </div>
 
-      {leadOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" role="presentation" onClick={() => setLeadOpen(false)}>
+      {leadOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" role="presentation" onClick={handleCloseModal}>
         <section role="dialog" aria-modal="true" aria-label="Ativar teste grátis" onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-cyan-400/25 bg-[#101b2d] p-6 shadow-2xl">
-          <div className="flex items-center justify-between"><h2 className="text-xl font-bold">15 dias para testar tudo</h2><button onClick={() => setLeadOpen(false)} aria-label="Fechar"><X size={19}/></button></div>
+          <div className="flex items-center justify-between"><h2 className="text-xl font-bold">15 dias para testar tudo</h2><button onClick={handleCloseModal} aria-label="Fechar"><X size={19}/></button></div>
           <p className="mt-3 text-sm leading-6 text-slate-400">Informe os dados para continuar o cadastro e ativar o teste gratuito. O envio deste formulário não cria uma conta nem salva um lead até que o cadastro seja concluído.</p>
           <form className="mt-5 space-y-3" onSubmit={register}>
-            <label className="block text-sm">Empresa<input value={company} onChange={e => setCompany(e.target.value)} required maxLength={100} placeholder="Nome da empresa" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
-            <label className="block text-sm">E-mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} required maxLength={160} placeholder="voce@empresa.com.br" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
+            <label className="block text-sm">Empresa<input value={company} onFocus={() => setLastFieldFocused('company')} onChange={e => setCompany(e.target.value)} required maxLength={100} placeholder="Nome da empresa" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
+            <label className="block text-sm">E-mail<input type="email" value={email} onFocus={() => setLastFieldFocused('email')} onChange={e => setEmail(e.target.value)} required maxLength={160} placeholder="voce@empresa.com.br" className="mt-1 w-full rounded-xl border border-white/15 bg-slate-900 p-3 outline-none focus:border-cyan-400"/></label>
             <button type="submit" className="w-full rounded-xl bg-cyan-400 p-3 font-bold text-slate-950 hover:bg-cyan-300">Continuar cadastro gratuito <ArrowRight size={16} className="ml-2 inline"/></button>
           </form>
           <p className="mt-3 text-xs text-slate-500">15 dias gratuitos sujeitos à ativação da conta e às condições do serviço.</p>

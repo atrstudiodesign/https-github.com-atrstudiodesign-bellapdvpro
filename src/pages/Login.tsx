@@ -20,7 +20,7 @@ import { Logo } from '../components/ui/Logo';
 import { AtrStudioBadge } from '../components/ui/AtrStudioBadge';
 import { auth, db } from '../lib/firebase';
 import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
-import { trackTrialStartClick, trackLeadGenerated, trackEvent, setAnalyticsUser } from '../services/analyticsService';
+import { trackTrialStartClick, trackLeadGenerated, trackEvent, setAnalyticsUser, trackLeadCaptureAttempt } from '../services/analyticsService';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -56,6 +56,19 @@ export default function Login() {
   const { setNiche } = useNicheStore();
   const navigate = useNavigate();
 
+  const [lastFieldFocused, setLastFieldFocused] = useState<string>('none');
+  const [hasTrackedSignupStart, setHasTrackedSignupStart] = useState<boolean>(false);
+  const isRegisteredSuccessRef = React.useRef(false);
+
+  const getFieldsCompleted = () => {
+    const fields: string[] = [];
+    if (companyName.trim()) fields.push('company_name');
+    if (selectedNiche) fields.push('niche');
+    if (email.trim()) fields.push('email');
+    if (password.trim()) fields.push('password');
+    return fields;
+  };
+
   useEffect(() => {
     // Prefill the registration from the read-only demo CTA.
     if (searchParams.get('signup') === 'true') {
@@ -82,6 +95,48 @@ export default function Login() {
 
     return () => clearTimeout(timer);
   }, [searchParams, isAuthenticated, navigate]);
+
+  // Track initial signup attempt when registration form is first opened
+  useEffect(() => {
+    if (isRegister && !hasTrackedSignupStart) {
+      setHasTrackedSignupStart(true);
+      trackLeadCaptureAttempt({
+        form_name: 'signup_form',
+        step: 'start',
+        status: 'started',
+        source: searchParams.get('source') || 'signup_page',
+        plan_name: searchParams.get('plan') || 'Plano Básico',
+        has_company: !!companyName.trim(),
+        has_email: !!email.trim()
+      });
+    }
+  }, [isRegister, hasTrackedSignupStart, searchParams, companyName, email]);
+
+  // Track abandonment on page exit (beforeunload or navigating away)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isRegister && !isRegisteredSuccessRef.current && (companyName.trim() || email.trim())) {
+        trackLeadCaptureAttempt({
+          form_name: 'signup_form',
+          step: 'abandoned',
+          status: 'abandoned',
+          last_field_focused: lastFieldFocused,
+          fields_completed: getFieldsCompleted(),
+          fields_count: getFieldsCompleted().length,
+          has_company: !!companyName.trim(),
+          has_email: !!email.trim(),
+          selected_niche: selectedNiche,
+          plan_name: searchParams.get('plan') || 'Plano Básico',
+          source: searchParams.get('source') || 'signup_page'
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isRegister, companyName, email, lastFieldFocused, selectedNiche, searchParams]);
 
   const handleQuickDemoLogin = () => {
     trackLeadGenerated({
@@ -110,18 +165,76 @@ export default function Login() {
     }
 
     if (!email || !password) {
+      if (isRegister) {
+        trackLeadCaptureAttempt({
+          form_name: 'signup_form',
+          step: 'validation_failed',
+          status: 'error',
+          error_reason: 'missing_email_or_password',
+          last_field_focused: !email ? 'email' : 'password',
+          fields_completed: getFieldsCompleted(),
+          fields_count: getFieldsCompleted().length,
+          has_company: !!companyName.trim(),
+          has_email: !!email.trim(),
+          selected_niche: selectedNiche,
+          plan_name: searchParams.get('plan') || 'Plano Básico'
+        });
+      }
       toast.error('Preencha o e-mail e a senha.');
       return;
     }
 
     if (password.length < 6) {
+      if (isRegister) {
+        trackLeadCaptureAttempt({
+          form_name: 'signup_form',
+          step: 'validation_failed',
+          status: 'error',
+          error_reason: 'password_too_short',
+          last_field_focused: 'password',
+          fields_completed: getFieldsCompleted(),
+          fields_count: getFieldsCompleted().length,
+          has_company: !!companyName.trim(),
+          has_email: !!email.trim(),
+          selected_niche: selectedNiche,
+          plan_name: searchParams.get('plan') || 'Plano Básico'
+        });
+      }
       toast.error('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
     if (isRegister && !companyName.trim()) {
+      trackLeadCaptureAttempt({
+        form_name: 'signup_form',
+        step: 'validation_failed',
+        status: 'error',
+        error_reason: 'missing_company',
+        last_field_focused: 'company_name',
+        fields_completed: getFieldsCompleted(),
+        fields_count: getFieldsCompleted().length,
+        has_company: false,
+        has_email: !!email.trim(),
+        selected_niche: selectedNiche,
+        plan_name: searchParams.get('plan') || 'Plano Básico'
+      });
       toast.error('Informe o nome da sua empresa.');
       return;
+    }
+
+    if (isRegister) {
+      trackLeadCaptureAttempt({
+        form_name: 'signup_form',
+        step: 'submit_attempt',
+        status: 'in_progress',
+        last_field_focused: lastFieldFocused,
+        fields_completed: getFieldsCompleted(),
+        fields_count: getFieldsCompleted().length,
+        has_company: !!companyName.trim(),
+        has_email: !!email.trim(),
+        selected_niche: selectedNiche,
+        plan_name: searchParams.get('plan') || 'Plano Básico'
+      });
     }
 
     setLoginError('');
@@ -192,6 +305,21 @@ export default function Login() {
 
         setNiche(selectedNiche);
         login(newUser, undefined, companyData);
+
+        // Track successful signup lead capture completion
+        isRegisteredSuccessRef.current = true;
+        trackLeadCaptureAttempt({
+          form_name: 'signup_form',
+          step: 'completed',
+          status: 'completed',
+          last_field_focused: lastFieldFocused,
+          fields_completed: getFieldsCompleted(),
+          fields_count: getFieldsCompleted().length,
+          has_company: !!companyName.trim(),
+          has_email: !!email.trim(),
+          selected_niche: selectedNiche,
+          plan_name: searchParams.get('plan') || 'Plano Básico'
+        });
 
         // Conversion event tracking
         trackEvent('sign_up', {
@@ -269,10 +397,44 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error('Authentication fatal error:', error);
+      if (isRegister) {
+        trackLeadCaptureAttempt({
+          form_name: 'signup_form',
+          step: 'auth_error',
+          status: 'error',
+          error_reason: error?.code || error?.message || 'auth_failed',
+          last_field_focused: lastFieldFocused,
+          fields_completed: getFieldsCompleted(),
+          fields_count: getFieldsCompleted().length,
+          has_company: !!companyName.trim(),
+          has_email: !!email.trim(),
+          selected_niche: selectedNiche,
+          plan_name: searchParams.get('plan') || 'Plano Básico'
+        });
+      }
       toast.error('Não foi possível entrar com estas credenciais. Utilize o Acesso Demo Instantâneo ou cadastre-se grátis.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleToggleRegister = () => {
+    if (isRegister && !isRegisteredSuccessRef.current && (companyName.trim() || email.trim() || password.trim())) {
+      trackLeadCaptureAttempt({
+        form_name: 'signup_form',
+        step: 'abandoned',
+        status: 'abandoned',
+        last_field_focused: lastFieldFocused,
+        fields_completed: getFieldsCompleted(),
+        fields_count: getFieldsCompleted().length,
+        has_company: !!companyName.trim(),
+        has_email: !!email.trim(),
+        selected_niche: selectedNiche,
+        plan_name: searchParams.get('plan') || 'Plano Básico',
+        source: 'toggled_to_login'
+      });
+    }
+    setIsRegister(!isRegister);
   };
 
   const handlePhoneAuth = async () => {
@@ -567,6 +729,7 @@ export default function Login() {
                     type="text" 
                     required
                     value={companyName}
+                    onFocus={() => setLastFieldFocused('company_name')}
                     onChange={(e) => setCompanyName(e.target.value)}
                     className="w-full bg-[#0A0A0A] border border-[#27272A] rounded-xl px-3.5 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all text-sm"
                     placeholder="Ex: Studio Bella Donna / Barbearia Real"
@@ -583,7 +746,10 @@ export default function Login() {
                         <button
                           key={opt.id}
                           type="button"
-                          onClick={() => setSelectedNiche(opt.id as NicheType)}
+                          onClick={() => {
+                            setSelectedNiche(opt.id as NicheType);
+                            setLastFieldFocused('niche');
+                          }}
                           className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all duration-150 ${
                             isSelected 
                               ? 'bg-cyan-500/10 border-cyan-500 text-white shadow-sm'
@@ -610,6 +776,7 @@ export default function Login() {
                 type="email" 
                 required
                 value={email}
+                onFocus={() => setLastFieldFocused('email')}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-[#0A0A0A] border border-[#27272A] rounded-xl px-3.5 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all text-sm"
                 placeholder="seu.email@empresa.com"
@@ -646,6 +813,7 @@ export default function Login() {
                 required
                 minLength={6}
                 value={password}
+                onFocus={() => setLastFieldFocused('password')}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-[#0A0A0A] border border-[#27272A] rounded-xl px-3.5 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all text-sm"
                 placeholder="Mínimo 6 caracteres"
@@ -672,7 +840,7 @@ export default function Login() {
             {isRegister ? 'Já possui uma conta?' : 'Ainda não tem conta?'}
             <button 
               type="button"
-              onClick={() => setIsRegister(!isRegister)}
+              onClick={handleToggleRegister}
               className="text-white hover:text-cyan-400 underline transition-colors font-semibold ml-1.5"
             >
               {isRegister ? 'Fazer login' : 'Cadastre-se grátis'}

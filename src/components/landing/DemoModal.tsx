@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Check, ArrowRight, MessageSquare, Play, Shield, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import { trackLeadGenerated, trackTrialStartClick } from '../../services/analyticsService';
+import { trackLeadGenerated, trackTrialStartClick, trackLeadCaptureAttempt } from '../../services/analyticsService';
 
 interface DemoModalProps {
   isOpen: boolean;
@@ -16,16 +16,91 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
   const [phone, setPhone] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [lastFieldFocused, setLastFieldFocused] = useState<string>('none');
+  const hasTrackedStartRef = useRef(false);
+  const isSubmittedSuccessRef = useRef(false);
+
+  const getFieldsCompleted = () => {
+    const fields: string[] = [];
+    if (name.trim()) fields.push('name');
+    if (businessName.trim()) fields.push('business_name');
+    if (phone.trim()) fields.push('phone');
+    return fields;
+  };
+
+  useEffect(() => {
+    if (isOpen && !hasTrackedStartRef.current) {
+      hasTrackedStartRef.current = true;
+      trackLeadCaptureAttempt({
+        form_name: 'demo_modal',
+        step: 'start',
+        status: 'started',
+        source: 'landing_demo_modal',
+        plan_name: preselectedPlan || 'Plano Básico'
+      });
+    }
+
+    if (!isOpen) {
+      hasTrackedStartRef.current = false;
+      isSubmittedSuccessRef.current = false;
+    }
+  }, [isOpen, preselectedPlan]);
+
+  const handleClose = () => {
+    if (!isSubmittedSuccessRef.current) {
+      trackLeadCaptureAttempt({
+        form_name: 'demo_modal',
+        step: 'abandoned',
+        status: 'abandoned',
+        last_field_focused: lastFieldFocused,
+        fields_completed: getFieldsCompleted(),
+        fields_count: getFieldsCompleted().length,
+        has_company: !!businessName.trim(),
+        has_phone: !!phone.trim(),
+        source: 'landing_demo_modal_close',
+        plan_name: preselectedPlan || 'Plano Básico'
+      });
+    }
+    onClose();
+  };
 
   if (!isOpen) return null;
 
   const handleWhatsAppContact = (e: React.FormEvent) => {
     e.preventDefault();
+
+    trackLeadCaptureAttempt({
+      form_name: 'demo_modal',
+      step: 'submit_attempt',
+      status: 'in_progress',
+      last_field_focused: lastFieldFocused,
+      fields_completed: getFieldsCompleted(),
+      fields_count: getFieldsCompleted().length,
+      has_company: !!businessName.trim(),
+      has_phone: !!phone.trim(),
+      source: 'demo_modal_whatsapp_form',
+      plan_name: preselectedPlan || 'Plano Básico'
+    });
+
     trackLeadGenerated({
       leadType: 'whatsapp',
       source: 'demo_modal_whatsapp_form',
       plan: preselectedPlan || 'Geral',
       hasBusinessName: !!businessName
+    });
+
+    isSubmittedSuccessRef.current = true;
+    trackLeadCaptureAttempt({
+      form_name: 'demo_modal',
+      step: 'completed',
+      status: 'completed',
+      last_field_focused: lastFieldFocused,
+      fields_completed: getFieldsCompleted(),
+      fields_count: getFieldsCompleted().length,
+      has_company: !!businessName.trim(),
+      has_phone: !!phone.trim(),
+      source: 'demo_modal_whatsapp_form',
+      plan_name: preselectedPlan || 'Plano Básico'
     });
 
     const cleanPhone = phone.replace(/\D/g, '');
@@ -47,7 +122,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
       source: 'demo_modal_quick_demo_button',
       plan: preselectedPlan || 'Geral'
     });
-    onClose();
+    handleClose();
     navigate('/login?demo=true');
   };
 
@@ -57,12 +132,15 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
       plan: preselectedPlan || 'Plano Básico',
       buttonLabel: 'Criar Conta Grátis'
     });
-    onClose();
+    handleClose();
     navigate(`/login?signup=true${preselectedPlan ? `&plan=${encodeURIComponent(preselectedPlan)}` : ''}`);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
       <div 
         className="relative w-full max-w-xl bg-[#071329] border border-[#00D9FF]/30 rounded-3xl p-6 sm:p-8 shadow-[0_0_50px_rgba(0,217,255,0.15)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -73,7 +151,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
 
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-colors z-20"
           aria-label="Fechar"
         >
@@ -134,6 +212,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
                 type="text"
                 required
                 value={name}
+                onFocus={() => setLastFieldFocused('name')}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Carlos Eduardo"
                 className="w-full px-4 py-3 bg-[#0B1933] border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#00D9FF] transition-colors"
@@ -147,6 +226,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
                   type="text"
                   required
                   value={businessName}
+                  onFocus={() => setLastFieldFocused('business_name')}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Ex: Barbearia Vip Club"
                   className="w-full px-4 py-3 bg-[#0B1933] border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#00D9FF] transition-colors"
@@ -158,6 +238,7 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
                   type="tel"
                   required
                   value={phone}
+                  onFocus={() => setLastFieldFocused('phone')}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(11) 99999-9999"
                   className="w-full px-4 py-3 bg-[#0B1933] border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#00D9FF] transition-colors"

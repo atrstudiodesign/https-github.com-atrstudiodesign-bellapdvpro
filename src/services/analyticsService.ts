@@ -65,6 +65,12 @@ export async function trackEvent(eventName: string, eventParams: Record<string, 
       logEvent(analytics, eventName, enrichedParams);
     }
 
+    if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+      try {
+        (window as any).gtag('event', eventName, enrichedParams);
+      } catch (_) {}
+    }
+
     if (import.meta.env.DEV) {
       console.log(`[Analytics Event] 🎯 ${eventName}`, enrichedParams);
     }
@@ -181,3 +187,43 @@ export async function setAnalyticsUser(userId: string, properties?: Record<strin
     console.warn('[Analytics] Erro ao definir usuário:', err);
   }
 }
+
+export interface LeadCaptureAttemptParams {
+  form_name: 'signup_form' | 'demo_lead_modal' | 'demo_showcase_modal' | 'onboarding_wizard' | string;
+  step: 'start' | 'field_input' | 'submit_attempt' | 'validation_failed' | 'auth_error' | 'abandoned' | 'completed' | string;
+  last_field_focused?: string;
+  fields_completed?: string[];
+  fields_count?: number;
+  has_company?: boolean;
+  has_email?: boolean;
+  has_phone?: boolean;
+  selected_niche?: string;
+  plan_name?: string;
+  source?: string;
+  error_reason?: string;
+  status: 'started' | 'in_progress' | 'error' | 'abandoned' | 'submitted' | 'completed' | string;
+}
+
+/**
+ * Funnel Optimization: Tracks each lead capture attempt and pinpoint abandonment in signup / onboarding
+ */
+export function trackLeadCaptureAttempt(params: LeadCaptureAttemptParams) {
+  return trackEvent('lead_capture_attempt', {
+    event_category: 'Funnel Optimization',
+    event_label: `${params.form_name} • ${params.step} • ${params.status}`,
+    form_name: params.form_name,
+    step: params.step,
+    status: params.status,
+    last_field_focused: params.last_field_focused || 'none',
+    fields_completed: (params.fields_completed || []).join(','),
+    fields_count: params.fields_count ?? (params.fields_completed ? params.fields_completed.length : 0),
+    has_company: params.has_company ?? false,
+    has_email: params.has_email ?? false,
+    has_phone: params.has_phone ?? false,
+    selected_niche: params.selected_niche || 'none',
+    plan_name: params.plan_name || 'Plano Básico',
+    source: params.source || 'direct',
+    error_reason: params.error_reason || 'none'
+  });
+}
+
