@@ -5,19 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>BellaPDV Pro — Sistema ERP & PDV Inteligente para Barbearias e Negócios de Beleza</title>
     <script>
-      // GTM dataLayer exists before app initialization. Remote scripts load only after consent.
+      // Google tag G-PSV5R007DR: carregamento único, após consentimento.
       window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event: 'bella_analytics_initialized', analytics_consent: 'denied' });
-      window.bellaGtmId = '%VITE_GTM_ID%';
       window.bellaLoadGtm = function () {
-        var id = window.bellaGtmId;
-        if (!/^GTM-[A-Z0-9]+$/.test(id) || document.getElementById('bella-gtm-script')) return false;
-        window.dataLayer.push({ event: 'bella_analytics_consent', analytics_consent: 'granted' });
+        if (document.getElementById('bella-google-tag')) return false;
         var tag = document.createElement('script');
-        tag.id = 'bella-gtm-script';
+        tag.id = 'bella-google-tag';
         tag.async = true;
-        tag.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(id);
+        tag.src = 'https://www.googletagmanager.com/gtag/js?id=G-PSV5R007DR';
         document.head.appendChild(tag);
+        window.gtag = window.gtag || function(){ window.dataLayer.push(arguments); };
+        window.gtag('js', new Date());
+        window.gtag('config', 'G-PSV5R007DR');
         return true;
       };
       try {
