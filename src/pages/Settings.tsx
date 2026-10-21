@@ -1,3 +1,4 @@
+import { BELLA_COMMERCIAL_PLANS } from '../lib/commercialPlans';
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
 import { useNicheStore } from '../store/niche';
@@ -734,105 +735,41 @@ export default function Settings() {
          onClose={() => setIsAndroidModalOpen(false)}
        />
 
-       {/* BILLING & PLANS SECTION */}
+       {/* BILLING & PLANS SECTION — shared terms with public landing */}
        <div className="glass-card p-0 border border-[#1A2C47] overflow-hidden">
-          <div className="bg-[#0C1627] p-6 border-b border-[#1A2C47] flex items-center justify-between">
-             <div className="flex items-center gap-3">
-               <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl">
-                 <CreditCard className="w-6 h-6" />
+         <div className="bg-[#0C1627] p-6 border-b border-[#1A2C47] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+           <div className="flex items-center gap-3">
+             <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl"><CreditCard className="w-6 h-6" /></div>
+             <div>
+               <h2 className="text-xl font-semibold text-white">Faturamento e Planos Bella PDV Pro</h2>
+               <p className="text-sm text-slate-400">Condições oficiais da landing page. Pagamentos processados pelo Asaas.</p>
+             </div>
+           </div>
+           <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300">15 dias de teste grátis</span>
+         </div>
+         <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
+           {(['basic', 'pro', 'premium'] as const).map((key) => {
+             const plan = BELLA_COMMERCIAL_PLANS[key];
+             const label = key === 'basic' ? 'Básico' : key === 'pro' ? 'Pro' : 'Premium';
+             return <div key={key} className={`rounded-2xl border p-6 flex flex-col ${key === 'pro' ? 'border-cyan-500 bg-cyan-500/10' : 'border-[#1A2C47] bg-[#0C1627]/50'}`}>
+               {key === 'pro' && <span className="text-xs font-bold text-cyan-300 mb-2">RECOMENDADO</span>}
+               <h3 className="text-lg font-bold text-white">{plan.title}</h3>
+               {key === 'basic' && <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300">De R$ {plan.regularPrice} por R$ {plan.promoPrice}/mês durante os primeiros 3 meses</div>}
+               <div className="flex items-end gap-1 mt-3 mb-1">
+                 <span className="text-3xl font-bold text-white">R$ {plan.promoPrice ?? plan.regularPrice}</span>
+                 <span className="text-slate-400 mb-1">/mês</span>
                </div>
-               <div>
-                  <h2 className="text-xl font-semibold text-white">Faturamento & Planos (Stripe Engine)</h2>
-                  <p className="text-sm text-slate-400">Proration nativo, Trial Inteligente e upgrades automáticos.</p>
-               </div>
-             </div>
-             <div className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.1)] cursor-pointer hover:bg-amber-500/20 transition-colors" title="Trial inteligente detecta uso e propõe assinatura">
-                <Clock className="w-4 h-4" />
-                 <span>Trial Inteligente: Termina em 2 dias</span>
-             </div>
-          </div>
-
-          <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-             {/* BASIC PLAN */}
-             <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
-                <h3 className="text-lg font-semibold text-white">Básico</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$79</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> PDV completo</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Agenda</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Até 2 profissionais</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                   <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Inclui upgrade automático por uso
-                   </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Básico')}
-                     className="w-full py-2.5 rounded-lg border border-[#1A2C47] text-white hover:bg-[#1A2C47] transition-colors font-medium"
-                   >
-                      Assinar Básico
-                   </button>
-                </div>
-             </div>
-
-             {/* PRO PLAN */}
-             <div className="bg-gradient-to-b from-blue-900/40 to-[#0C1627]/50 rounded-2xl border border-blue-500/50 p-6 relative shadow-[0_0_30px_rgba(59,130,246,0.15)] transform scale-105 z-10 flex flex-col">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  Recomendado
-                </div>
-                <h3 className="text-lg font-semibold text-white">Pro</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-blue-400 neon-text">R$129</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Tudo do Básico</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Profissionais ilimitados</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Lembretes WhatsApp VIP</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Cupons de Desconto</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                    <div className="flex bg-black/40 rounded-lg p-1 border border-white/5 mx-1 mb-2">
-                       <input type="text" placeholder="Código de Cupom" className="bg-transparent border-none outline-none text-xs text-white px-2 w-full" />
-                       <button className="text-xs bg-blue-600 px-2 py-1 rounded text-white font-medium">Aplicar</button>
-                    </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Pro')}
-                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all font-semibold shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"
-                   >
-                      Atualizar para Pro (Prorated)
-                   </button>
-                </div>
-             </div>
-
-             {/* ENTERPRISE PLAN */}
-             <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
-                <h3 className="text-lg font-semibold text-white">Premium</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$197</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Tudo do Pro</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Multi-unidade</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Acesso API Pública Limitada</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                   <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Suporte SLA Premium
-                   </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Premium')}
-                     className="w-full py-2.5 rounded-lg border border-[#1A2C47] text-white hover:bg-[#1A2C47] transition-colors font-medium"
-                   >
-                      Assinar Premium
-                   </button>
-                </div>
-             </div>
-          </div>
+               {key === 'basic' && <p className="text-xs text-slate-400 mb-3">Depois, R$ {plan.regularPrice}/mês</p>}
+               <p className="text-xs text-cyan-300 mb-4">15 dias de teste grátis, sem cartão de crédito</p>
+               <ul className="space-y-2 mb-5 flex-1 text-sm text-slate-300">
+                 {plan.features.map(item => <li key={item} className="flex items-start gap-2"><CheckCircle className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />{item}</li>)}
+                 {plan.limits.map(item => <li key={item} className="flex items-start gap-2"><X className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />{item}</li>)}
+               </ul>
+               <button type="button" onClick={() => handleBuyPlan(label)} className="mt-auto w-full rounded-lg bg-cyan-600 hover:bg-cyan-500 px-4 py-3 font-semibold text-white">Assinar {plan.title}</button>
+             </div>;
+           })}
+         </div>
+         <p className="px-6 pb-5 text-xs text-slate-400">Valores exibidos conforme a landing page. Confira o preço e as condições na página de pagamento Asaas antes de concluir a assinatura.</p>
        </div>
 
        {/* AUTOMATIONS SECTION */}
