@@ -184,8 +184,6 @@ export default function Login() {
         }
 
         setNiche(selectedNiche);
-        void recordAuthenticatedEvent('account_created', uid);
-        void recordAuthenticatedEvent('trial_started', uid);
         login(newUser, undefined, companyData);
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
