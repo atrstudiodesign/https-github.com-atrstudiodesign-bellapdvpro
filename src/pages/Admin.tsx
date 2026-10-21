@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import CommercialOverview from '../components/admin/CommercialOverview';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -46,7 +47,7 @@ type Client = {
 export default function AdminPanel() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('commercial');
   const [clients, setClients] = useState<Client[]>([]);
   const [licenses, setLicenses] = useState<Record<string, any>>({});
   const [flags, setFlags] = useState<Record<string, any>>({});
@@ -352,7 +353,8 @@ export default function AdminPanel() {
         </div>
         <nav className="flex-1 space-y-1">
            {[
-             { id: 'dashboard', label: 'Dashboard', icon: Activity },
+             { id: 'commercial', label: 'Visitas, Trials & Clientes', icon: BarChart3 },
+             { id: 'dashboard', label: 'Dashboard (legado)', icon: Activity },
              { id: 'licenciamento', label: 'Central de Licenciamento', icon: Shield },
              { id: 'licensing_dedicated', label: 'Licenciamento Avançado ↗', icon: ExternalLink },
              { id: 'empresas', label: 'Empresas', icon: Users },
@@ -400,6 +402,7 @@ export default function AdminPanel() {
       <main className="flex-1 h-screen overflow-auto">
         <div className="p-8 max-w-[1200px] mx-auto">
         <AnimatePresence mode="wait">
+           {activeTab === 'commercial' && <motion.div key="commercial" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><CommercialOverview /></motion.div>}
            {activeTab === 'dashboard' && (
               <motion.div key="dash" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                  <h2 className="text-2xl font-display font-semibold text-white tracking-tight">System Overview</h2>
