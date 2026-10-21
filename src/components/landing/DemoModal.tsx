@@ -1,4 +1,4 @@
-import { logBellaEvent, trackMetaPageView } from '../../services/analytics';
+import { logBellaEvent } from '../../services/analytics';
 import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, MessageSquare, Play, Shield, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
