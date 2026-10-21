@@ -7,6 +7,7 @@ import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate } from 'node:crypto';
+import { registerCommercialLifecycle } from './commercialLifecycle';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -198,10 +199,8 @@ app.use('/api', async (req, res, next) => {
     res.status(501).json({ error: 'Integração WhatsApp requer uma sessão real do provedor.' });
   });
 
-  // Webhooks: Asaas Dunning / Billing
-  app.post('/api/webhooks/asaas', (_req, res) => {
-      res.status(501).json({ error: 'Webhook Asaas ainda não está vinculado a empresas persistidas no Firebase.' });
-  });
+  // Server-side, verified commercial lifecycle endpoints.
+  registerCommercialLifecycle(app);
 
   // --- GEMINI PROXY ROUTES WITH HIGH-RESILIENCE FALLBACK ---
   app.post('/api/gemini/generateContent', async (req, res) => {
