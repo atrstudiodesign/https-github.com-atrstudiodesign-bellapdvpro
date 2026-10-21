@@ -1,3 +1,4 @@
+import { AnalyticsConsent } from './components/AnalyticsConsent';
 import { StrictMode, ReactNode, Suspense, lazy, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -108,6 +109,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
+        <AnalyticsConsent />
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}>
           <Routes>
             <Route path="/landing" element={<Landing />} />
