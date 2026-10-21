@@ -1,3 +1,4 @@
+import { trackConversion } from '../lib/conversionAnalytics';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LandingHeader } from '../components/landing/LandingHeader';
@@ -19,11 +20,13 @@ export default function Landing() {
   const [zoomedCard, setZoomedCard] = useState<ZoomCardData | null>(null);
 
   useEffect(() => {
+    trackConversion('landing_page_view', 'landing');
     document.title = 'BellaPDV Pro — Sistema ERP & PDV Inteligente para Barbearias e Negócios de Beleza';
   }, []);
 
   const handleOpenDemoModal = (planName?: string) => {
     setPreselectedPlan(planName);
+    trackConversion('demo_cta_click', 'landing_demo_modal', planName);
     setIsDemoModalOpen(true);
   };
 
@@ -38,6 +41,7 @@ export default function Landing() {
 
   const handleSelectPlan = (planName: string) => {
     // Allows user to either register directly with pre-selected plan or request custom setup
+    trackConversion('trial_cta_click', 'landing_plan_card', planName);
     navigate(`/login?signup=true&plan=${encodeURIComponent(planName)}`);
   };
 

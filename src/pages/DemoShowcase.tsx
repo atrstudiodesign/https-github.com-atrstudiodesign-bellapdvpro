@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { trackConversion } from '../lib/conversionAnalytics';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Eye, LockKeyhole, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
 
@@ -29,10 +30,12 @@ export default function DemoShowcase() {
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
-  const requestAccess = () => setLeadOpen(true);
+  useEffect(() => { trackConversion('demo_page_view', 'demo'); }, []);
+  const requestAccess = () => { trackConversion('trial_cta_click', 'demo_unlock'); setLeadOpen(true); };
   const register = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = new URLSearchParams({ signup: 'true', email: email.trim(), company: company.trim(), source: 'demo' });
+    trackConversion('trial_signup_started', 'demo_capture_form');
     navigate('/login?' + query.toString());
   };
   const current = modules[selected];

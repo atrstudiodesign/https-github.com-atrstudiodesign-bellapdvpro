@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>BellaPDV Pro — Sistema ERP & PDV Inteligente para Barbearias e Negócios de Beleza</title>
     <script>
+      // Google tag G-PSV5R007DR: carregamento único, após consentimento.
+      window.dataLayer = window.dataLayer || [];
+      window.bellaLoadGtm = function () {
+        if (document.getElementById('bella-google-tag')) return false;
+        var tag = document.createElement('script');
+        tag.id = 'bella-google-tag';
+        tag.async = true;
+        tag.src = 'https://www.googletagmanager.com/gtag/js?id=G-PSV5R007DR';
+        document.head.appendChild(tag);
+        window.gtag = window.gtag || function(){ window.dataLayer.push(arguments); };
+        window.gtag('js', new Date());
+        window.gtag('config', 'G-PSV5R007DR');
+        return true;
+      };
+      try {
+        if (localStorage.getItem('bella_analytics_consent') === 'yes') window.bellaLoadGtm();
+      } catch (_) {}
+    </script>
+
+    <script>
       // Gracefully handle Vite HMR WebSockets in AI Studio preview environment (where HMR is disabled)
       (function() {
         var OrigWebSocket = window.WebSocket;
