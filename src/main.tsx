@@ -2,6 +2,7 @@ import { StrictMode, ReactNode, Suspense, lazy, useState, useEffect } from 'reac
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 import { useAuthStore } from './store/auth';
 import { LicenseRouteGuard } from './components/LicenseRouteGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -164,6 +165,7 @@ createRoot(document.getElementById('root')!).render(
         </Suspense>
       </BrowserRouter>
       <SpeedInsights />
+      <Analytics />
     </ErrorBoundary>
   </StrictMode>
 )
