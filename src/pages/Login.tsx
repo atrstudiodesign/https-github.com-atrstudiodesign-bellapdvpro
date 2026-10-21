@@ -1,3 +1,4 @@
+import { trackConversion } from '../lib/conversionAnalytics';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -187,6 +188,7 @@ export default function Login() {
 
         setNiche(selectedNiche);
         login(newUser, undefined, companyData);
+        trackConversion('trial_signup_completed', 'account_registration');
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
         });
