@@ -1,3 +1,4 @@
+import { trackConversion } from '../../lib/conversionAnalytics';
 import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, MessageSquare, Play, Shield, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -34,11 +35,13 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
 
   const handleStartDemoNow = () => {
     onClose();
-    navigate('/login?demo=true');
+    trackConversion('demo_cta_click', 'landing_demo_modal_start');
+    navigate('/demo');
   };
 
   const handleCreateAccount = () => {
     onClose();
+    trackConversion('trial_cta_click', 'landing_demo_modal_signup', preselectedPlan);
     navigate(`/login?signup=true${preselectedPlan ? `&plan=${encodeURIComponent(preselectedPlan)}` : ''}`);
   };
 
