@@ -108,8 +108,11 @@ interface NicheState {
   getConfig: () => NicheConfig;
 }
 
+export const isNicheType = (value: unknown): value is NicheType =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(NICHE_CONFIGS, value);
+
 export const useNicheStore = create<NicheState>((set, get) => ({
   currentNiche: 'barbershop', // default
-  setNiche: (niche) => set({ currentNiche: niche }),
-  getConfig: () => NICHE_CONFIGS[get().currentNiche],
+  setNiche: (niche) => set({ currentNiche: isNicheType(niche) ? niche : 'barbershop' }),
+  getConfig: () => NICHE_CONFIGS[get().currentNiche] ?? NICHE_CONFIGS.barbershop,
 }));
