@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <title>BellaPDV Pro — Sistema ERP & PDV Inteligente para Barbearias e Negócios de Beleza</title>
     <script>
+      // GTM dataLayer exists before app initialization. Remote scripts load only after consent.
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event: 'bella_analytics_initialized', analytics_consent: 'denied' });
+      window.bellaGtmId = '%VITE_GTM_ID%';
+      window.bellaLoadGtm = function () {
+        var id = window.bellaGtmId;
+        if (!/^GTM-[A-Z0-9]+$/.test(id) || document.getElementById('bella-gtm-script')) return false;
+        window.dataLayer.push({ event: 'bella_analytics_consent', analytics_consent: 'granted' });
+        var tag = document.createElement('script');
+        tag.id = 'bella-gtm-script';
+        tag.async = true;
+        tag.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(id);
+        document.head.appendChild(tag);
+        return true;
+      };
+      try {
+        if (localStorage.getItem('bella_analytics_consent') === 'yes') window.bellaLoadGtm();
+      } catch (_) {}
+    </script>
+
+    <script>
       // Gracefully handle Vite HMR WebSockets in AI Studio preview environment (where HMR is disabled)
       (function() {
         var OrigWebSocket = window.WebSocket;
