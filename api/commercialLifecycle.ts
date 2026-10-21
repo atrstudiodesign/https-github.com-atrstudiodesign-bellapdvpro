@@ -46,6 +46,32 @@ export function registerCommercialLifecycle(app: AppLike) {
     }
   });
 
+  // Bind an Asaas payment to a tenant only with a verified platform-admin claim.
+  app.post('/api/payments/link', async (req, res) => {
+    if (!req.firebaseUser?.admin) return res.status(403).json({ error: 'Acesso exclusivo ao Super Admin' });
+    const { paymentId, companyId, plan, expectedCents } = req.body || {};
+    if (typeof paymentId !== 'string' || !/^pay_[A-Za-z0-9_-]{1,120}$/.test(paymentId)
+      || typeof companyId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(companyId)
+      || !['Bronze','Prata','Ouro'].includes(plan)
+      || !Number.isSafeInteger(expectedCents) || expectedCents <= 0) {
+      return res.status(400).json({ error: 'Vínculo de pagamento inválido' });
+    }
+    try {
+      const license = await firestoreServerRequest(documentUrl('company_licenses', companyId), 'GET');
+      if (!license.ok) return res.status(404).json({ error: 'Empresa sem licença cadastrada' });
+      const response = await firestoreServerRequest(
+        collectionUrl('payment_bindings') + '?documentId=' + encodeURIComponent(paymentId),
+        'POST', { fields: encodeFields({ companyId, paymentId, plan, expectedCents, createdAt: new Date().toISOString() }) }
+      );
+      if (response.status === 409) return res.status(409).json({ error: 'Pagamento já vinculado' });
+      if (!response.ok) throw new Error('Could not persist payment mapping');
+      return res.status(201).json({ linked: true });
+    } catch (error) {
+      console.error('[payment link]', error instanceof Error ? error.message : error);
+      return res.status(503).json({ error: 'Não foi possível vincular a cobrança' });
+    }
+  });
+
   // Only trusted Asaas webhook events with a pre-provisioned payment->company binding can activate a paid license.
   app.post('/api/webhooks/asaas', async (req, res) => {
     const secret = process.env.ASAAS_WEBHOOK_TOKEN;
