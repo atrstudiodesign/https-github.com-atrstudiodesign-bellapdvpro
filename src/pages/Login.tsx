@@ -33,6 +33,7 @@ import {
   type ConfirmationResult
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { recordAuthenticatedEvent } from '../services/commercialEvents';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -186,6 +187,8 @@ export default function Login() {
         }
 
         setNiche(selectedNiche);
+        void recordAuthenticatedEvent('account_created', uid);
+        void recordAuthenticatedEvent('trial_started', uid);
         login(newUser, undefined, companyData);
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
@@ -236,6 +239,7 @@ export default function Login() {
           setNiche(companyData.niche as NicheType);
         }
 
+        void recordAuthenticatedEvent('account_login', uid);
         login(loggedUser, undefined, companyData);
         toast.success('Login realizado com sucesso!', {
           description: `Bem-vindo de volta, ${loggedUser.name}!`
