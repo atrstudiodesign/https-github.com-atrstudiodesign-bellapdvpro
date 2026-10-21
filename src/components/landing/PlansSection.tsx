@@ -1,3 +1,4 @@
+import { BELLA_COMMERCIAL_PLANS } from '../../lib/commercialPlans';
 import React from 'react';
 import { Check, Sparkles, Crown, ArrowRight, Shield, Zap, Gift, Flame } from 'lucide-react';
 import { trackTrialStartClick, trackPlanSelection } from '../../services/analyticsService';
@@ -11,8 +12,8 @@ export function PlansSection({ onSelectPlan }: PlansSectionProps) {
     {
       id: 'basic',
       name: 'Plano Básico',
-      regularPrice: '89,90',
-      promoPrice: '29,90',
+      regularPrice: BELLA_COMMERCIAL_PLANS.basic.regularPrice,
+      promoPrice: BELLA_COMMERCIAL_PLANS.basic.promoPrice,
       period: '/mês',
       hasPromo: true,
       promoHighlightText: 'De R$ 89,90 por apenas R$ 29,90 nos primeiros 3 meses',
@@ -38,8 +39,8 @@ export function PlansSection({ onSelectPlan }: PlansSectionProps) {
     {
       id: 'pro',
       name: 'Plano Pro',
-      regularPrice: '149,90',
-      promoPrice: null,
+      regularPrice: BELLA_COMMERCIAL_PLANS.pro.regularPrice,
+      promoPrice: BELLA_COMMERCIAL_PLANS.pro.promoPrice,
       period: '/mês',
       hasPromo: false,
       promoHighlightText: null,
@@ -65,8 +66,8 @@ export function PlansSection({ onSelectPlan }: PlansSectionProps) {
     {
       id: 'premium',
       name: 'Plano Premium',
-      regularPrice: '249,90',
-      promoPrice: null,
+      regularPrice: BELLA_COMMERCIAL_PLANS.premium.regularPrice,
+      promoPrice: BELLA_COMMERCIAL_PLANS.premium.promoPrice,
       period: '/mês',
       hasPromo: false,
       promoHighlightText: null,
