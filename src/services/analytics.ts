@@ -57,6 +57,10 @@ export async function logBellaEvent(event: BellaAnalyticsEvent, params: Paramete
 }
 export function trackMetaPageView(path: string): void {
   if (typeof window === 'undefined' || !hasConsent()) return;
+  const alreadyInitialized = pixelLoaded;
   initializeMetaPixel();
-  void logBellaEvent('page_view', { page_path: path });
+  if (alreadyInitialized) window.fbq?.('track', 'PageView');
+  // Existing analyticsService.ts tracks GA4 page_view. Avoid counting it twice.
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'bella_meta_page_view', page_path: path });
 }
