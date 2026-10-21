@@ -1,0 +1,6 @@
+/** Fonte única das condições comerciais divulgadas na landing page. */
+export const BELLA_COMMERCIAL_PLANS = {
+  basic: { title: 'Plano Básico', regularPrice: '89,90', promoPrice: '29,90', promoMonths: 3, trialDays: 15, features: ['PDV completo e controle de vendas', 'Cadastro de clientes e histórico de serviços', 'Fechamento e conferência de caixa', '1 unidade operacional', 'Até 1 profissional cadastrado', 'Suporte por e-mail e chamado'], limits: ['Sem automação de marketing com IA', 'Sem disparos diretos de WhatsApp'] },
+  pro: { title: 'Plano Pro', regularPrice: '149,90', promoPrice: null, promoMonths: 0, trialDays: 15, features: ['Tudo do Plano Básico', 'Agenda online e agendamentos', 'Gestão de profissionais e comissões', 'CRM e relatórios financeiros', 'Lembretes de agendamento automáticos', 'Até 5 profissionais ativos', 'Suporte prioritário'], limits: ['Sem disparos em massa com IA'] },
+  premium: { title: 'Plano Premium', regularPrice: '249,90', promoPrice: null, promoMonths: 0, trialDays: 15, features: ['Tudo do Plano Pro', 'Marketing com inteligência artificial', 'Integração WhatsApp para lembretes e pós-venda', 'Programa de fidelidade', 'Catálogo público e Totem', 'Profissionais ilimitados na mesma unidade', 'Acesso multi-dispositivos', 'Atendimento VIP via WhatsApp'], limits: [] }
+} as const;
