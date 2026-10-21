@@ -33,12 +33,25 @@ export function registerCommercialLifecycle(app: AppLike) {
         expireDate: expires, maxUsers: 1, unitsCount: 1, aiUsage: 0, waUsage: 0,
         createdAt: new Date().toISOString(), source: 'bella_server'
       });
-      const url = collectionUrl('company_licenses') + '?documentId=' + encodeURIComponent(uid);
-      const created = await firestoreServerRequest(url, 'POST', { fields });
-      if (created.status === 409) {
-        return res.status(200).json({ status: 'already_provisioned', message: 'Licença existente preservada' });
+      const now = new Date().toISOString();
+      const commit = await firestoreServerRequest(
+        collectionUrl('company_licenses').replace(/\/company_licenses$/, ':commit'),
+        'POST',
+        { writes: [
+          { update: { name: documentUrl('company_licenses', uid), fields }, currentDocument: { exists: false } },
+          { update: { name: documentUrl('commercial_events', 'account_' + uid), fields: encodeFields({
+            event: 'account_created', userId: uid, companyId: uid, occurredAt: now, source: 'bella_server'
+          }) }, currentDocument: { exists: false } },
+          { update: { name: documentUrl('commercial_events', 'trial_' + uid), fields: encodeFields({
+            event: 'trial_started', userId: uid, companyId: uid, occurredAt: now, source: 'bella_server'
+          }) }, currentDocument: { exists: false } }
+        ] }
+      );
+      if (!commit.ok) {
+        const existing = await firestoreServerRequest(documentUrl('company_licenses', uid), 'GET');
+        if (existing.ok) return res.status(200).json({ status: 'already_provisioned', message: 'Licença existente preservada' });
+        throw new Error('Firestore atomic trial creation failed: ' + commit.status);
       }
-      if (!created.ok) throw new Error('Firestore trial creation failed: ' + created.status);
       return res.status(201).json({ status: 'trial', trialDays: 15, expires });
     } catch (error) {
       console.error('[trial activation]', error instanceof Error ? error.message : error);
