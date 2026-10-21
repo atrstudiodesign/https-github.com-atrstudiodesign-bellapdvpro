@@ -121,44 +121,41 @@ export const DEMO_CATALOG: CatalogItem[] = [
 ];
 
 export const DEMO_PROFESSIONALS: Professional[] = [
-  { id: 'pro-1', name: 'Rodrigo Cortes (Master Barber)', email: 'rodrigo@barbearia.com', phone: '(11) 98888-1111', role: 'Barbeiro Master', commissionRate: 50, active: true },
-  { id: 'pro-2', name: 'Gabriel Navalha', email: 'gabriel@barbearia.com', phone: '(11) 98888-2222', role: 'Especialista em Barba', commissionRate: 45, active: true },
-  { id: 'pro-3', name: 'Matheus Estilo', email: 'matheus@barbearia.com', phone: '(11) 98888-3333', role: 'Barbeiro Jr.', commissionRate: 40, active: true }
+  { id: 'pro-1', name: 'Rodrigo Cortes (Master Barber)', email: 'rodrigo@barbearia.com', phone: '(11) 98888-1111', role: 'Barbeiro Master', status: 'Ativo', rating: 5.0, services: 140, revenue: 5600, commission: 50 },
+  { id: 'pro-2', name: 'Gabriel Navalha', email: 'gabriel@barbearia.com', phone: '(11) 98888-2222', role: 'Especialista em Barba', status: 'Ativo', rating: 4.9, services: 98, revenue: 3900, commission: 45 },
+  { id: 'pro-3', name: 'Matheus Estilo', email: 'matheus@barbearia.com', phone: '(11) 98888-3333', role: 'Barbeiro Jr.', status: 'Ativo', rating: 4.8, services: 75, revenue: 2800, commission: 40 }
 ];
 
 export const DEMO_APPOINTMENTS: Appointment[] = [
   {
     id: 'app-1',
-    clientName: 'Carlos Eduardo Silva',
+    client: 'Carlos Eduardo Silva',
     clientPhone: '(11) 98765-4321',
     service: 'Corte Degradê + Barba Alinhada',
+    employee: 'Rodrigo Cortes',
     date: new Date().toISOString().split('T')[0],
     time: '14:30',
-    status: 'confirmed',
-    professionalId: 'pro-1',
-    price: 70.00
+    status: 'confirmed'
   },
   {
     id: 'app-2',
-    clientName: 'Bruno Henrique Souza',
+    client: 'Bruno Henrique Souza',
     clientPhone: '(11) 95432-1098',
     service: 'Combo Premium Corte + Barba',
+    employee: 'Gabriel Navalha',
     date: new Date().toISOString().split('T')[0],
     time: '16:00',
-    status: 'pending',
-    professionalId: 'pro-2',
-    price: 70.00
+    status: 'pending'
   },
   {
     id: 'app-3',
-    clientName: 'Lucas Ferreira Mendes',
+    client: 'Lucas Ferreira Mendes',
     clientPhone: '(11) 97654-3210',
     service: 'Barba Terapia com Toalha Quente',
+    employee: 'Rodrigo Cortes',
     date: new Date().toISOString().split('T')[0],
     time: '17:30',
-    status: 'completed',
-    professionalId: 'pro-1',
-    price: 35.00
+    status: 'completed'
   }
 ];
 
@@ -168,7 +165,7 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     total: 70.00,
     paymentMethod: 'pix',
     status: 'completed',
-    createdAt: new Date().toISOString(),
+    date: new Date().toISOString(),
     items: [
       { id: 'cat-3', name: 'Combo Corte + Barba VIP', price: 70.00, quantity: 1, category: 'Combo', type: 'service' }
     ]
@@ -178,7 +175,7 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     total: 80.00,
     paymentMethod: 'card',
     status: 'completed',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    date: new Date(Date.now() - 3600000).toISOString(),
     items: [
       { id: 'cat-1', name: 'Corte Degradê Navalhado', price: 45.00, quantity: 1, category: 'Cabelo', type: 'service' },
       { id: 'cat-2', name: 'Barba Terapia', price: 35.00, quantity: 1, category: 'Barba', type: 'service' }
@@ -189,7 +186,7 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     total: 45.00,
     paymentMethod: 'cash',
     status: 'completed',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    date: new Date(Date.now() - 7200000).toISOString(),
     items: [
       { id: 'cat-6', name: 'Pomada Matte Efeito Seco', price: 45.00, quantity: 1, category: 'Produtos', type: 'product' }
     ]
@@ -200,20 +197,24 @@ export const DEMO_QUEUE: QueueItem[] = [
   {
     id: 'q-1',
     clientName: 'Felipe Santos',
-    service: 'Corte Degradê Navalhado',
-    professional: 'Rodrigo Cortes',
-    status: 'in-service',
-    arrivalTime: '14:15',
-    notes: 'Degradê baixo com risco lateral'
+    serviceId: 'cat-1',
+    serviceName: 'Corte Degradê Navalhado',
+    professionalId: 'pro-1',
+    professionalName: 'Rodrigo Cortes',
+    status: 'in_progress',
+    timestamp: new Date().toISOString(),
+    estimatedWaitMinutes: 10
   },
   {
     id: 'q-2',
     clientName: 'Thiago Martins',
-    service: 'Barba Terapia',
-    professional: 'Gabriel Navalha',
+    serviceId: 'cat-2',
+    serviceName: 'Barba Terapia',
+    professionalId: 'pro-2',
+    professionalName: 'Gabriel Navalha',
     status: 'waiting',
-    arrivalTime: '14:25',
-    notes: 'Toalha bem quente'
+    timestamp: new Date().toISOString(),
+    estimatedWaitMinutes: 20
   }
 ];
 

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, MessageSquare, Play, Shield, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { trackLeadGenerated, trackTrialStartClick } from '../../services/analyticsService';
+
 interface DemoModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,6 +21,13 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
 
   const handleWhatsAppContact = (e: React.FormEvent) => {
     e.preventDefault();
+    trackLeadGenerated({
+      leadType: 'whatsapp',
+      source: 'demo_modal_whatsapp_form',
+      plan: preselectedPlan || 'Geral',
+      hasBusinessName: !!businessName
+    });
+
     const cleanPhone = phone.replace(/\D/g, '');
     const message = encodeURIComponent(
       `Olá! Tenho interesse em uma demonstração do BellaPDV Pro.\n\n` +
@@ -33,11 +42,21 @@ export function DemoModal({ isOpen, onClose, preselectedPlan }: DemoModalProps) 
   };
 
   const handleStartDemoNow = () => {
+    trackLeadGenerated({
+      leadType: 'instant_demo',
+      source: 'demo_modal_quick_demo_button',
+      plan: preselectedPlan || 'Geral'
+    });
     onClose();
     navigate('/login?demo=true');
   };
 
   const handleCreateAccount = () => {
+    trackTrialStartClick({
+      source: 'demo_modal_create_account_button',
+      plan: preselectedPlan || 'Plano Básico',
+      buttonLabel: 'Criar Conta Grátis'
+    });
     onClose();
     navigate(`/login?signup=true${preselectedPlan ? `&plan=${encodeURIComponent(preselectedPlan)}` : ''}`);
   };

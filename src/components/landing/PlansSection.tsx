@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Sparkles, Crown, ArrowRight, Shield, Zap, Gift, Flame } from 'lucide-react';
+import { trackTrialStartClick, trackPlanSelection } from '../../services/analyticsService';
 
 interface PlansSectionProps {
   onSelectPlan: (planName: string) => void;
@@ -102,7 +103,18 @@ export function PlansSection({ onSelectPlan }: PlansSectionProps) {
         <div className="text-center max-w-3xl mx-auto mb-16">
           
           {/* Main Promotional Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500/20 via-[#00D9FF]/20 to-[#8545FF]/20 border border-emerald-400/50 text-emerald-300 text-xs sm:text-sm font-extrabold tracking-wide mb-4 shadow-[0_0_30px_rgba(52,211,153,0.3)] animate-pulse">
+          <div 
+            onClick={() => {
+              trackTrialStartClick({
+                source: 'plans_header_pill',
+                plan: 'Plano Básico',
+                promoText: 'De R$ 89,90 por apenas R$ 29,90 nos primeiros 3 meses',
+                buttonLabel: 'OFERTA ESPECIAL'
+              });
+              onSelectPlan('Plano Básico');
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500/20 via-[#00D9FF]/20 to-[#8545FF]/20 border border-emerald-400/50 text-emerald-300 text-xs sm:text-sm font-extrabold tracking-wide mb-4 shadow-[0_0_30px_rgba(52,211,153,0.3)] animate-pulse cursor-pointer hover:border-emerald-300 transition-colors"
+          >
             <Flame className="w-4 h-4 text-emerald-400 fill-emerald-400" />
             <span>OFERTA ESPECIAL: De R$ 89,90 por apenas R$ 29,90 nos primeiros 3 meses</span>
             <span className="hidden sm:inline bg-emerald-400 text-[#030817] font-black text-[10px] px-2 py-0.5 rounded-full ml-1 uppercase">
@@ -251,7 +263,22 @@ export function PlansSection({ onSelectPlan }: PlansSectionProps) {
 
               {/* Action Button */}
               <button
-                onClick={() => onSelectPlan(plan.name)}
+                onClick={() => {
+                  trackPlanSelection({
+                    planId: plan.id,
+                    planName: plan.name,
+                    price: plan.regularPrice,
+                    promoPrice: plan.promoPrice,
+                    isPopular: plan.isPopular
+                  });
+                  trackTrialStartClick({
+                    source: `plans_card_${plan.id}`,
+                    plan: plan.name,
+                    promoText: plan.promoHighlightText || undefined,
+                    buttonLabel: plan.cta
+                  });
+                  onSelectPlan(plan.name);
+                }}
                 className={`w-full py-4 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
                   plan.hasPromo
                     ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-[#00D9FF] hover:brightness-110 text-[#030817] font-black shadow-[0_0_25px_rgba(52,211,153,0.5)]'

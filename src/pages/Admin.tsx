@@ -154,6 +154,11 @@ export default function AdminPanel() {
     };
     
     // Attempt admin-level fetch
+    if (user?.isDemo) {
+       toast.error("O painel Super Admin não está disponível no modo de demonstração.");
+       navigate('/');
+       return;
+    }
     if (user?.isPlatformAdmin) {
        fetchCompanies();
     } else if (!isSuperAdminEmail(user?.email)) {

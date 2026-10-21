@@ -12,6 +12,13 @@ import { LandingFooter } from '../components/landing/LandingFooter';
 import { DemoModal } from '../components/landing/DemoModal';
 import { CardZoomModal, ZoomCardData } from '../components/landing/CardZoomModal';
 
+import { 
+  trackPageView, 
+  trackTrialStartClick, 
+  trackDemoRequestClick, 
+  trackEvent 
+} from '../services/analyticsService';
+
 export default function Landing() {
   const navigate = useNavigate();
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
@@ -20,14 +27,20 @@ export default function Landing() {
 
   useEffect(() => {
     document.title = 'BellaPDV Pro — Sistema ERP & PDV Inteligente para Barbearias e Negócios de Beleza';
+    trackPageView('BellaPDV Pro — Landing Page', '/landing');
   }, []);
 
   const handleOpenDemoModal = (planName?: string) => {
+    trackDemoRequestClick({
+      source: 'landing_main_cta',
+      plan: planName || 'Geral'
+    });
     setPreselectedPlan(planName);
     setIsDemoModalOpen(true);
   };
 
   const handleOpenHowItWorks = () => {
+    trackEvent('how_it_works_view', { source: 'landing_hero' });
     const recursosEl = document.getElementById('recursos');
     if (recursosEl) {
       recursosEl.scrollIntoView({ behavior: 'smooth' });
@@ -37,6 +50,16 @@ export default function Landing() {
   };
 
   const handleSelectPlan = (planName: string) => {
+    // Conversion: Start Trial / Select Plan
+    trackTrialStartClick({
+      source: 'landing_plans_section',
+      plan: planName,
+      promoText: planName.toLowerCase().includes('básico') 
+        ? 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses' 
+        : undefined,
+      buttonLabel: 'Começar com 15 Dias Grátis'
+    });
+
     // Allows user to either register directly with pre-selected plan or request custom setup
     navigate(`/login?signup=true&plan=${encodeURIComponent(planName)}`);
   };

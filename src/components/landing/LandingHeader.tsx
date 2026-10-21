@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronRight, Sparkles } from 'lucide-react';
 import { Logo } from '../ui/Logo';
+import { trackTrialStartClick, trackDemoRequestClick, trackEvent } from '../../services/analyticsService';
 
 interface LandingHeaderProps {
   onRequestDemo: () => void;
@@ -79,7 +80,17 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
             15 DIAS DE TESTE GRÁTIS
           </span>
           <span>Oferta exclusiva: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-extrabold text-[#00D9FF]">R$ 29,90 nos primeiros 3 meses</strong></span>
-          <a href="#planos" className="text-[#00D9FF] hover:text-white underline font-bold inline-flex items-center gap-0.5">
+          <a 
+            href="#planos" 
+            onClick={() => {
+              trackTrialStartClick({
+                source: 'header_announcement_bar',
+                promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
+                buttonLabel: 'Aproveitar oferta'
+              });
+            }}
+            className="text-[#00D9FF] hover:text-white underline font-bold inline-flex items-center gap-0.5"
+          >
             Aproveitar oferta <ChevronRight className="w-3 h-3" />
           </a>
         </div>
@@ -129,14 +140,23 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
         {/* Right: Actions */}
         <div className="hidden sm:flex items-center gap-3.5">
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              trackEvent('login_click', { source: 'header_desktop' });
+              navigate('/login');
+            }}
             className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors rounded-xl hover:bg-white/5"
           >
             Entrar
           </button>
           
           <button
-            onClick={onRequestDemo}
+            onClick={() => {
+              trackDemoRequestClick({
+                source: 'header_desktop_cta',
+                buttonLabel: 'Solicite uma demonstração'
+              });
+              onRequestDemo();
+            }}
             className="relative group overflow-hidden px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold text-white transition-all duration-300 shadow-[0_0_20px_rgba(8,124,255,0.4)] hover:shadow-[0_0_30px_rgba(0,217,255,0.6)] hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF]"
           >
             <span className="relative z-10 flex items-center gap-1.5">
@@ -176,6 +196,7 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
           <div className="pt-2 flex flex-col gap-3">
             <button
               onClick={() => {
+                trackEvent('login_click', { source: 'header_mobile' });
                 setMobileMenuOpen(false);
                 navigate('/login');
               }}
@@ -185,6 +206,10 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
             </button>
             <button
               onClick={() => {
+                trackDemoRequestClick({
+                  source: 'header_mobile_cta',
+                  buttonLabel: 'Solicite uma demonstração'
+                });
                 setMobileMenuOpen(false);
                 onRequestDemo();
               }}

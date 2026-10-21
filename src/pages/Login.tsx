@@ -20,6 +20,7 @@ import { Logo } from '../components/ui/Logo';
 import { AtrStudioBadge } from '../components/ui/AtrStudioBadge';
 import { auth, db } from '../lib/firebase';
 import { hasPlatformAdminClaim, isSuperAdminEmail } from '../lib/superAdmins';
+import { trackTrialStartClick, trackLeadGenerated, trackEvent, setAnalyticsUser } from '../services/analyticsService';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -83,6 +84,10 @@ export default function Login() {
   }, [searchParams, isAuthenticated, navigate]);
 
   const handleQuickDemoLogin = () => {
+    trackLeadGenerated({
+      leadType: 'instant_demo',
+      source: 'login_quick_demo_button'
+    });
     // Demo is a static, public, read-only showcase; no anonymous Firebase login.
     navigate('/demo');
   };
@@ -187,6 +192,26 @@ export default function Login() {
 
         setNiche(selectedNiche);
         login(newUser, undefined, companyData);
+
+        // Conversion event tracking
+        trackEvent('sign_up', {
+          method: 'email',
+          trial_days: 15,
+          plan: 'Plano Básico',
+          promo_applied: 'De R$ 89,90 por R$ 29,90'
+        });
+        trackLeadGenerated({
+          leadType: 'trial_signup',
+          source: 'login_registration_form',
+          plan: 'Plano Básico',
+          hasBusinessName: !!companyName.trim()
+        });
+        setAnalyticsUser(uid, {
+          company: companyName.trim(),
+          plan: 'Bronze',
+          status: 'Trial'
+        });
+
         toast.success('Conta criada com sucesso!', {
           description: `Bem-vindo ao BellaPDV, ${companyName.trim()}!`
         });

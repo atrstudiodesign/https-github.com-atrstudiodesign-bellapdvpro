@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Eye, LockKeyhole, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { trackPageView, trackTrialStartClick, trackLeadGenerated } from '../services/analyticsService';
 
 const modules = [
   { title: 'Visão geral', subtitle: 'Indicadores, faturamento e atendimentos', metrics: ['Resumo de receitas', 'Ocupação de agenda', 'Indicadores de crescimento'] },
@@ -29,9 +30,25 @@ export default function DemoShowcase() {
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
-  const requestAccess = () => setLeadOpen(true);
+  useEffect(() => {
+    trackPageView('BellaPDV Pro — Vitrine de Demonstração', '/demo');
+  }, []);
+
+  const requestAccess = () => {
+    trackTrialStartClick({
+      source: 'demo_showcase_modal_open',
+      buttonLabel: '15 dias grátis'
+    });
+    setLeadOpen(true);
+  };
+
   const register = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    trackLeadGenerated({
+      leadType: 'trial_signup',
+      source: 'demo_showcase_lead_form',
+      hasBusinessName: !!company.trim()
+    });
     const query = new URLSearchParams({ signup: 'true', email: email.trim(), company: company.trim(), source: 'demo' });
     navigate('/login?' + query.toString());
   };

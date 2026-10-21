@@ -44,6 +44,7 @@ import { DemoTopBanner } from '../demo/DemoTopBanner';
 import { DemoLeadCaptureModal } from '../demo/DemoLeadCaptureModal';
 import { useDemoModalStore } from '../../services/demoService';
 import { ArrowRight, Flame } from 'lucide-react';
+import { toast } from 'sonner';
 const AndroidApkModal = React.lazy(() =>
   import('../pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
 );
@@ -54,6 +55,7 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { logout, user } = useAuthStore();
+  const { openDemoModal } = useDemoModalStore();
   const { getConfig } = useNicheStore();
   const config = getConfig();
   const navigate = useNavigate();
@@ -221,7 +223,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
               {/* Drawer Footer */}
               <div className="p-4 border-t border-white/5 flex flex-col gap-2">
-                {(user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
+                {!user?.isDemo && (user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
                   <Link 
                     to="/admin"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -340,7 +342,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               Instalar
             </span>
           </button>
-          {(user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
+          {!user?.isDemo && (user?.isPlatformAdmin || isSuperAdminEmail(user?.email)) && (
             <Link 
               to="/admin"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 transition-all bg-white/5"
@@ -383,10 +385,19 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
 
               {user?.isDemo && (
-                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-purple-500/15 text-cyan-300 rounded-full border border-cyan-500/30 font-medium text-xs shadow-sm">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                    <span className="hidden sm:inline">Modo Demonstração (Acesso Completo)</span>
-                    <span className="sm:hidden">Modo Demo</span>
+                 <div className="flex items-center gap-2">
+                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-purple-500/15 text-cyan-300 rounded-full border border-cyan-500/30 font-medium text-xs shadow-sm">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                      <span className="hidden sm:inline">Modo Demo (Acesso Limitado)</span>
+                      <span className="sm:hidden">Modo Demo</span>
+                   </div>
+                   <button
+                     onClick={() => openDemoModal('Barra de Navegação Superior')}
+                     className="hidden sm:flex px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 hover:opacity-90 text-slate-950 font-black text-[11px] shadow-sm items-center gap-1 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                   >
+                     <span>Desbloquear 15 Dias Grátis</span>
+                     <ArrowRight className="w-3 h-3" />
+                   </button>
                  </div>
               )}
 
@@ -505,6 +516,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
            </div>
         </header>
 
+        {/* Top Demo Banner if user is in demo mode */}
+        {user?.isDemo && <DemoTopBanner />}
+
         {/* Scrollable Area */}
         <div className="flex-1 overflow-auto p-8 relative bg-[#010308]/50">
            {isCurrentRestricted ? (
@@ -613,6 +627,23 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           onClose={() => setIsInstallModalOpen(false)}
           deferredPrompt={deferredPrompt}
         />
+
+        {/* Floating Lead Capture CTA for Demo Mode */}
+        {user?.isDemo && (
+          <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 animate-bounce">
+            <button
+              onClick={() => openDemoModal('Botão Flutuante Demo')}
+              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-400 via-[#087CFF] to-[#8545FF] text-slate-950 font-extrabold text-xs shadow-[0_0_25px_rgba(0,217,255,0.4)] flex items-center gap-2 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-cyan-300/40"
+            >
+              <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
+              <span>15 Dias Free • Promo R$ 29,90</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Demo Lead Capture & Conversion Modal */}
+        <DemoLeadCaptureModal />
       </main>
 
       {/* Mobile Bottom Navigation */}

@@ -19,6 +19,7 @@ import {
   Layers,
   ChevronRight
 } from 'lucide-react';
+import { trackTrialStartClick, trackDemoRequestClick, trackEvent } from '../../services/analyticsService';
 
 interface HeroSectionProps {
   onRequestDemo: () => void;
@@ -43,10 +44,20 @@ export function HeroSection({ onRequestDemo, onOpenHowItWorks }: HeroSectionProp
           <div className="lg:col-span-6 space-y-6 text-left">
             
             {/* Promo Ribbon */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/20 via-[#00D9FF]/20 to-[#8545FF]/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold tracking-wide shadow-[0_0_20px_rgba(52,211,153,0.25)]">
+            <a 
+              href="#planos"
+              onClick={() => {
+                trackTrialStartClick({
+                  source: 'hero_promo_ribbon',
+                  promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
+                  buttonLabel: 'OFERTA: De R$ 89,90 por R$ 29,90'
+                });
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/20 via-[#00D9FF]/20 to-[#8545FF]/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold tracking-wide shadow-[0_0_20px_rgba(52,211,153,0.25)] hover:border-emerald-300 transition-colors cursor-pointer group"
+            >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>OFERTA: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-black">R$ 29,90 nos primeiros 3 meses</strong> • 15 dias de teste grátis!</span>
-            </div>
+              <span>OFERTA: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-black group-hover:text-emerald-300 transition-colors">R$ 29,90 nos primeiros 3 meses</strong> • 15 dias de teste grátis!</span>
+            </a>
 
             {/* Eyebrow */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#00D9FF]/10 border border-[#00D9FF]/30 text-[#00D9FF] text-xs font-bold tracking-widest uppercase shadow-[0_0_15px_rgba(0,217,255,0.2)]">
@@ -119,16 +130,28 @@ export function HeroSection({ onRequestDemo, onOpenHowItWorks }: HeroSectionProp
             {/* Buttons Row */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4">
               <button
-                onClick={onRequestDemo}
-                className="group px-7 py-4 rounded-full bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF] hover:brightness-110 text-white font-extrabold text-sm sm:text-base transition-all duration-300 shadow-[0_0_35px_rgba(8,124,255,0.45)] hover:shadow-[0_0_50px_rgba(0,217,255,0.65)] hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                onClick={() => {
+                  trackDemoRequestClick({
+                    source: 'hero_primary_button',
+                    buttonLabel: 'Solicite uma demonstração'
+                  });
+                  onRequestDemo();
+                }}
+                className="group px-7 py-4 rounded-full bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF] hover:brightness-110 text-white font-extrabold text-sm sm:text-base transition-all duration-300 shadow-[0_0_35px_rgba(8,124,255,0.45)] hover:shadow-[0_0_50px_rgba(0,217,255,0.65)] hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Solicite uma demonstração</span>
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
 
               <button
-                onClick={onOpenHowItWorks}
-                className="px-6 py-4 rounded-full bg-[#0B1933]/80 hover:bg-[#0B1933] text-white font-bold text-sm sm:text-base border border-white/15 hover:border-[#00D9FF]/50 transition-all duration-300 flex items-center justify-center gap-2.5 shadow-lg group"
+                onClick={() => {
+                  trackEvent('how_it_works_click', {
+                    source: 'hero_secondary_button',
+                    button_label: 'Ver como funciona'
+                  });
+                  onOpenHowItWorks();
+                }}
+                className="px-6 py-4 rounded-full bg-[#0B1933]/80 hover:bg-[#0B1933] text-white font-bold text-sm sm:text-base border border-white/15 hover:border-[#00D9FF]/50 transition-all duration-300 flex items-center justify-center gap-2.5 shadow-lg group cursor-pointer"
               >
                 <div className="w-6 h-6 rounded-full bg-white/10 group-hover:bg-[#00D9FF]/20 flex items-center justify-center text-[#00D9FF] transition-colors">
                   <Play className="w-3 h-3 fill-current ml-0.5" />

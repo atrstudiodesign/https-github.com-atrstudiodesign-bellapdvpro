@@ -5,6 +5,7 @@ import { useDemoModalStore } from '../../services/demoService';
 import { db } from '../../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { trackLeadGenerated, trackTrialStartClick } from '../../services/analyticsService';
 
 export function DemoLeadCaptureModal() {
   const { isModalOpen, featureAttempted, closeDemoModal } = useDemoModalStore();
@@ -23,6 +24,19 @@ export function DemoLeadCaptureModal() {
     setIsSubmitting(true);
 
     try {
+      trackLeadGenerated({
+        leadType: 'form',
+        source: 'demo_lead_capture_modal',
+        plan: 'Plano Básico',
+        hasBusinessName: !!company.trim()
+      });
+
+      trackTrialStartClick({
+        source: 'demo_lead_capture_modal',
+        plan: 'Plano Básico',
+        buttonLabel: 'Continuar para Testar 15 Dias Grátis'
+      });
+
       // Save lead asynchronously
       try {
         await addDoc(collection(db, 'leads'), {

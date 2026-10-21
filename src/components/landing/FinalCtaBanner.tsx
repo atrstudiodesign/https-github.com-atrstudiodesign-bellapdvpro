@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, CheckCircle2, ChevronRight, Shield, Laptop } from 'lucide-react';
+import { trackDemoRequestClick, trackTrialStartClick } from '../../services/analyticsService';
 
 interface FinalCtaBannerProps {
   onRequestDemo: () => void;
@@ -37,12 +38,31 @@ export function FinalCtaBanner({ onRequestDemo }: FinalCtaBannerProps) {
 
                 {/* Subtext info */}
                 <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                  <a
+                    href="#planos"
+                    onClick={() => {
+                      trackTrialStartClick({
+                        source: 'final_cta_trial_badge',
+                        buttonLabel: '15 Dias de Teste Grátis'
+                      });
+                    }}
+                    className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 hover:border-emerald-400 transition-colors cursor-pointer"
+                  >
                     ⚡ 15 Dias de Teste Grátis
-                  </span>
-                  <span className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                  </a>
+                  <a
+                    href="#planos"
+                    onClick={() => {
+                      trackTrialStartClick({
+                        source: 'final_cta_promo_badge',
+                        promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
+                        buttonLabel: 'Plano Básico de R$ 89,90 por R$ 29,90/mês'
+                      });
+                    }}
+                    className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30 hover:border-cyan-400 transition-colors cursor-pointer"
+                  >
                     Plano Básico de R$ 89,90 por R$ 29,90/mês
-                  </span>
+                  </a>
                   <span className="text-slate-400">Sem fidelidade e sem cartão.</span>
                 </div>
               </div>
@@ -50,8 +70,14 @@ export function FinalCtaBanner({ onRequestDemo }: FinalCtaBannerProps) {
               {/* Right Column: CTA Button + Checklist */}
               <div className="lg:col-span-4 flex flex-col items-start lg:items-end justify-center space-y-5">
                 <button
-                  onClick={onRequestDemo}
-                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF] hover:brightness-110 text-white font-extrabold text-sm sm:text-base transition-all duration-300 shadow-[0_0_30px_rgba(0,217,255,0.5)] hover:shadow-[0_0_45px_rgba(232,75,255,0.7)] hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group whitespace-nowrap"
+                  onClick={() => {
+                    trackDemoRequestClick({
+                      source: 'final_cta_banner_button',
+                      buttonLabel: 'Solicite uma demonstração'
+                    });
+                    onRequestDemo();
+                  }}
+                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-[#00D9FF] via-[#087CFF] to-[#E84BFF] hover:brightness-110 text-white font-extrabold text-sm sm:text-base transition-all duration-300 shadow-[0_0_30px_rgba(0,217,255,0.5)] hover:shadow-[0_0_45px_rgba(232,75,255,0.7)] hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group whitespace-nowrap cursor-pointer"
                 >
                   <span>Solicite uma demonstração</span>
                   <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
