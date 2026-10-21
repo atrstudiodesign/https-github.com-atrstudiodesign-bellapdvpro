@@ -39,8 +39,11 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Logo } from '../ui/Logo';
 import { AtrStudioBadge } from '../ui/AtrStudioBadge';
-import { toast } from 'sonner';
 import { GlobalSearch } from './GlobalSearch';
+import { DemoTopBanner } from '../demo/DemoTopBanner';
+import { DemoLeadCaptureModal } from '../demo/DemoLeadCaptureModal';
+import { useDemoModalStore } from '../../services/demoService';
+import { ArrowRight, Flame } from 'lucide-react';
 const AndroidApkModal = React.lazy(() =>
   import('../pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
 );

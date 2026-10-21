@@ -187,9 +187,9 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
       // Firebase automatically signs anonymous users into public pages.
-      // Do not treat this as an authenticated business or administrator.
+      // Do not treat this as an authenticated business or administrator unless in local demo session.
       const stored = getStoredUser();
-      if (stored?.isDemo && stored.id === firebaseUser.uid) {
+      if (stored?.isDemo) {
         useAuthStore.getState().setUser(stored);
       } else {
         useAuthStore.getState().setUser(null);
@@ -229,7 +229,7 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
     };
     useAuthStore.getState().setUser(userData);
 
-    // Start real-time data subscriptions
+    // Start real-time data subscriptions (only for real accounts, never for demo)
     try {
       unsubscribes.push(
         subscribeToClients(),
@@ -243,6 +243,11 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
+    const stored = getStoredUser();
+    if (stored?.isDemo) {
+      useAuthStore.getState().setUser(stored);
+      return;
+    }
     useAuthStore.getState().setUser(null);
   }
 }
