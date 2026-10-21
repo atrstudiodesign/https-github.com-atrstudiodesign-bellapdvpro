@@ -1,9 +1,8 @@
-import { app } from './firebase';
-
 declare global {
   interface Window {
     dataLayer?: Array<Record<string, unknown>>;
     bellaLoadGtm?: () => boolean;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 export type ConversionEvent = 'landing_page_view' | 'demo_page_view' | 'conversion_cta_click' | 'demo_cta_click' | 'trial_cta_click' | 'trial_signup_started' | 'trial_signup_completed';
@@ -14,14 +13,13 @@ export function hasAnalyticsConsent(): boolean {
 /** Do not forward email, phone, company name, user ID, or payment information to analytics. */
 export function trackConversion(event: ConversionEvent, source: string, plan?: string): void {
   if (typeof window === 'undefined' || !hasAnalyticsConsent()) return;
-  const data: Record<string, unknown> = { event, event_category: 'bella_conversion', cta_location: source };
-  if (plan) data.plan_name = plan;
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push(data);
-  void import('firebase/analytics').then(async ({ getAnalytics, isSupported, logEvent }) => {
-    if (!await isSupported() || !hasAnalyticsConsent()) return;
-    logEvent(getAnalytics(app), event, { event_category: 'bella_conversion', cta_location: source, ...(plan ? { plan_name: plan } : {}) });
-  }).catch(error => console.warn('[analytics] Event unavailable', error));
+  // A tag GA4 configurada no index.html usa este mesmo dataLayer.
+  // Não chamar o Firebase Analytics SDK paralelamente: duplicaria eventos.
+  window.gtag?.('event', event, {
+    event_category: 'bella_conversion',
+    cta_location: source,
+    ...(plan ? { plan_name: plan } : {})
+  });
 }
 export function setAnalyticsConsent(allowed: boolean): void {
   try { localStorage.setItem('bella_analytics_consent', allowed ? 'yes' : 'no'); } catch {}
