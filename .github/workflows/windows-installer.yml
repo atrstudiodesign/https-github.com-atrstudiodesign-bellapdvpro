@@ -1,6 +1,14 @@
 name: Windows Installer BellaPDV Pro
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'electron/**'
+      - 'package.json'
+      - 'src/components/StartupScreen.tsx'
+      - 'src/main.tsx'
+      - '.github/workflows/windows-installer.yml'
   pull_request:
     paths:
       - 'electron/**'
@@ -26,10 +34,26 @@ jobs:
         run: npm run electron:dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Validate installer output and generate SHA-256
+        shell: pwsh
+        run: |
+          $setups = @(Get-ChildItem 'dist-electron' -Filter '*.exe' -File)
+          if ($setups.Count -ne 1) { throw "Expected exactly one Windows installer. Found: $($setups.Count)" }
+          $file = $setups[0]
+          if ($file.Length -lt 10000000) { throw 'Installer is unexpectedly small.' }
+          $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *$($file.Name)" | Set-Content -Path 'dist-electron/SHA256SUMS.txt' -Encoding ascii
+          "### BellaPDV Pro Windows installer" >> $env:GITHUB_STEP_SUMMARY
+          "File: $($file.Name)" >> $env:GITHUB_STEP_SUMMARY
+          "Size: $($file.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+          "SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "Status: **UNSIGNED — INTERNAL QA ONLY**" >> $env:GITHUB_STEP_SUMMARY
       - name: Upload installer for internal testing
         uses: actions/upload-artifact@v4
         with:
           name: BellaPDV-Pro-Windows-Setup-Unsigned
-          path: dist-electron/*.exe
+          path: |
+            dist-electron/*.exe
+            dist-electron/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
