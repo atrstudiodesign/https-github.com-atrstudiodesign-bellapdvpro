@@ -747,7 +747,7 @@ class VoiceNarrationService {
     personaType?: BellaVoiceType
   ): Promise<boolean> {
     return new Promise((resolve) => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (!this.settings.enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
         this.isSpeaking = false;
         this.volumeLevel = 0;
         this.notifyState();
