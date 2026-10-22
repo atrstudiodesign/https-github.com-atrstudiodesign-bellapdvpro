@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
 const { setupUpdater } = require("./updater.cjs");
 const { printReceipt, openCashDrawer } = require("./printer.cjs");
@@ -61,9 +61,9 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL("http://localhost:3000").catch(err => console.error(err));
   } else {
-    // The remote URL preserves BrowserRouter navigation and Firebase Auth redirects.
+    // Desktop launches directly into the login route; the web landing remains public.
     // An offline-first bundled renderer requires a separate router/auth migration.
-    mainWindow.loadURL(APP_ORIGIN).catch(err => console.error(err));
+    mainWindow.loadURL(APP_ORIGIN + "/login").catch(err => console.error(err));
   }
 }
 
