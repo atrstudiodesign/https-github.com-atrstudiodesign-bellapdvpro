@@ -1,7 +1,7 @@
 {
-  "name": "bellapdv-pro",
+  "name": "react-example",
   "private": true,
-  "version": "2.0.0",
+  "version": "0.0.0",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -44,7 +44,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "BellaPDV Pro"
     },
-    "publish": null
+    "publish": null,
+    "extraMetadata": {
+      "version": "2.0.0"
+    }
   },
   "dependencies": {
     "@google/genai": "^1.52.0",
