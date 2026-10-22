@@ -21,8 +21,14 @@ service cloud.firestore {
         : request.auth.uid;
     }
 
+    function isEmployee() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
+    }
+
     function ownsTenant(data) {
-      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
+      return isSignedIn() && !isEmployee() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
     }
 
     function validStock(data) {
@@ -42,6 +48,13 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'lastLogin', 'provider', 'companyName', 'niche', 'companyId'])
       );
       allow delete: if isAdmin();
+    }
+
+    // Profiles can only be provisioned/changed by a trusted admin backend.
+    // Employee self-read is limited to the document bearing their Firebase UID.
+    match /staff_members/{staffUid} {
+      allow read: if isSignedIn() && (request.auth.uid == staffUid || isAdmin());
+      allow create, update, delete: if isAdmin();
     }
 
     match /clients/{clientId} {
@@ -102,19 +115,19 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if isSignedIn() && (companyId == tenantId() || isAdmin());
+      allow read: if isSignedIn() && ((companyId == tenantId() && !isEmployee()) || isAdmin());
       allow create: if isSignedIn() && companyId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAdmin() || (isSignedIn() && companyId == tenantId() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
+      allow update: if isAdmin() || (isSignedIn() && !isEmployee() && companyId == tenantId() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
       allow delete: if isAdmin();
     }
 
     match /company_licenses/{licenseId} {
-      allow read: if isSignedIn() && (licenseId == tenantId() || isAdmin());
+      allow read: if isSignedIn() && ((licenseId == tenantId() && !isEmployee()) || isAdmin());
       allow write: if isAdmin();
     }
 
     match /feature_flags/{flagId} {
-      allow read: if isSignedIn() && (flagId == tenantId() || isAdmin());
+      allow read: if isSignedIn() && ((flagId == tenantId() && !isEmployee()) || isAdmin());
       allow write: if isAdmin();
     }
 
