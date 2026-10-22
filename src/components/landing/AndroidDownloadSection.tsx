@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Download, Smartphone, ShieldCheck } from 'lucide-react';
+import { Download, Smartphone, ShieldCheck, MonitorDown } from 'lucide-react';
 import { trackEvent } from '../../services/analyticsService';
 
 const APK_PATH = '/downloads/bellapdv-pro-android.apk';
+const WINDOWS_PATH = '/downloads/BellaPDV-Pro-Setup.exe';
 
 export function AndroidDownloadSection() {
   const [available, setAvailable] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [windowsAvailable, setWindowsAvailable] = useState(false);
+  const [windowsChecking, setWindowsChecking] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +26,20 @@ export function AndroidDownloadSection() {
         if (!cancelled) setChecking(false);
       }
     }
+    async function checkWindows() {
+      try {
+        const response = await fetch(WINDOWS_PATH, { method: 'HEAD', cache: 'no-store' });
+        const type = response.headers.get('content-type')?.toLowerCase() ?? '';
+        const size = Number(response.headers.get('content-length') ?? 0);
+        if (!cancelled) setWindowsAvailable(response.ok && !type.includes('text/html') && size > 1_000_000);
+      } catch {
+        if (!cancelled) setWindowsAvailable(false);
+      } finally {
+        if (!cancelled) setWindowsChecking(false);
+      }
+    }
     void checkApk();
+    void checkWindows();
     return () => { cancelled = true; };
   }, []);
 
@@ -64,6 +80,21 @@ export function AndroidDownloadSection() {
             <span className="text-center text-xs text-[#A6BAD7]">
               {available ? 'Arquivo APK para instalação manual no Android.' : 'O botão será liberado após a publicação do arquivo APK.'}
             </span>
+            <div className="border-t border-white/10 pt-4 mt-2 flex flex-col gap-2">
+              {windowsAvailable ? (
+                <a href={WINDOWS_PATH} download="BellaPDV-Pro-Setup.exe"
+                  onClick={() => trackEvent('windows_installer_download', { source: 'landing_windows_download' })}
+                  className="inline-flex justify-center items-center gap-3 rounded-full px-7 py-4 bg-white/10 hover:bg-white/20 border border-cyan-400/30 text-white text-sm font-bold transition">
+                  <MonitorDown className="w-5 h-5" aria-hidden="true" /> Baixar para Windows
+                </a>
+              ) : (
+                <div aria-live="polite" className="rounded-full px-7 py-4 text-center bg-white/5 border border-white/10 text-[#CBD5E1] text-sm font-bold">
+                  <MonitorDown className="inline-block w-4 h-4 mr-2" aria-hidden="true" />
+                  {windowsChecking ? 'Verificando versão Windows…' : 'Instalador Windows em preparação'}
+                </div>
+              )}
+              <span className="text-center text-xs text-[#A6BAD7]">Windows 10/11, 64 bits — versão desktop</span>
+            </div>
           </div>
         </div>
       </div>
