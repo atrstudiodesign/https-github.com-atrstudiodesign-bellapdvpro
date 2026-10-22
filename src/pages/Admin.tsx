@@ -255,27 +255,18 @@ export default function AdminPanel() {
   const [replyText, setReplyText] = useState('');
 
   const currentStats = useMemo(() => {
-    let mrr = 0;
     let active = 0;
     let trials = 0;
-    let churn = 0; // This would normally be recent cancelations.
-
+    let churn = 0;
+    // Revenue must come from verified subscription billing, not plan-name estimates.
     clients.forEach(c => {
-      if (c.status === 'Trial') {
-        trials++;
-      } else if (c.status === 'Ativo' || c.status === 'Premium' || c.status === 'Básico') {
-        active++;
-        // Very simple logic, can be customized later with real prices
-        if (c.plan === 'Premium') mrr += 199.90;
-        if (c.plan === 'Pro') mrr += 99.90;
-        if (c.plan === 'Básico') mrr += 49.90;
-      } else if (c.status === 'Cancelado') {
-        churn++;
-      }
+      if (c.status === 'Trial') trials++;
+      else if (c.status === 'Ativo' || c.status === 'Premium' || c.status === 'Básico') active++;
+      else if (c.status === 'Cancelado') churn++;
     });
 
     return {
-      mrr: mrr.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      mrr: 'Não conectado',
       active,
       trials,
       churn
@@ -403,7 +394,7 @@ export default function AdminPanel() {
                  
                  <div className="grid grid-cols-4 gap-6">
                     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
-                       <span className="text-gray-400 text-sm">MRR</span>
+                       <span className="text-gray-400 text-sm">MRR (cobranças confirmadas)</span>
                        <h2 className="text-3xl font-bold text-white tracking-tight mt-2">{currentStats.mrr}</h2>
                        <span className="text-cyan-400 text-sm mt-1 inline-block">Real Time Data</span>
                     </div>
@@ -774,7 +765,7 @@ export default function AdminPanel() {
                                   </div>
                                </td>
                                <td className="px-6 py-4 font-mono text-slate-300">
-                                  {c.plan === 'Trial' ? '-' : c.plan === 'Básico' ? 'R$ 89' : 'R$ 149'}
+                                  {'—'}
                                </td>
                                <td className="px-6 py-4 text-right">
                                  <div className="flex items-center justify-end gap-2">
