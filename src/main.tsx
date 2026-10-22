@@ -16,7 +16,6 @@ const App = lazy(() => import('./App.tsx'));
 const Landing = lazy(() => import('./pages/Landing.tsx'));
 const Login = lazy(() => import('./pages/Login.tsx'));
 const Legal = lazy(() => import('./pages/Legal.tsx'));
-const EmployeePortal = lazy(() => import('./pages/EmployeePortal.tsx'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter.tsx'));
 const DemoShowcase = lazy(() => import('./pages/DemoShowcase.tsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
@@ -119,7 +118,6 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/instalar/android" element={<Navigate to="/ajuda/instalar-android" replace />} />
             <Route path="/instalar/windows" element={<Navigate to="/ajuda/instalar-windows" replace />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/funcionario" element={<EmployeePortal />} />
             <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
             <Route path="/menu-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Online publicMode={true} /></Suspense></PublicRouteWrapper>} />
             <Route 

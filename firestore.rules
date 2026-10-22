@@ -57,34 +57,6 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Personal, pre-scoped portal data only. No direct read of company-wide ledgers.
-    // Trusted server processes must copy the MINIMUM fields required per employee.
-    function activeOwnStaff(staffUid) {
-      return isSignedIn()
-        && request.auth.uid == staffUid
-        && request.auth.token.firebase.sign_in_provider != 'anonymous'
-        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
-        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.active == true
-        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId is string;
-    }
-
-    match /staff_portal/{staffUid}/appointments/{appointmentId} {
-      allow read: if activeOwnStaff(staffUid) || isAdmin();
-      allow write: if isAdmin();
-    }
-    match /staff_portal/{staffUid}/commissions/{commissionId} {
-      allow read: if activeOwnStaff(staffUid) || isAdmin();
-      allow write: if isAdmin();
-    }
-    match /staff_portal/{staffUid}/referrals/{referralId} {
-      allow read: if activeOwnStaff(staffUid) || isAdmin();
-      allow write: if isAdmin();
-    }
-    match /staff_portal/{staffUid}/marketing/{itemId} {
-      allow read: if activeOwnStaff(staffUid) || isAdmin();
-      allow write: if isAdmin();
-    }
-
     match /clients/{clientId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if ownsTenant(request.resource.data);
