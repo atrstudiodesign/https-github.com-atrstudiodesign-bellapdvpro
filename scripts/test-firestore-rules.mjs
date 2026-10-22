@@ -21,7 +21,8 @@ await env.withSecurityRulesDisabled(async context => {
   const db = context.firestore();
   await setDoc(doc(db, 'users/companyA'), { role: 'client', companyId: 'companyA' });
   await setDoc(doc(db, 'users/companyB'), { role: 'client', companyId: 'companyB' });
-  await setDoc(doc(db, 'users/employee'), { role: 'client', companyId: 'companyA' });
+  await setDoc(doc(db, 'users/employee'), { role: 'employee', companyId: 'companyA' });
+  await setDoc(doc(db, 'staff_members/employee'), { companyId: 'companyA', role: 'professional', active: true });
   await setDoc(doc(db, 'clients/clientA'), { ownerId: 'companyA', name: 'A' });
   await setDoc(doc(db, 'clients/clientB'), { ownerId: 'companyB', name: 'B' });
   await setDoc(doc(db, 'clients/demo'), { ownerId: 'demo', name: 'Demonstração' });
@@ -43,10 +44,16 @@ test('A e B leem e alteram apenas seus clientes; demo fica isolada', async () =>
   await assertSucceeds(setDoc(doc(a, 'clients/newA'), { ownerId: 'companyA' }));
 });
 
-test('colaborador vinculado acessa somente sua empresa', async () => {
+test('funcionário não recebe automaticamente os dados integrais da empresa', async () => {
   const employee = env.authenticatedContext('employee', token).firestore();
-  await assertSucceeds(getDoc(doc(employee, 'clients/clientA')));
+  await assertFails(getDoc(doc(employee, 'clients/clientA')));
   await assertFails(getDoc(doc(employee, 'clients/clientB')));
+  await assertFails(getDoc(doc(employee, 'transactions/transactionA')));
+  await assertFails(getDoc(doc(employee, 'professionals/profA')));
+  await assertSucceeds(getDoc(doc(employee, 'staff_members/employee')));
+  await assertFails(setDoc(doc(employee, 'staff_members/employee'), {companyId:'companyB',active:true}));
+  await assertFails(getDoc(doc(employee, 'users/companyA')));
+  await assertFails(updateDoc(doc(employee, 'users/employee'), {companyId:'companyB'}));
 });
 
 test('cadastro não permite criar perfil administrativo ou mudar empresa', async () => {
@@ -85,7 +92,7 @@ test('vendas de outra empresa e coleções não previstas são negadas', async (
 test('profissionais persistem somente no tenant; ownerId não pode mudar', async () => {
   const employee = env.authenticatedContext('employee', token).firestore();
   await assertSucceeds(getDoc(doc(a, 'professionals/profA')));
-  await assertSucceeds(getDoc(doc(employee, 'professionals/profA')));
+  await assertFails(getDoc(doc(employee, 'professionals/profA')));
   await assertFails(getDoc(doc(b, 'professionals/profA')));
   await assertFails(getDoc(doc(a, 'professionals/profB')));
   await assertFails(getDoc(doc(guest, 'professionals/profA')));
@@ -96,4 +103,13 @@ test('profissionais persistem somente no tenant; ownerId não pode mudar', async
   await assertFails(deleteDoc(doc(b, 'professionals/profA')));
   await assertSucceeds(updateDoc(doc(a, 'professionals/profA'), { name: 'Atualizado' }));
   await assertSucceeds(deleteDoc(doc(a, 'professionals/newA')));
+});
+
+
+test('somente administrador com claim pode vincular ou alterar funcionário', async () => {
+  await assertSucceeds(setDoc(doc(adminA, 'staff_members/staff2'), { companyId: 'companyA', role: 'professional', active: true }));
+  await assertFails(setDoc(doc(a, 'staff_members/staff3'), { companyId: 'companyA', role: 'professional', active: true }));
+  await assertFails(getDoc(doc(b, 'staff_members/employee')));
+  await assertFails(getDoc(doc(guest, 'staff_members/employee')));
+  await assertSucceeds(getDoc(doc(adminB, 'staff_members/employee')));
 });
