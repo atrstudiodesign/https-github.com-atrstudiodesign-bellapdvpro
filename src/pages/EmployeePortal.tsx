@@ -22,7 +22,10 @@ export default function EmployeePortal() {
   const [data, setData] = useState<Record<SectionKey, Entry[]>>({ appointments: [], commissions: [], referrals: [], marketing: [] });
   const [error, setError] = useState('');
   useEffect(() => {
+    let cleanupSubscriptions: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, user => {
+      cleanupSubscriptions?.();
+      cleanupSubscriptions = undefined;
       setState('loading');
       setData({ appointments: [], commissions: [], referrals: [], marketing: [] });
       if (!user || user.isAnonymous) { setState('login'); return; }
@@ -40,9 +43,9 @@ export default function EmployeePortal() {
         snapshot => setData(prev => ({ ...prev, [section.key]: snapshot.docs.map(item => ({ id: item.id, ...item.data() })) })),
         () => { setError('Alguns dados não estão disponíveis. Verifique se as regras foram publicadas e seu acesso está ativo.'); }
       ));
-      return () => { unsubStaff(); unsubSections.forEach(unsub => unsub()); };
+      cleanupSubscriptions = () => { unsubStaff(); unsubSections.forEach(unsub => unsub()); };
     });
-    return () => { unsubscribeAuth(); };
+    return () => { unsubscribeAuth(); cleanupSubscriptions?.(); };
   }, []);
   return <main className="min-h-screen bg-[#030817] text-white px-4 py-10">
     <div className="max-w-6xl mx-auto">
