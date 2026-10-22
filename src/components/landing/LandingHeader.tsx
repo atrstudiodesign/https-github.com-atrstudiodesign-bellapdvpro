@@ -44,7 +44,8 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
     { id: 'planos', label: 'Planos', href: '#planos' },
     { id: 'depoimentos', label: 'Depoimentos', href: '#depoimentos' },
     { id: 'marketplace', label: 'Marketplace', href: '/marketplace', isRoute: true },
-    { id: 'ajuda', label: 'Ajuda', href: '/legal/suporte', isRoute: true },
+    { id: 'instalar', label: 'Instalar', href: '#baixar-android' },
+    { id: 'ajuda', label: 'Ajuda', href: '/ajuda', isRoute: true },
   ];
 
   const handleNavClick = (link: typeof navLinks[0], e: React.MouseEvent) => {
