@@ -460,50 +460,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                  <span className="sm:hidden">Ação IA</span>
               </button>
 
-              {/* DEV TOGGLE FOR PRESENTATION */}
-              {user?.role === 'admin' && (
-                 <div className="hidden lg:flex flex-col gap-1">
-                    <select 
-                      value={status} 
-                      onChange={(e: any) => setStatus(e.target.value)}
-                      className="bg-[#09111D] border border-blue-500/50 text-blue-400 rounded px-2 py-0.5 text-[10px] outline-none opacity-50 hover:opacity-100 transition-opacity"
-                    >
-                       <option value="ACTIVE">⚡ Dunning: Ativo</option>
-                       <option value="WARNING">⚡ Dunning: Warning</option>
-                       <option value="BLOCK_PARTIAL">⚡ Dunning: Lock Parc.</option>
-                       <option value="BLOCK_TOTAL">⚡ Dunning: Lock Total</option>
-                    </select>
-
-                    <select
-                      value={user?.planFeatures.length === 2 ? 'basico' : user?.planFeatures.length === 4 ? 'pro' : 'premium'}
-                      onChange={(e) => {
-                         const val = e.target.value;
-                         const features = 
-                            val === 'basico' ? ['pdv', 'agenda'] :
-                            val === 'pro' ? ['pdv', 'agenda', 'whatsapp', 'relatorios'] :
-                            ['pdv', 'agenda', 'whatsapp', 'relatorios', 'ia', 'automacoes', 'crm'];
-                         useAuthStore.getState().setUser({ ...user, planFeatures: features });
-                      }}
-                      className="bg-[#09111D] border border-purple-500/50 text-purple-400 rounded px-2 py-0.5 text-[10px] outline-none opacity-50 hover:opacity-100 transition-opacity"
-                    >
-                       <option value="premium">👑 Plano: Premium (All)</option>
-                       <option value="pro">👑 Plano: Pro</option>
-                       <option value="basico">👑 Plano: Básico</option>
-                    </select>
-
-                    <select
-                      value={user?.role || 'client'}
-                      onChange={(e) => {
-                         useAuthStore.getState().setUser({ ...user, role: e.target.value as 'admin' | 'client' });
-                      }}
-                      className="bg-[#09111D] border border-emerald-500/50 text-emerald-400 rounded px-2 py-0.5 text-[10px] outline-none opacity-50 hover:opacity-100 transition-opacity"
-                    >
-                       <option value="admin">👨‍💻 Role: Admin</option>
-                       <option value="client">👤 Role: Cliente</option>
-                    </select>
-                 </div>
-              )}
-
               {status !== 'ACTIVE' && status !== 'TRIAL' ? (
                 <button className="text-xs md:text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black px-3 py-1.5 rounded-lg transition-colors">
                   PAGAR
