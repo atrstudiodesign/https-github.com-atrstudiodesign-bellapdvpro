@@ -56,6 +56,7 @@ export default function Settings() {
   const [voiceSpeed, setVoiceSpeed] = useState<number>(initialSettings.speed || 1.0);
   const [voiceVolume, setVoiceVolume] = useState<number>(initialSettings.volume ?? 1.0);
   const [soundEffects, setSoundEffects] = useState<boolean>(initialSettings.soundEffects ?? true);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(initialSettings.enabled ?? true);
   const [engineMode, setEngineMode] = useState<VoiceEngineMode>(initialSettings.engineMode || 'neural');
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [previewingPersona, setPreviewingPersona] = useState<BellaVoiceType | null>(null);
@@ -75,6 +76,7 @@ export default function Settings() {
           setVoiceSpeed(loaded.speed);
           setVoiceVolume(loaded.volume);
           setSoundEffects(loaded.soundEffects);
+          setVoiceEnabled(loaded.enabled ?? true);
           setEngineMode(loaded.engineMode);
         }
       }
@@ -160,6 +162,7 @@ export default function Settings() {
         speed: voiceSpeed,
         volume: voiceVolume,
         soundEffects,
+        enabled: voiceEnabled,
         engineMode,
       });
 
@@ -318,6 +321,10 @@ export default function Settings() {
           </div>
 
           <div className="p-8 space-y-8">
+            <label className="flex items-center justify-between gap-4 bg-[#0C1627] p-5 rounded-xl border border-white/10 cursor-pointer">
+              <span><span className="block text-white font-semibold">Ativar voz da Bella IA</span><span className="block text-xs text-slate-400 mt-1">Desative para silenciar a narração, efeitos e reconhecimento de voz. O chat da IA continua disponível.</span></span>
+              <input type="checkbox" checked={voiceEnabled} onChange={e => { const enabled=e.target.checked; setVoiceEnabled(enabled); voiceNarration.updateSettings({ enabled }); }} className="w-5 h-5 accent-cyan-400 shrink-0" aria-label="Ativar ou desativar voz da Bella IA" />
+            </label>
              {/* 1. SELEÇÃO DE PERSONAS VOCAIS */}
              <div>
                 <div className="flex items-center justify-between mb-4">
