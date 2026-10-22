@@ -77,6 +77,7 @@ export function AndroidDownloadSection() {
                 {checking ? 'Verificando download…' : 'Download Android em preparação'}
               </div>
             )}
+            <a href="/instalar/android" className="text-center underline text-cyan-300 text-xs hover:text-white">Como instalar o APK no Android</a>
             <span className="text-center text-xs text-[#A6BAD7]">
               {available ? 'Arquivo APK para instalação manual no Android.' : 'O botão será liberado após a publicação do arquivo APK.'}
             </span>
@@ -94,6 +95,8 @@ export function AndroidDownloadSection() {
                 </div>
               )}
               <span className="text-center text-xs text-[#A6BAD7]">Windows 10/11, 64 bits — versão desktop</span>
+              <a href="/instalar/windows" className="text-center underline text-cyan-300 text-xs hover:text-white">Como instalar no Windows</a>
+              <a href="/como-usar" className="text-center underline text-cyan-300 text-xs hover:text-white">Aprenda a usar o BellaPDV Pro</a>
             </div>
           </div>
         </div>
