@@ -62,6 +62,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { status, setStatus, getRestrictedRoutes } = useSubscriptionStore();
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [autopilotVisible, setAutopilotVisible] = useState(() => localStorage.getItem('bella_autopilot_widget_visible') === 'true');
+  const hideAutopilot = () => { localStorage.setItem('bella_autopilot_widget_visible', 'false'); setAutopilotVisible(false); setIsAiModalOpen(false); };
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -495,16 +497,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
 
         {/* AUTOPILOT WIDGET */}
-        {!isCurrentRestricted && (
+        {!isCurrentRestricted && autopilotVisible && (
            <div className="absolute bottom-[88px] md:bottom-6 right-6 z-50 flex items-center gap-4">
               <div className="bg-[#050B14]/90 backdrop-blur border border-purple-500/30 rounded-2xl p-4 shadow-[0_0_20px_rgba(168,85,247,0.15)] flex items-center gap-4 cursor-pointer hover:border-purple-500/60 transition-colors" onClick={() => setIsAiModalOpen(true)}>
                  <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold tracking-widest text-purple-400">Modo Autopilot</span>
-                    <span className="text-xs text-slate-300">Sistema operando sozinho</span>
+                    <span className="text-xs text-slate-300">Indicador demonstrativo (sem automação ativa)</span>
                  </div>
-                 <div className="w-12 h-6 bg-purple-500 rounded-full relative cursor-pointer flex items-center px-1 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+                 <button type="button" aria-label="Ocultar indicador Autopilot" title="Desativar e ocultar Autopilot" onClick={(event) => {event.stopPropagation(); hideAutopilot();}} className="w-12 h-6 bg-purple-500 rounded-full relative cursor-pointer flex items-center px-1 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
                     <div className="w-4 h-4 bg-white rounded-full absolute right-1 shadow animate-pulse" />
-                 </div>
+                 </button>
               </div>
            </div>
         )}
