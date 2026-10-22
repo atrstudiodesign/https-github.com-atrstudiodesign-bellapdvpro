@@ -71,6 +71,7 @@ export const BELLA_VOICE_PERSONAS: Record<BellaVoiceType, PersonaConfig> = {
 };
 
 export interface VoiceSettings {
+  enabled: boolean;
   voice: VoicePersona;
   personaType: BellaVoiceType;
   speed: number; // 0.85 to 1.30
@@ -124,6 +125,7 @@ class VoiceNarrationService {
 
   // Default to Humanized voice with Varejista / Animado persona for commercial and high energy
   private settings: VoiceSettings = {
+    enabled: true,
     voice: 'feminino',
     personaType: 'varejista',
     speed: 1.0,
@@ -175,6 +177,10 @@ class VoiceNarrationService {
 
   public updateSettings(partial: Partial<VoiceSettings>) {
     this.settings = { ...this.settings, ...partial };
+    if (partial.enabled === false) {
+      this.stopSpeaking();
+      this.stopListening();
+    }
     // Synchronize gender with persona if personaType changed
     if (partial.personaType && BELLA_VOICE_PERSONAS[partial.personaType]) {
       const cfg = BELLA_VOICE_PERSONAS[partial.personaType];
@@ -374,7 +380,7 @@ class VoiceNarrationService {
 
   // Soft acoustic chimes for interactions
   public playChime(type: 'start' | 'success' | 'stop') {
-    if (!this.settings.soundEffects) return;
+    if (!this.settings.enabled || !this.settings.soundEffects) return;
     try {
       const ctx = this.getAudioContext();
       if (!ctx) return;
@@ -590,6 +596,7 @@ class VoiceNarrationService {
       onEnd?: () => void;
     }
   ): Promise<boolean> {
+    if (!this.settings.enabled) return false;
     const selectedPersona = options?.persona || this.settings.personaType;
     const personaConfig = BELLA_VOICE_PERSONAS[selectedPersona] || BELLA_VOICE_PERSONAS.varejista;
     const selectedVoice = options?.voice || personaConfig.gender || this.settings.voice;
@@ -812,7 +819,7 @@ class VoiceNarrationService {
     onError?: (error: string) => void;
     onEnd?: () => void;
   }): boolean {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined' || !this.settings.enabled) return false;
 
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionClass) {
