@@ -742,13 +742,13 @@ export default function Settings() {
                  <CreditCard className="w-6 h-6" />
                </div>
                <div>
-                  <h2 className="text-xl font-semibold text-white">Faturamento & Planos (Stripe Engine)</h2>
-                  <p className="text-sm text-slate-400">Proration nativo, Trial Inteligente e upgrades automáticos.</p>
+                  <h2 className="text-xl font-semibold text-white">Faturamento & Planos</h2>
+                  <p className="text-sm text-slate-400">Valores e condições conforme os planos anunciados no site oficial.</p>
                </div>
              </div>
              <div className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.1)] cursor-pointer hover:bg-amber-500/20 transition-colors" title="Trial inteligente detecta uso e propõe assinatura">
                 <Clock className="w-4 h-4" />
-                 <span>Trial Inteligente: Termina em 2 dias</span>
+                 <span>15 dias de teste grátis nos planos</span>
              </div>
           </div>
 
@@ -757,17 +757,17 @@ export default function Settings() {
              <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
                 <h3 className="text-lg font-semibold text-white">Básico</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$79</span>
+                   <span className="text-3xl font-bold text-white">R$ 29,90</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> PDV completo</li>
                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Agenda</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Até 2 profissionais</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Até 1 profissional</li>
                 </ul>
                 <div className="mt-auto space-y-3">
                    <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Inclui upgrade automático por uso
+                      Promoção: R$ 29,90/mês nos 3 primeiros meses; depois R$ 89,90/mês
                    </div>
                    <button 
                      onClick={() => handleBuyPlan('Básico')}
@@ -785,14 +785,14 @@ export default function Settings() {
                 </div>
                 <h3 className="text-lg font-semibold text-white">Pro</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-blue-400 neon-text">R$129</span>
+                   <span className="text-3xl font-bold text-blue-400 neon-text">R$ 149,90</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Tudo do Básico</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Profissionais ilimitados</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Lembretes WhatsApp VIP</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Cupons de Desconto</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Até 5 profissionais ativos</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Agenda online e lembretes de agendamento</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> CRM e relatórios gerenciais</li>
                 </ul>
                 <div className="mt-auto space-y-3">
                     <div className="flex bg-black/40 rounded-lg p-1 border border-white/5 mx-1 mb-2">
@@ -803,7 +803,7 @@ export default function Settings() {
                      onClick={() => handleBuyPlan('Pro')}
                      className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all font-semibold shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"
                    >
-                      Atualizar para Pro (Prorated)
+                      Assinar Plano Pro
                    </button>
                 </div>
              </div>
@@ -812,17 +812,17 @@ export default function Settings() {
              <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
                 <h3 className="text-lg font-semibold text-white">Premium</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$197</span>
+                   <span className="text-3xl font-bold text-white">R$ 249,90</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Tudo do Pro</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Multi-unidade</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Acesso API Pública Limitada</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Profissionais ilimitados na mesma unidade</li>
+                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Marketing com IA e fidelidade</li>
                 </ul>
                 <div className="mt-auto space-y-3">
                    <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Suporte SLA Premium
+                      Atendimento prioritário VIP
                    </div>
                    <button 
                      onClick={() => handleBuyPlan('Premium')}
