@@ -5,6 +5,7 @@ import { HeroSection } from '../components/landing/HeroSection';
 import { FloatingFeatureCards } from '../components/landing/FloatingFeatureCards';
 import { CompleteSolutionsGrid } from '../components/landing/CompleteSolutionsGrid';
 import { AutomationSection } from '../components/landing/AutomationSection';
+import { AndroidDownloadSection } from '../components/landing/AndroidDownloadSection';
 import { TestimonialsSection } from '../components/landing/TestimonialsSection';
 import { PlansSection } from '../components/landing/PlansSection';
 import { FinalCtaBanner } from '../components/landing/FinalCtaBanner';
@@ -93,6 +94,9 @@ export default function Landing() {
 
         {/* Automation & Growth (Phone Mockup + Android App) */}
         <AutomationSection />
+
+        {/* Download direto do APK Android, disponível após envio do arquivo */}
+        <AndroidDownloadSection />
 
         {/* Testimonials (Authentic & compliant with anti-slop rules) */}
         <TestimonialsSection />
