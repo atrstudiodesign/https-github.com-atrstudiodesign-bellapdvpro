@@ -12,19 +12,41 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "electron:dev": "NODE_ENV=development electron .",
-    "electron:dist": "vite build && electron-builder"
+    "electron:dist": "vite build && electron-builder --win nsis"
   },
   "build": {
-    "appId": "com.bellapdv.app",
-    "productName": "BellaPDV",
+    "appId": "com.bellapdv.desktop",
+    "productName": "BellaPDV Pro",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "directories": {
       "output": "dist-electron"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "BellaPDV-Pro-Setup-${version}-${arch}.${ext}"
     },
-    "mac": {
-      "target": "dmg"
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BellaPDV Pro"
+    },
+    "publish": null,
+    "extraMetadata": {
+      "version": "2.0.0"
     }
   },
   "dependencies": {
