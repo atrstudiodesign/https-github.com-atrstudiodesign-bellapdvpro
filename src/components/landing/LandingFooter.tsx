@@ -61,7 +61,7 @@ export function LandingFooter() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <a href="/legal/suporte" className="hover:text-white transition-colors">Central de Ajuda</a>
+                <a href="/ajuda" className="hover:text-white transition-colors">Central de Ajuda e Tutoriais</a>
               </li>
               <li>
                 <a href="https://wa.me/5511939026928?text=Ol%C3%A1%21%20Quero%20falar%20com%20o%20suporte%20do%20Bella%20PDV%20Pro." target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-[#25D366] transition-colors"><MessageCircle className="h-4 w-4" /> Suporte via WhatsApp ATR Studio</a>
@@ -69,6 +69,9 @@ export function LandingFooter() {
               <li>
                 <a href="mailto:atrstudiodesign@gmail.com" className="inline-flex items-center gap-2 hover:text-white transition-colors"><Mail className="h-4 w-4" /> atrstudiodesign@gmail.com</a>
               </li>
+              <li><a href="/instalar/android" className="hover:text-white transition-colors">Como instalar Android</a></li>
+              <li><a href="/instalar/windows" className="hover:text-white transition-colors">Como instalar Windows</a></li>
+              <li><a href="/como-usar" className="hover:text-white transition-colors">Como usar o Bella PDV</a></li>
               <li>
                 <a href="/legal/termos-de-uso" className="hover:text-white transition-colors">Termos de Uso</a>
               </li>
