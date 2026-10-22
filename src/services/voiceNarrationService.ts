@@ -193,6 +193,7 @@ class VoiceNarrationService {
       console.warn('Could not save voice settings to localStorage', e);
     }
     this.notifyState();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('bella-voice-settings-changed'));
   }
 
   // Persist to Firebase Firestore

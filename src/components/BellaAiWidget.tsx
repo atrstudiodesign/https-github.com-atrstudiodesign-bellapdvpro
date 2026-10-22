@@ -98,6 +98,22 @@ export function BellaAiWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
+  useEffect(() => {
+    const sync = () => {
+      const next = voiceNarration.getSettings();
+      setVoiceSettings(next);
+      if (!next.enabled) {
+        setHandsFreeMode(false);
+        setIsVoiceChatMode(false);
+        voiceNarration.stopListening();
+        voiceNarration.stopSpeaking();
+      }
+    };
+    window.addEventListener('bella-voice-settings-changed', sync);
+    sync();
+    return () => window.removeEventListener('bella-voice-settings-changed', sync);
+  }, []);
+
   // Subscribe to voice narration state
   useEffect(() => {
     const unsubscribe = voiceNarration.subscribe((state) => {
@@ -510,8 +526,8 @@ Diretrizes:
     <>
       {/* FLOATING ACTION TRIGGER BUTTON */}
       <div className="fixed bottom-24 right-6 z-40 flex items-center gap-2">
-        {/* Instant Neural Voice Chat Button */}
-        <button
+        {/* Instant Neural Voice Chat Button: hidden when voice is disabled */}
+        {voiceSettings.enabled && <button
           id="bella-voice-mode-trigger"
           onClick={() => {
             setIsVoiceChatMode(true);
@@ -527,8 +543,8 @@ Diretrizes:
             <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           </div>
-          <span className="text-xs font-bold text-white tracking-wide">Voz Neural 0s</span>
-        </button>
+          <span className="text-xs font-bold text-white tracking-wide">Voz Neural</span>
+        </button>}
 
         {/* Floating Panel Trigger */}
         <button

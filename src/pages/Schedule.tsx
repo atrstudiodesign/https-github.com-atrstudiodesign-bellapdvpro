@@ -7,22 +7,6 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useAuthStore } from '../store/auth';
 
-interface Appointment {
-  id: string;
-  client: string;
-  service: string;
-  employee: string;
-  time: string;
-  status: 'confirmed' | 'pending' | 'finished';
-}
-
-const mockAppointments: Appointment[] = [
-  { id: '1', client: 'Ana Paula Souza', service: 'Corte + Escova', employee: 'Sílvia', time: '09:00', status: 'confirmed' },
-  { id: '2', client: 'Juliana Martins', service: 'Mechas', employee: 'Sílvia', time: '10:30', status: 'confirmed' },
-  { id: '3', client: 'Beatriz Lima', service: 'Coloração', employee: 'João', time: '14:00', status: 'pending' },
-  { id: '4', client: 'Carla Mendes', service: 'Tratamento Capilar', employee: 'Sílvia', time: '15:30', status: 'confirmed' },
-];
-
 import { useAppointmentStore } from '../store/appointments';
 
 export default function Schedule() {
@@ -346,42 +330,27 @@ export default function Schedule() {
                <Clock className="w-4 h-4 text-purple-400" />
                Feed em Tempo Real
             </h3>
-            <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border border-red-500/50 animate-pulse">Ao Vivo</span>
+            <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border border-red-500/50 animate-pulse">Agenda</span>
          </div>
          <div className="p-4 overflow-y-auto flex-1 space-y-3 hide-scrollbar relative">
-            <div className="absolute top-0 left-6 bottom-0 w-px bg-white/5" />
-            
-            <div className="relative pl-6">
-               <div className="absolute left-[-5px] top-1 w-3 h-3 bg-emerald-500 rounded-full border border-black shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-               <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider mb-1">Há 2 min</p>
-               <div className="bg-[#15233A] border border-emerald-500/20 p-3 rounded-xl">
-                  <p className="text-sm text-slate-200"><strong>Ana Paula</strong> acaba de confirmar seu agendamento (Corte + Escova) via WhatsApp.</p>
-               </div>
-            </div>
-
-            <div className="relative pl-6">
-               <div className="absolute left-[-5px] top-1 w-3 h-3 bg-blue-500 rounded-full border border-black shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-               <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider mb-1">Há 15 min</p>
-               <div className="bg-[#15233A] border border-white/5 p-3 rounded-xl">
-                  <p className="text-sm text-slate-200">Novo agendamento recebido via Link: <strong>Carlos Santos</strong> às 16:00.</p>
-               </div>
-            </div>
-
-            <div className="relative pl-6 opacity-60">
-               <div className="absolute left-[-5px] top-1 w-3 h-3 bg-purple-500 rounded-full border border-black" />
-               <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider mb-1">Há 1 hora</p>
-               <div className="bg-[#15233A] border border-white/5 p-3 rounded-xl">
-                  <p className="text-sm text-slate-200">A Automação de Churn enviou mensagem para <strong>3 clientes inativos</strong>.</p>
-               </div>
-            </div>
-
-            <div className="relative pl-6 opacity-60">
-               <div className="absolute left-[-5px] top-1 w-3 h-3 bg-amber-500 rounded-full border border-black" />
-               <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider mb-1">Ontem</p>
-               <div className="bg-[#15233A] border border-white/5 p-3 rounded-xl">
-                  <p className="text-sm text-slate-200"><strong>Beatriz Lima</strong> respondeu a avaliação do atendimento com nota 5.</p>
-               </div>
-            </div>
+            {appointments.length === 0 ? (
+              <div className="py-12 px-3 text-center" role="status">
+                <Clock className="w-9 h-9 text-slate-500 mx-auto mb-3" aria-hidden="true" />
+                <p className="text-sm font-semibold text-white">Nenhuma atividade registrada</p>
+                <p className="text-xs text-slate-400 mt-2">Ao criar seus agendamentos, as atualizações aparecerão aqui. Nenhum exemplo é exibido na conta real.</p>
+              </div>
+            ) : (
+              [...appointments].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.time.localeCompare(a.time)).slice(0, 12).map(app => (
+                <div key={app.id} className="relative pl-6">
+                  <div className="absolute left-[-5px] top-1 w-3 h-3 bg-cyan-500 rounded-full border border-black" />
+                  <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider mb-1">{app.date || 'Data não informada'} · {app.time}</p>
+                  <div className="bg-[#15233A] border border-white/10 p-3 rounded-xl">
+                    <p className="text-sm text-slate-200"><strong>{app.client}</strong> · {app.service}</p>
+                    <p className="text-xs text-slate-400 mt-1">Status: {app.status === 'confirmed' ? 'Confirmado' : app.status === 'pending' ? 'Pendente' : app.status === 'completed' ? 'Concluído' : 'Cancelado'}</p>
+                  </div>
+                </div>
+              ))
+            )}
          </div>
       </div>
 
