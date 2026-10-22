@@ -117,7 +117,7 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isSignedIn() && ((companyId == tenantId() && !isEmployee()) || isAdmin());
       allow create: if isSignedIn() && companyId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAdmin() || (isSignedIn() && companyId == tenantId() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
+      allow update: if isAdmin() || (isSignedIn() && !isEmployee() && companyId == tenantId() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'niche', 'address', 'phone', 'logo']));
       allow delete: if isAdmin();
     }
 
