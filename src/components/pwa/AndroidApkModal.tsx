@@ -284,14 +284,14 @@ MÉTODO 1 (MAIS FÁCIL E RÁPIDO - DIRETO NO GOOGLE CHROME):
 2. Acesse: ${currentTargetUrl}
 3. Toque nos 3 pontinhos (⋮) no canto superior direito.
 4. Toque em "Instalar aplicativo" (ou "Adicionar à tela inicial").
-5. Pronto! O Google Chrome instala o APK nativo sem nenhum erro de Play Protect!
+5. Siga as instruções exibidas pelo navegador; instalação PWA e APK direto são opções diferentes.
 
 MÉTODO 2 (GERAR ARQUIVO .APK ASSINADO COM PWABUILDER):
 1. Acesse: https://www.pwabuilder.com
 2. Digite a URL: ${currentTargetUrl}
 3. Clique em "Package for stores" -> "Android".
 4. Baixe o arquivo .apk assinado e transfira para o aparelho.
-5. Ao instalar o .apk, se o Android alertar "Bloqueado pelo Play Protect", clique em "Mais detalhes" -> "Instalar assim mesmo".
+5. Se houver um alerta do Play Protect, não ignore o aviso; valide a origem e contate o suporte.
 
 Equipe ATR Studio / Bella PDV
 `;
@@ -434,7 +434,7 @@ class FirebaseRealtimeHelper {
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Soluções para instalação no celular e resolução de bloqueios do Android
+                    Instale o APK oficial ou consulte as instruções de instalação no Android
                   </p>
                 </div>
               </div>
@@ -446,6 +446,7 @@ class FirebaseRealtimeHelper {
               </button>
             </div>
 
+            <div className="px-5 py-3 border-b border-cyan-400/20 bg-cyan-400/5 flex flex-wrap gap-3 items-center"><a href="/downloads/bellapdv-pro-android.apk" className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-bold text-[#051426]">Baixar APK oficial</a><a href="/instalar/android" className="text-sm text-cyan-300 underline">Guia de instalação</a><span className="text-xs text-slate-300">Pacote ZIP técnico não é instalador.</span></div>
             {/* Navigation Tabs */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 p-2 bg-[#060A14] border-b border-white/5 text-xs font-medium">
               <button
@@ -610,9 +611,9 @@ class FirebaseRealtimeHelper {
                             Como o APK é corporativo/privado e não passou pela aprovação da Google Play Store, o Android exibe um aviso de segurança preventivo.
                           </p>
                           <ol className="list-decimal pl-4 space-y-1 text-slate-300">
-                            <li>Na tela do aviso do Play Protect, procure o link <strong>"Mais detalhes"</strong> (ou "Detalhes").</li>
-                            <li>Toque em <strong>"Instalar assim mesmo"</strong> (ou "Instalar mesmo assim").</li>
-                            <li>A instalação prosseguirá e o app abrirá normalmente.</li>
+                            <li>Confirme que o endereço de origem é o site oficial BellaPDV Pro.</li>
+                            <li>Não desative o Play Protect nem ignore avisos de ameaça.</li>
+                            <li>Se o alerta persistir, interrompa a instalação e fale com o suporte.</li>
                           </ol>
                         </div>
                       )}
@@ -718,7 +719,7 @@ class FirebaseRealtimeHelper {
                         </h4>
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed max-w-md">
-                        O Android compila e instala um aplicativo nativo completo com ícone na gaveta de aplicativos, execução em tela cheia e modo offline instantâneo.
+                        A instalação pelo navegador pode adicionar o aplicativo à tela inicial. Recursos offline dependem da conectividade e não estão garantidos para todas as operações.
                       </p>
                     </div>
 
