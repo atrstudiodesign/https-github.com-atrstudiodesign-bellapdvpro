@@ -8,6 +8,7 @@ import { useAuthStore } from './store/auth';
 import { LicenseRouteGuard } from './components/LicenseRouteGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
+import { StartupScreen } from './components/StartupScreen';
 import { Loader2 } from 'lucide-react';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
@@ -44,10 +45,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#05070F] gap-3">
-        <Loader2 className="w-9 h-9 text-cyan-400 animate-spin" />
-        <p className="text-slate-400 text-xs font-medium tracking-wide">Carregando ambiente...</p>
-      </div>
+      <StartupScreen message="Validando sua sessão…" />
     );
   }
 
@@ -90,9 +88,7 @@ function PublicRouteWrapper({ children }: { children: ReactNode }) {
 
   if (initializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#05070F]">
-        <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
-      </div>
+      <StartupScreen message="Preparando conexão segura…" />
     );
   }
 
@@ -110,14 +106,14 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <AnalyticsConsent />
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}>
+        <Suspense fallback={<StartupScreen />}>
           <Routes>
             <Route path="/landing" element={<Landing />} />
           <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
-            <Route path="/menu-view" element={<PublicRouteWrapper><Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#05070F]"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>}><Online publicMode={true} /></Suspense></PublicRouteWrapper>} />
+            <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
+            <Route path="/menu-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Online publicMode={true} /></Suspense></PublicRouteWrapper>} />
             <Route 
               path="/admin" 
               element={
