@@ -83,7 +83,7 @@ const legalData: Record<string, { title: string, content: string }> = {
   'como-usar': {
     title: 'Como Usar',
     content: `
-      <p>O sistema foi desenhado de forma intuitiva. Caso seja sua primeira vez, acesse a página de Tutoriais no seu Dashboard para vídeos explicativos passo-a-passo e dicas de configuração da IA.</p>
+      <p>O sistema foi desenhado de forma intuitiva. Caso seja sua primeira vez, consulte o <a href="/ajuda/como-usar">guia de primeiros passos</a> e a <a href="/ajuda">Central de Ajuda</a> para tutoriais por módulo.</p>
     `
   },
   'lgpd': {
