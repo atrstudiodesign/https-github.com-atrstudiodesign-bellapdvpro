@@ -113,3 +113,26 @@ test('somente administrador com claim pode vincular ou alterar funcionário', as
   await assertFails(getDoc(doc(guest, 'staff_members/employee')));
   await assertSucceeds(getDoc(doc(adminB, 'staff_members/employee')));
 });
+
+test('portal individual: funcionário ativo vê somente dados próprios e não altera registros', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(setDoc(doc(adminA, 'staff_portal/employee/appointments/slot1'), { name: 'Meu atendimento', companyId: 'companyA' }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/appointments/slot1')));
+  await assertFails(setDoc(doc(employee, 'staff_portal/employee/appointments/slot2'), { name: 'Forjado' }));
+  await assertFails(getDoc(doc(b, 'staff_portal/employee/appointments/slot1')));
+  await assertFails(getDoc(doc(guest, 'staff_portal/employee/appointments/slot1')));
+  await assertFails(getDoc(doc(anonymous, 'staff_portal/employee/appointments/slot1')));
+  await assertSucceeds(setDoc(doc(adminA, 'staff_portal/employee/commissions/c1'), { amount: 35 }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/commissions/c1')));
+  await assertFails(getDoc(doc(a, 'staff_portal/employee/commissions/c1')));
+});
+
+test('funcionário desativado perde acesso ao portal imediatamente', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(setDoc(doc(adminA, 'staff_portal/employee/referrals/ref1'), { count: 1 }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/referrals/ref1')));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: false }));
+  await assertFails(getDoc(doc(employee, 'staff_portal/employee/referrals/ref1')));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: true }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/referrals/ref1')));
+});
