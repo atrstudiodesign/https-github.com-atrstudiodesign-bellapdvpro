@@ -136,22 +136,24 @@ service cloud.firestore {
         && isEmployee();
     }
 
+    function ownsStaffMember(staffUid) {
+      return isSignedIn() && !isEmployee()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && tenantId() == request.auth.uid
+        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
+        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid;
+    }
+
     match /staff_portal/{staffUid}/{section}/{itemId} {
       allow read: if (section in ['appointments', 'commissions', 'referrals', 'marketing'])
-        && (activeStaff(staffUid) || isAdmin());
+        && (activeStaff(staffUid) || isAdmin() || ownsStaffMember(staffUid));
       allow create, update: if isAdmin() || (
-        isSignedIn() && !isEmployee()
-        && request.auth.uid == tenantId()
-        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
-        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid
+        ownsStaffMember(staffUid)
         && request.resource.data.companyId == request.auth.uid
         && request.resource.data.keys().hasOnly(['companyId', 'title', 'date', 'time', 'status', 'amount'])
       );
       allow delete: if isAdmin() || (
-        isSignedIn() && !isEmployee()
-        && request.auth.uid == tenantId()
-        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
-        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid
+        ownsStaffMember(staffUid)
       );
     }
 
