@@ -10,7 +10,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      return isSignedIn() && request.auth.token.keys().hasAny(['admin']) && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function tenantId() {
@@ -31,6 +31,18 @@ service cloud.firestore {
       return isSignedIn() && !isEmployee() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
     }
 
+    function hasVerifiedInvite(inviteId, requestedCompany) {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && inviteId is string
+        && exists(/databases/$(database)/documents/staff_invites/$(inviteId))
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.status == 'pending'
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.email == request.auth.token.email
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.companyId == requestedCompany
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.ownerUid == requestedCompany;
+    }
+
     function validStock(data) {
       return !data.keys().hasAny(['stock']) || (data.stock is number && data.stock >= 0);
     }
@@ -39,6 +51,14 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client' && request.resource.data.companyId == request.auth.uid;
       allow update: if isAdmin() || (
+        isSignedIn() && request.auth.uid == userId
+        && resource.data.role == 'client'
+        && resource.data.companyId == request.auth.uid
+        && request.resource.data.role == 'employee'
+        && request.resource.data.staffInviteId is string
+        && hasVerifiedInvite(request.resource.data.staffInviteId, request.resource.data.companyId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'companyId', 'staffInviteId'])
+      ) || (
         isSignedIn() && request.auth.uid == userId
         && request.resource.data.role == resource.data.role
         && (
@@ -52,9 +72,57 @@ service cloud.firestore {
 
     // Profiles can only be provisioned/changed by a trusted admin backend.
     // Employee self-read is limited to the document bearing their Firebase UID.
+    // A request is NOT a granted staff account. A trusted administrator must
+    // verify identity and provision users/staff_members before portal access.
+    match /staff_invites/{inviteId} {
+      allow read: if isAdmin() || (
+        isSignedIn() && !isEmployee() &&
+        resource.data.companyId == tenantId() &&
+        request.auth.uid == tenantId()
+      ) || (
+        isSignedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email == resource.data.email
+        && resource.data.status == 'pending'
+      );
+      allow create: if isSignedIn()
+        && !isEmployee()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && tenantId() == request.auth.uid
+        && request.resource.data.keys().hasOnly(['companyId', 'ownerUid', 'professionalId', 'email', 'status', 'createdAt'])
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.professionalId is string
+        && exists(/databases/$(database)/documents/professionals/$(request.resource.data.professionalId))
+        && get(/databases/$(database)/documents/professionals/$(request.resource.data.professionalId)).data.ownerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
     match /staff_members/{staffUid} {
-      allow read: if isSignedIn() && (request.auth.uid == staffUid || isAdmin());
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn() && (
+        request.auth.uid == staffUid || isAdmin() ||
+        (!isEmployee() && resource.data.companyId == request.auth.uid && tenantId() == request.auth.uid)
+      );
+      allow create: if isAdmin() || (
+        isSignedIn() && request.auth.uid == staffUid
+        && request.resource.data.keys().hasOnly(['companyId', 'professionalId', 'staffInviteId', 'email', 'active', 'name'])
+        && request.resource.data.staffInviteId is string
+        && hasVerifiedInvite(request.resource.data.staffInviteId, request.resource.data.companyId)
+        && request.resource.data.professionalId == get(/databases/$(database)/documents/staff_invites/$(request.resource.data.staffInviteId)).data.professionalId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.active == true
+        && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.role == 'employee'
+        && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.companyId == request.resource.data.companyId
+      );
+      allow update: if isAdmin() || (
+        isSignedIn() && !isEmployee()
+        && resource.data.companyId == request.auth.uid
+        && tenantId() == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+      );
+      allow delete: if isAdmin();
     }
 
     // Read-only personal staff feed: created by privileged server/admin only.
@@ -68,10 +136,25 @@ service cloud.firestore {
         && isEmployee();
     }
 
+    function ownsStaffMember(staffUid) {
+      return isSignedIn() && !isEmployee()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && tenantId() == request.auth.uid
+        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
+        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid;
+    }
+
     match /staff_portal/{staffUid}/{section}/{itemId} {
       allow read: if (section in ['appointments', 'commissions', 'referrals', 'marketing'])
-        && (activeStaff(staffUid) || isAdmin());
-      allow create, update, delete: if isAdmin();
+        && (activeStaff(staffUid) || isAdmin() || ownsStaffMember(staffUid));
+      allow create, update: if isAdmin() || (
+        ownsStaffMember(staffUid)
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['companyId', 'title', 'date', 'time', 'status', 'amount'])
+      );
+      allow delete: if isAdmin() || (
+        ownsStaffMember(staffUid)
+      );
     }
 
     match /clients/{clientId} {

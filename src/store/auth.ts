@@ -19,7 +19,7 @@ import { hasPlatformAdminClaim } from '../lib/superAdmins';
 
 export interface AuthUser {
   id: string;
-  role: 'admin' | 'client';
+  role: 'admin' | 'client' | 'employee';
   isPlatformAdmin?: boolean;
   planFeatures: string[];
   email: string;
@@ -130,7 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       id: userData?.id || auth.currentUser?.uid || 'u_admin',
       name: userData?.name || 'Administrador',
       email: userData?.email || 'admin@bellapdv.com',
-      role: userData?.role === 'admin' ? 'admin' : 'client',
+      role: userData?.role === 'employee' ? 'employee' : userData?.role === 'admin' ? 'admin' : 'client',
       isPlatformAdmin: userData?.isPlatformAdmin === true,
       isDemo: userData?.isDemo === true,
       companyId: company?.id || userData?.companyId,
@@ -220,7 +220,7 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
       id: firebaseUser.uid,
       email,
       name: displayName,
-      role: isPlatformAdmin || profile.role === 'admin' ? 'admin' : 'client',
+      role: isPlatformAdmin || profile.role === 'admin' ? 'admin' : profile.role === 'employee' ? 'employee' : 'client',
       isPlatformAdmin,
       companyId: typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : firebaseUser.uid,
       avatar: firebaseUser.photoURL || undefined,
@@ -229,8 +229,8 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
     };
     useAuthStore.getState().setUser(userData);
 
-    // Start real-time data subscriptions (only for real accounts, never for demo)
-    try {
+    // Company-wide subscriptions must never start for a restricted employee.
+    if (userData.role !== 'employee') try {
       unsubscribes.push(
         subscribeToClients(),
         subscribeToCatalog(),

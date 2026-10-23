@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { after, test } from 'node:test';
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 
 const env = await initializeTestEnvironment({
@@ -124,7 +124,7 @@ test('portal pessoal permite somente leitura do funcionário ativo', async () =>
   await assertFails(getDoc(doc(employee, 'staff_portal/companyB/appointments/b1')));
   await assertFails(setDoc(doc(employee, 'staff_portal/employee/appointments/forged'), { title: 'Fraude' }));
   await assertFails(updateDoc(doc(employee, 'staff_portal/employee/commissions/c1'), { amount: 999 }));
-  await assertFails(getDoc(doc(a, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(getDoc(doc(a, 'staff_portal/employee/appointments/a1')));
   await assertFails(getDoc(doc(guest, 'staff_portal/employee/appointments/a1')));
   await assertFails(getDoc(doc(anonymous, 'staff_portal/employee/appointments/a1')));
   await assertSucceeds(getDoc(doc(adminA, 'staff_portal/employee/appointments/a1')));
@@ -137,4 +137,73 @@ test('funcionário inativo perde acesso ao portal', async () => {
   await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: false }));
   await assertFails(getDoc(doc(employee, 'staff_portal/employee/appointments/a1')));
   await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: true }));
+});
+
+test('solicitação de convite não concede acesso nem permite convidar empresa alheia', async () => {
+  await assertSucceeds(setDoc(doc(a, 'staff_invites/inviteA'), {
+    companyId: 'companyA', ownerUid: 'companyA', professionalId: 'profA',
+    email: 'funcionario@example.com', status: 'pending', createdAt: '2026-10-22'
+  }));
+  await assertSucceeds(getDoc(doc(a, 'staff_invites/inviteA')));
+  await assertFails(getDoc(doc(b, 'staff_invites/inviteA')));
+  await assertFails(setDoc(doc(b, 'staff_invites/forged'), {
+    companyId: 'companyA', ownerUid: 'companyA', professionalId: 'profA',
+    email: 'atacante@example.com', status: 'pending', createdAt: '2026-10-22'
+  }));
+  await assertFails(updateDoc(doc(a, 'staff_invites/inviteA'), { status: 'approved' }));
+  await assertFails(setDoc(doc(a, 'staff_members/forged'), { companyId: 'companyA', active: true }));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_invites/inviteA'), { status: 'approved' }));
+});
+
+test('funcionário aceita convite apenas com e-mail verificado e vinculado', async () => {
+  const hire = env.authenticatedContext('newHire', { ...token, email: 'hire@example.com', email_verified: true }).firestore();
+  const unverified = env.authenticatedContext('unverified', { ...token, email: 'hire@example.com', email_verified: false }).firestore();
+  await assertSucceeds(setDoc(doc(a, 'staff_invites/inviteHire'), {
+    companyId: 'companyA', ownerUid: 'companyA', professionalId: 'profA',
+    email: 'hire@example.com', status: 'pending', createdAt: '2026-10-22'
+  }));
+  await assertSucceeds(getDoc(doc(hire, 'staff_invites/inviteHire')));
+  await assertFails(getDoc(doc(unverified, 'staff_invites/inviteHire')));
+  await assertSucceeds(setDoc(doc(hire, 'users/newHire'), { role: 'client', companyId: 'newHire' }));
+  const batch = writeBatch(hire);
+  batch.update(doc(hire, 'users/newHire'), {role:'employee', companyId:'companyA', staffInviteId:'inviteHire'});
+  batch.set(doc(hire, 'staff_members/newHire'), {
+    companyId:'companyA', professionalId:'profA', staffInviteId:'inviteHire',
+    email:'hire@example.com', active:true, name:'Novo Funcionário'
+  });
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(hire, 'staff_portal/newHire/appointments/personal')));
+  await assertFails(getDoc(doc(hire, 'clients/clientA')));
+  await assertFails(getDoc(doc(hire, 'clients/clientB')));
+  await assertFails(updateDoc(doc(hire, 'staff_members/newHire'), { active: false }));
+});
+
+test('convite de outra empresa e cadastro sem email verificado não podem vincular conta', async () => {
+  const hire = env.authenticatedContext('otherHire', { ...token, email: 'outsider@example.com', email_verified: true }).firestore();
+  await assertSucceeds(setDoc(doc(hire, 'users/otherHire'), { role:'client', companyId:'otherHire' }));
+  await assertFails(updateDoc(doc(hire, 'users/otherHire'), {
+    role:'employee', companyId:'companyA', staffInviteId:'inviteHire'
+  }));
+  await assertFails(setDoc(doc(a, 'staff_invites/invalidProfessional'), {
+    companyId:'companyA', ownerUid:'companyA', professionalId:'profB',
+    email:'outsider@example.com', status:'pending', createdAt:'2026-10-22'
+  }));
+});
+
+test('dono sincroniza apenas a agenda e comissão de seus funcionários', async () => {
+  await assertSucceeds(setDoc(doc(a, 'staff_portal/employee/appointments/real'), {
+    companyId: 'companyA', title: 'Serviço real', date: '2026-10-22', time: '14:30', status: 'confirmed'
+  }));
+  await assertSucceeds(getDoc(doc(a, 'staff_portal/employee/appointments/real')));
+  await assertFails(setDoc(doc(b, 'staff_portal/employee/appointments/attack'), {
+    companyId: 'companyB', title: 'Não permitido'
+  }));
+  await assertFails(setDoc(doc(a, 'staff_portal/employee/appointments/hidden'), {
+    companyId: 'companyA', title: 'Fraude', customerFullProfile: 'Excesso de informações'
+  }));
+  await assertSucceeds(updateDoc(doc(a, 'staff_members/employee'), { active: false }));
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertFails(getDoc(doc(employee, 'staff_portal/employee/appointments/real')));
+  await assertSucceeds(updateDoc(doc(a, 'staff_members/employee'), { active: true }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/appointments/real')));
 });
