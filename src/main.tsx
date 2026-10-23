@@ -70,6 +70,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) return <Navigate to="/landing" replace />;
+  if (useAuthStore.getState().user?.role === 'employee') return <Navigate to="/funcionario" replace />;
   return <>{children}</>;
 }
 
