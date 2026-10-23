@@ -57,6 +57,23 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Read-only personal staff feed: created by privileged server/admin only.
+    // A disabled employee loses all access immediately, regardless of cached UI state.
+    function activeStaff(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && exists(/databases/$(database)/documents/staff_members/$(uid))
+        && get(/databases/$(database)/documents/staff_members/$(uid)).data.active == true
+        && isEmployee();
+    }
+
+    match /staff_portal/{staffUid}/{section}/{itemId} {
+      allow read: if (section in ['appointments', 'commissions', 'referrals', 'marketing'])
+        && activeStaff(staffUid);
+      allow create, update, delete: if isAdmin();
+    }
+
     match /clients/{clientId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if ownsTenant(request.resource.data);
