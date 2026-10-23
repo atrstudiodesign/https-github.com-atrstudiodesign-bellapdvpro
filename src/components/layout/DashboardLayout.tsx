@@ -33,7 +33,8 @@ import {
   Globe,
   Smartphone,
   Menu,
-  HelpCircle
+  HelpCircle,
+  Keyboard
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -46,6 +47,9 @@ import { useDemoModalStore } from '../../services/demoService';
 import { ArrowRight, Flame } from 'lucide-react';
 import { toast } from 'sonner';
 import { WelcomeTour, startWelcomeTour } from '../onboarding/WelcomeTour';
+import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
+import { useShortcutsStore } from '../../store/shortcuts';
+import { ShortcutsModal } from '../shortcuts/ShortcutsModal';
 const AndroidApkModal = React.lazy(() =>
   import('../pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
 );
@@ -55,7 +59,9 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
 }
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
+  useGlobalShortcuts();
   const { logout, user } = useAuthStore();
+  const { openModal: openShortcutsModal } = useShortcutsStore();
   const { openDemoModal } = useDemoModalStore();
   const { getConfig } = useNicheStore();
   const config = getConfig();
@@ -457,6 +463,18 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
            
            <div className="flex items-center gap-2 md:gap-3 shrink-0">
               <button 
+                 onClick={openShortcutsModal} 
+                 className="flex items-center gap-1.5 px-2.5 py-1.5 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-cyan-500/30 text-slate-300 hover:text-cyan-300 rounded-lg text-xs font-semibold transition-all shadow-sm shrink-0 cursor-pointer"
+                 title="Guia de Atalhos de Teclado (Ctrl + / ou ?)"
+              >
+                 <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
+                 <span className="hidden sm:inline">Atalhos</span>
+                 <kbd className="hidden lg:inline-flex items-center px-1 text-[9px] font-mono bg-white/10 border border-white/15 rounded text-slate-400">
+                    ?
+                 </kbd>
+              </button>
+
+              <button 
                  onClick={() => startWelcomeTour(true)} 
                  className="flex items-center gap-1.5 px-2.5 py-1.5 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg text-xs font-semibold transition-all shadow-[0_0_12px_rgba(0,217,255,0.15)] shrink-0 cursor-pointer"
                  title="Iniciar Tour Guiado de Boas-vindas"
@@ -627,6 +645,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
         {/* First-login Guided Welcome Tour */}
         <WelcomeTour />
+
+        {/* Global Keyboard Shortcuts Modal */}
+        <ShortcutsModal />
       </main>
 
       {/* Mobile Bottom Navigation */}

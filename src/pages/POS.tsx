@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNicheStore } from '../store/niche';
 import { useProfessionalStore } from '../store/professionals';
@@ -7,7 +7,8 @@ import { useClientStore, Client } from '../store/clients';
 import { useApiKeysStore } from '../store/apiKeys';
 import { useCatalogStore } from '../store/catalog';
 import { useTransactionStore } from '../store/transactions';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, CheckCircle, ArrowDownAZ, ArrowUpAZ, ArrowDown10, ArrowUp10, Sparkles, Printer, MessageCircle, FileText, QrCode, X, Mic, Calendar } from 'lucide-react';
+import { useShortcutsStore } from '../store/shortcuts';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, CheckCircle, ArrowDownAZ, ArrowUpAZ, ArrowDown10, ArrowUp10, Sparkles, Printer, MessageCircle, FileText, QrCode, X, Mic, Calendar, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { fiscalService } from '../services/fiscalService';
@@ -31,6 +32,8 @@ interface CartItem extends Service {
 
 export default function POS() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { openModal: openShortcutsModal } = useShortcutsStore();
   const { getConfig } = useNicheStore();
   const config = getConfig();
   
@@ -66,6 +69,22 @@ export default function POS() {
   useEffect(() => {
      setCategoryFilter('all');
   }, [config.type]);
+
+  // Handle action=new from shortcuts (Ctrl+N)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'new') {
+      setCart([]);
+      setIsSuccess(false);
+      setTimeout(() => {
+        const searchInput = document.getElementById('pos-search-input');
+        if (searchInput) {
+          searchInput.focus();
+          (searchInput as HTMLInputElement).select();
+        }
+      }, 100);
+    }
+  }, [location.search]);
 
   const [upsellItem, setUpsellItem] = useState<Service | null>(null);
 
@@ -518,24 +537,63 @@ Responda APENAS com um arquivo JSON válido e nada mais:
     <div className="flex flex-col h-full w-full bg-[#0B0F1A]">
       <div className="flex items-center justify-between px-6 py-4 bg-[#0F172A] border-b border-white/5 shrink-0 z-10 w-full overflow-x-auto scrollbar-hide">
          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-white tracking-tight">Caixa (PDV)</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-white tracking-tight">Caixa (PDV)</h2>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                Ctrl + P / F2
+              </span>
+            </div>
             <div className="hidden md:block h-6 w-px bg-white/10 mx-2"></div>
             <div className="flex items-center gap-2 sm:gap-3">
                <button 
+                 onClick={() => {
+                   setCart([]);
+                   setIsSuccess(false);
+                   setTimeout(() => {
+                     const searchInput = document.getElementById('pos-search-input');
+                     if (searchInput) {
+                       searchInput.focus();
+                       (searchInput as HTMLInputElement).select();
+                     }
+                   }, 50);
+                   toast.success('🛒 Nova venda iniciada!');
+                 }} 
+                 className="flex items-center gap-2 text-sm font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 px-3.5 py-2 rounded-xl transition-all hover:shadow-lg whitespace-nowrap cursor-pointer"
+                 title="Iniciar nova venda (Ctrl + N)"
+               >
+                  <Plus className="w-4 h-4 text-emerald-400" />
+                  <span>Nova Venda</span>
+                  <kbd className="hidden lg:inline-flex text-[9px] font-mono px-1 py-0.5 bg-black/30 rounded border border-emerald-500/30 text-emerald-300">
+                    Ctrl+N
+                  </kbd>
+               </button>
+               <button 
                  onClick={() => navigate('/clients')} 
-                 className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white bg-[#1E293B] hover:bg-[#253B5C] px-3.5 py-2 rounded-xl transition-all hover:shadow-lg whitespace-nowrap"
+                 className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white bg-[#1E293B] hover:bg-[#253B5C] px-3.5 py-2 rounded-xl transition-all hover:shadow-lg whitespace-nowrap cursor-pointer"
                >
                   <Plus className="w-4 h-4" />
                   Novo Cliente
                </button>
                <button 
                  onClick={() => navigate('/schedule')} 
-                 className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white bg-[#1E293B] hover:bg-[#253B5C] px-3.5 py-2 rounded-xl transition-all hover:shadow-lg whitespace-nowrap"
+                 className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white bg-[#1E293B] hover:bg-[#253B5C] px-3.5 py-2 rounded-xl transition-all hover:shadow-lg whitespace-nowrap cursor-pointer"
                >
                   <Calendar className="w-4 h-4" />
                   Agenda de Hoje
                </button>
             </div>
+         </div>
+
+         <div className="flex items-center gap-2">
+            <button
+              onClick={openShortcutsModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer"
+              title="Atalhos do PDV e Navegação"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Atalhos</span>
+              <kbd className="text-[10px] font-mono text-slate-400 px-1 bg-black/30 rounded">?</kbd>
+            </button>
          </div>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-3 flex-1 h-auto xl:h-[calc(100vh-140px)] w-full text-white">
@@ -1248,10 +1306,14 @@ Responda APENAS com um arquivo JSON válido e nada mais:
           <button 
             onClick={handleCheckout}
             disabled={cart.length === 0 || isEmittingNfce}
-            className="group mt-6 w-full bg-gradient-to-r from-emerald-500 to-green-400 hover:from-emerald-400 hover:to-green-300 text-[#050B14] font-bold text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed uppercase disabled:shadow-none"
+            className="group mt-6 w-full bg-gradient-to-r from-emerald-500 to-green-400 hover:from-emerald-400 hover:to-green-300 text-[#050B14] font-bold text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed uppercase disabled:shadow-none cursor-pointer"
+            title="Finalizar Venda (Ctrl + Enter)"
           >
             <span>{isEmittingNfce ? 'Emitindo NFC-e...' : 'Finalizar Venda'}</span>
             {!isEmittingNfce && <CheckCircle className="w-5 h-5" />}
+            <kbd className="hidden sm:inline-flex text-[10px] font-mono font-bold bg-black/20 border border-black/30 px-1.5 py-0.5 rounded text-black/80 ml-1">
+              Ctrl+↵
+            </kbd>
           </button>
         <AnimatePresence>
           {showClientModal && (

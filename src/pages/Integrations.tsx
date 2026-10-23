@@ -1,26 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap, UserCircle, QrCode, X } from 'lucide-react';
+import { ExternalLink, CheckCircle, Smartphone, Mail, CreditCard, Box, Key, Zap, UserCircle, QrCode, X, RefreshCw, Copy, Send, CheckCircle2, Wifi, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApiKeysStore } from '../store/apiKeys';
+import { useWhatsAppStore } from '../store/whatsapp';
 import { FeatureGate } from '../components/ui/FeatureGate';
 import { checkBellaSupabase, testBellaSupabaseAuth } from '../lib/bellaSupabase';
 
 export default function Integrations() {
-  const [whatsappStatus, setWhatsappStatus] = useState<'DISCONNECTED' | 'LOADING' | 'CONNECTED'>('DISCONNECTED');
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const {
+    status: whatsappStatus,
+    qrCode: qrCodeBase64,
+    pairingCode,
+    expiresIn,
+    phone: whatsappPhone,
+    businessName,
+    provider: whatsappProvider,
+    connectedAt,
+    logs: whatsappLogs,
+    queue: whatsappQueue,
+    isModalOpen: isQrModalOpen,
+    setModalOpen: setIsQrModalOpen,
+    setPhone: setWhatsappPhone,
+    setProvider: setWhatsappProvider,
+    startSession: startWhatsappSession,
+    confirmConnection: confirmWhatsappConnection,
+    disconnectSession: disconnectWhatsappSession,
+    sendTestMessage: sendWhatsappTestMessage,
+    refreshLogs: refreshWhatsappLogs,
+  } = useWhatsAppStore();
+
   const [supabaseStatus, setSupabaseStatus] = useState('Não verificado');
   const [supabaseEmail, setSupabaseEmail] = useState('');
   const [supabasePassword, setSupabasePassword] = useState('');
   const [supabaseAuthStatus, setSupabaseAuthStatus] = useState('Não verificado');
-  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
-  
+  const [qrTab, setQrTab] = useState<'qr' | 'code'>('qr');
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [testTargetPhone, setTestTargetPhone] = useState(whatsappPhone || '+55 (11) 98421-0492');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [isConfirmingScan, setIsConfirmingScan] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+
   // Custom states for WhatsApp CRM dashboards
-  const [whatsappPhone, setWhatsappPhone] = useState('');
-  const [whatsappProvider, setWhatsappProvider] = useState<'Evolution' | 'MetaCloud' | 'Z-API'>('MetaCloud');
   const [whatsappToken, setWhatsappToken] = useState('');
-  const [whatsappQueue] = useState<Array<{ id: string; recipient: string; text: string; scheduled: string }>>([]);
-  const [whatsappLogs] = useState<Array<{ id: string; recipient: string; text: string; status: string; time: string }>>([]);
 
   const { evolutionUrl, evolutionKey, asaasKey, geminiKey, setAsaasKey } = useApiKeysStore();
   const [isAsaasIntegrated, setIsAsaasIntegrated] = useState(false);
@@ -68,75 +90,46 @@ export default function Integrations() {
      toast.warning('Configuração White-Label indisponível: DNS e CNAME exigem integração com backend. Nenhum domínio foi alterado.');
   };
 
-  const handleConnectWhatsapp = async () => {
-     if (!evolutionUrl || !evolutionKey) {
-        toast.error('Configure URL e chave reais da Evolution API antes de conectar.');
-        setWhatsappStatus('DISCONNECTED');
-        return;
-     }
-     setIsQrModalOpen(true);
-     setWhatsappStatus('LOADING');
-     setQrCodeBase64(null);
+  // Auto countdown for QR Code validity
+  useEffect(() => {
+    let timer: any;
+    if (isQrModalOpen && whatsappStatus === 'QRCODE_READY') {
+      setCountdown(expiresIn || 60);
+      timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            startWhatsappSession({ evolutionUrl, evolutionKey });
+            return 60;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isQrModalOpen, whatsappStatus, expiresIn, evolutionUrl, evolutionKey, startWhatsappSession]);
 
-     try {
-       // Tenta obter conexão com a Evolution API Oficial
-       const instanceName = "BellaPDV-Oficial";
-       const response = await fetch(`${evolutionUrl.replace(/\/$/, '')}/instance/connect/${instanceName}`, {
-         headers: { 'apikey': evolutionKey }
-       });
-       if (!response.ok) {
-           // Se a instancia não existe, cria ela
-           const createRes = await fetch(`${evolutionUrl.replace(/\/$/, '')}/instance/create`, {
-               method: 'POST',
-               headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
-               body: JSON.stringify({ instanceName, qrcode: true })
-           });
-           const createData = await createRes.json();
-           if (createData.qrcode && createData.qrcode.base64) {
-               setQrCodeBase64(createData.qrcode.base64);
-           } else {
-               throw new Error("Não foi possível gerar QR Code.");
-           }
-       } else {
-           const data = await response.json();
-           if (data.base64) {
-               setQrCodeBase64(data.base64);
-           } else {
-               await verifyWhatsAppConnection();
-           }
-       }
-     } catch (err: any) {
-        console.error(err);
-        toast.error("Erro na Evolution API", { description: err.message });
-        setWhatsappStatus('DISCONNECTED');
-        setIsQrModalOpen(false);
-     }
+  const handleConnectWhatsapp = async () => {
+    await startWhatsappSession({ evolutionUrl, evolutionKey });
   };
 
-  const verifyWhatsAppConnection = async () => {
-    if (!evolutionUrl || !evolutionKey) {
-      setWhatsappStatus('DISCONNECTED');
-      toast.error('Credenciais Evolution API ausentes.');
+  const handleConfirmPairing = async () => {
+    setIsConfirmingScan(true);
+    const ok = await confirmWhatsappConnection();
+    setIsConfirmingScan(false);
+    if (ok) {
+      setIsQrModalOpen(false);
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!testTargetPhone.trim()) {
+      toast.error('Informe um número de telefone com DDD.');
       return;
     }
-    try {
-      const response = await fetch(`${evolutionUrl.replace(/\/$/, '')}/instance/connectionState/BellaPDV-Oficial`, {
-        headers: { apikey: evolutionKey },
-      });
-      if (!response.ok) throw new Error('Não foi possível consultar o estado real da instância.');
-      const state = await response.json();
-      if (state?.instance?.state === 'open') {
-        setWhatsappStatus('CONNECTED');
-        setIsQrModalOpen(false);
-        toast.success('WhatsApp conectado: estado confirmado pela Evolution API.');
-      } else {
-        setWhatsappStatus('DISCONNECTED');
-        toast.info('WhatsApp ainda não conectado. Faça a leitura do QR Code.');
-      }
-    } catch (error) {
-      setWhatsappStatus('DISCONNECTED');
-      toast.error('Conexão não confirmada. Verifique Evolution API e permissões de acesso.');
-    }
+    setIsSendingTest(true);
+    await sendWhatsappTestMessage(testTargetPhone);
+    setIsSendingTest(false);
+    setIsTestModalOpen(false);
   };
 
   return (
@@ -414,12 +407,15 @@ export default function Integrations() {
                                  </div>
                               </div>
 
-                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest border transition ${
+                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest border transition flex items-center gap-1.5 ${
                                  whatsappStatus === 'CONNECTED' 
-                                    ? 'text-green-400 bg-green-400/10 border-green-500/20 shadow-sm' 
+                                    ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]' 
+                                    : whatsappStatus === 'QRCODE_READY'
+                                    ? 'text-cyan-400 bg-cyan-500/15 border-cyan-500/30 animate-pulse'
                                     : 'text-amber-400 bg-amber-400/10 border-amber-500/20'
                               }`}>
-                                 {whatsappStatus === 'CONNECTED' ? '● CONECTADO' : '● AGUARDANDO QRCODE'}
+                                 <span className={`w-2 h-2 rounded-full ${whatsappStatus === 'CONNECTED' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                                 {whatsappStatus === 'CONNECTED' ? 'CONECTADO (MULTI-DEVICE)' : whatsappStatus === 'QRCODE_READY' ? 'AGUARDANDO LEITURA QR' : 'DESCONECTADO'}
                               </span>
                            </div>
 
