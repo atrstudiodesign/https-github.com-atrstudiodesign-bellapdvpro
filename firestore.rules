@@ -101,7 +101,10 @@ service cloud.firestore {
     }
 
     match /staff_members/{staffUid} {
-      allow read: if isSignedIn() && (request.auth.uid == staffUid || isAdmin());
+      allow read: if isSignedIn() && (
+        request.auth.uid == staffUid || isAdmin() ||
+        (!isEmployee() && resource.data.companyId == request.auth.uid && tenantId() == request.auth.uid)
+      );
       allow create: if isAdmin() || (
         isSignedIn() && request.auth.uid == staffUid
         && request.resource.data.keys().hasOnly(['companyId', 'professionalId', 'staffInviteId', 'email', 'active', 'name'])
@@ -113,7 +116,13 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.role == 'employee'
         && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.companyId == request.resource.data.companyId
       );
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isSignedIn() && !isEmployee()
+        && resource.data.companyId == request.auth.uid
+        && tenantId() == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+      );
+      allow delete: if isAdmin();
     }
 
     // Read-only personal staff feed: created by privileged server/admin only.
@@ -130,7 +139,20 @@ service cloud.firestore {
     match /staff_portal/{staffUid}/{section}/{itemId} {
       allow read: if (section in ['appointments', 'commissions', 'referrals', 'marketing'])
         && (activeStaff(staffUid) || isAdmin());
-      allow create, update, delete: if isAdmin();
+      allow create, update: if isAdmin() || (
+        isSignedIn() && !isEmployee()
+        && request.auth.uid == tenantId()
+        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
+        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['companyId', 'title', 'date', 'time', 'status', 'amount'])
+      );
+      allow delete: if isAdmin() || (
+        isSignedIn() && !isEmployee()
+        && request.auth.uid == tenantId()
+        && exists(/databases/$(database)/documents/staff_members/$(staffUid))
+        && get(/databases/$(database)/documents/staff_members/$(staffUid)).data.companyId == request.auth.uid
+      );
     }
 
     match /clients/{clientId} {
