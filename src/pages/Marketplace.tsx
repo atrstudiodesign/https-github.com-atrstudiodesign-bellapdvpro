@@ -819,12 +819,7 @@ export default function Marketplace() {
                                 if (app.monthlyCost > 0) {
                                   requestAddonActivation(app.id, app.name, app.monthlyCost);
                                 } else {
-                                  // Direct installation mock inside client list
-                                  setInstalledApps(prev => [
-                                    ...prev, 
-                                    { appId: app.id, status: 'active', installedAt: '2026-06-19', premiumAgreement: false }
-                                  ]);
-                                  toast.success(`Módulo ${app.name} ativado com sucesso!`);
+                                  toast.error('Ativação ainda indisponível. Este módulo depende de habilitação real no servidor.');
                                 }
                               }}
                               className="px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-lg transition-all cursor-pointer"
