@@ -26,24 +26,36 @@ export default function EmployeePortal() {
     const unsubscribeAuth = onAuthStateChanged(auth, user => {
       cleanupSubscriptions?.();
       cleanupSubscriptions = undefined;
+      setError('');
+      setName('');
       setState('loading');
       setData({ appointments: [], commissions: [], referrals: [], marketing: [] });
       if (!user || user.isAnonymous) { setState('login'); return; }
+
+      let sectionUnsubs: Array<() => void> = [];
+      const stopSections = () => {
+        sectionUnsubs.forEach(unsubscribe => unsubscribe());
+        sectionUnsubs = [];
+        setData({ appointments: [], commissions: [], referrals: [], marketing: [] });
+      };
       const unsubStaff = onSnapshot(doc(db, 'staff_members', user.uid), snapshot => {
         const staff = snapshot.data();
         if (!snapshot.exists() || staff?.active !== true || typeof staff?.companyId !== 'string' || !staff.companyId) {
-          setState('denied'); setData({ appointments: [], commissions: [], referrals: [], marketing: [] }); return;
+          stopSections();
+          setState('denied');
+          return;
         }
         setName(typeof staff.name === 'string' ? staff.name : user.displayName || 'Profissional');
+        if (sectionUnsubs.length === 0) {
+          sectionUnsubs = sections.map(section => onSnapshot(
+            collection(db, 'staff_portal', user.uid, section.key),
+            snapshot => setData(prev => ({ ...prev, [section.key]: snapshot.docs.map(item => ({ id: item.id, ...item.data() })) })),
+            () => { stopSections(); setState('error'); setError('Não foi possível acessar dados individuais. Verifique as regras publicadas.'); }
+          ));
+        }
         setState('active');
-      }, () => { setState('error'); setError('Não foi possível validar o vínculo com a empresa.'); });
-      // Firebase rules apply per document: only this UID may read the portal.
-      const unsubSections = sections.map(section => onSnapshot(
-        collection(db, 'staff_portal', user.uid, section.key),
-        snapshot => setData(prev => ({ ...prev, [section.key]: snapshot.docs.map(item => ({ id: item.id, ...item.data() })) })),
-        () => { setError('Alguns dados não estão disponíveis. Verifique se as regras foram publicadas e seu acesso está ativo.'); }
-      ));
-      cleanupSubscriptions = () => { unsubStaff(); unsubSections.forEach(unsub => unsub()); };
+      }, () => { stopSections(); setState('error'); setError('Não foi possível validar o vínculo com a empresa.'); });
+      cleanupSubscriptions = () => { stopSections(); unsubStaff(); };
     });
     return () => { unsubscribeAuth(); cleanupSubscriptions?.(); };
   }, []);
