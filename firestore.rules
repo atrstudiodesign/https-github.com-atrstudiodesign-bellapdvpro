@@ -70,7 +70,7 @@ service cloud.firestore {
 
     match /staff_portal/{staffUid}/{section}/{itemId} {
       allow read: if (section in ['appointments', 'commissions', 'referrals', 'marketing'])
-        && activeStaff(staffUid);
+        && (activeStaff(staffUid) || isAdmin());
       allow create, update, delete: if isAdmin();
     }
 
