@@ -60,7 +60,7 @@ service cloud.firestore {
         resource.data.companyId == tenantId() &&
         resource.data.ownerUid == request.auth.uid
       );
-      allow create: if !isAdmin() && isSignedIn()
+      allow create: if isSignedIn()
         && !isEmployee()
         && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && tenantId() == request.auth.uid
