@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { CalendarDays, Wallet, Gift, Megaphone, ShieldCheck, LogIn } from 'lucide-react';
 
@@ -21,6 +21,36 @@ export default function EmployeePortal() {
   const [name, setName] = useState('');
   const [data, setData] = useState<Record<SectionKey, Entry[]>>({ appointments: [], commissions: [], referrals: [], marketing: [] });
   const [error, setError] = useState('');
+  const inviteId = new URLSearchParams(window.location.search).get('convite');
+  const [accepting, setAccepting] = useState(false);
+  const acceptInvitation = async () => {
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous || !inviteId) return;
+    if (!user.email || !user.emailVerified) {
+      setError('Confirme o e-mail desta conta no Firebase Authentication antes de aceitar o convite.');
+      return;
+    }
+    setAccepting(true);
+    try {
+      await user.getIdToken(true);
+      const invite = await getDoc(doc(db, 'staff_invites', inviteId));
+      const item = invite.data();
+      if (!item || item.status !== 'pending' || item.email !== user.email.toLowerCase()) {
+        throw new Error('Convite inválido ou associado a outro e-mail.');
+      }
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', user.uid), { role: 'employee', companyId: item.companyId, staffInviteId: inviteId });
+      batch.set(doc(db, 'staff_members', user.uid), {
+        companyId: item.companyId, professionalId: item.professionalId,
+        staffInviteId: inviteId, active: true, email: user.email.toLowerCase(),
+        name: user.displayName || user.email.split('@')[0]
+      });
+      await batch.commit();
+      window.location.reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível aceitar o convite.');
+    } finally { setAccepting(false); }
+  };
   useEffect(() => {
     let cleanupSubscriptions: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, user => {
@@ -67,6 +97,16 @@ export default function EmployeePortal() {
       </div>
       {state === 'loading' && <p className="text-slate-300">Validando seu acesso…</p>}
       {state === 'login' && <div className="rounded-2xl border border-white/10 bg-white/5 p-8"><LogIn className="text-cyan-300"/><p className="my-4">Entre com a conta autorizada pela empresa para consultar seus dados.</p><Link className="text-cyan-300 underline" to="/login">Entrar na minha conta</Link></div>}
+      {inviteId && state !== 'active' && state !== 'loading' && state !== 'login' && (
+        <div className="mb-6 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-6">
+          <h2 className="text-lg font-semibold text-white">Convite para acessar o portal</h2>
+          <p className="mt-2 text-sm text-slate-300">Para aceitar, utilize a conta Firebase com o mesmo e-mail verificado informado pela empresa. Seu acesso ficará restrito ao painel individual.</p>
+          <button type="button" disabled={accepting} onClick={() => void acceptInvitation()}
+            className="mt-4 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-50">
+            {accepting ? 'Validando vínculo…' : 'Aceitar convite'}
+          </button>
+        </div>
+      )}
       {state === 'denied' && <div className="rounded-2xl border border-amber-400/20 p-8 bg-white/5"><ShieldCheck className="text-amber-300"/><h2 className="text-xl font-bold mt-3">Acesso não habilitado</h2><p className="text-slate-300 mt-2">Seu cadastro ainda não está vinculado como funcionário ativo. Solicite autorização ao responsável pela empresa.</p></div>}
       {state === 'error' && <p role="alert" className="text-amber-300">{error}</p>}
       {state === 'active' && <>
