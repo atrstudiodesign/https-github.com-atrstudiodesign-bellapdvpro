@@ -52,6 +52,28 @@ service cloud.firestore {
 
     // Profiles can only be provisioned/changed by a trusted admin backend.
     // Employee self-read is limited to the document bearing their Firebase UID.
+    // A request is NOT a granted staff account. A trusted administrator must
+    // verify identity and provision users/staff_members before portal access.
+    match /staff_invites/{inviteId} {
+      allow read: if isAdmin() || (
+        isSignedIn() && !isEmployee() &&
+        resource.data.companyId == tenantId() &&
+        resource.data.ownerUid == request.auth.uid
+      );
+      allow create: if !isAdmin() && isSignedIn()
+        && !isEmployee()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && tenantId() == request.auth.uid
+        && request.resource.data.keys().hasOnly(['companyId', 'ownerUid', 'professionalId', 'email', 'status', 'createdAt'])
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.professionalId is string
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
     match /staff_members/{staffUid} {
       allow read: if isSignedIn() && (request.auth.uid == staffUid || isAdmin());
       allow create, update, delete: if isAdmin();
