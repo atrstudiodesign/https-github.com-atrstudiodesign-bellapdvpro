@@ -42,6 +42,13 @@ const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.tsx'));
 
+function PlatformAdminRoute({ children }: { children: ReactNode }) {
+  const { user, isAuthReady } = useAuthStore();
+  if (!isAuthReady) return <StartupScreen message="Validando permissão administrativa…" />;
+  if (user?.isDemo || user?.isPlatformAdmin !== true) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isAuthReady, authError, retryAuth } = useAuthStore();
   
@@ -127,7 +134,7 @@ createRoot(document.getElementById('root')!).render(
               path="/admin" 
               element={
                  <ProtectedRoute>
-                    <AdminPanel />
+                    <PlatformAdminRoute><AdminPanel /></PlatformAdminRoute>
                  </ProtectedRoute>
               } 
             />
@@ -135,7 +142,7 @@ createRoot(document.getElementById('root')!).render(
               path="/admin/licensing" 
               element={
                  <ProtectedRoute>
-                    <Suspense fallback={<SuspenseLoader />}><Licensing /></Suspense>
+                    <PlatformAdminRoute><Suspense fallback={<SuspenseLoader />}><Licensing /></Suspense></PlatformAdminRoute>
                  </ProtectedRoute>
               } 
             />
