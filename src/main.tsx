@@ -165,7 +165,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="reports" element={<Suspense fallback={<SuspenseLoader />}><Reports /></Suspense>} />
               <Route path="loyalty" element={<Suspense fallback={<SuspenseLoader />}><Loyalty /></Suspense>} />
               <Route path="marketing" element={<Suspense fallback={<SuspenseLoader />}><Marketing /></Suspense>} />
-              <Route path="crm" element={<LicenseRouteGuard featureKey="crm" errorMessage="O módulo de CRM requer o plano Prata ou Ouro."><Suspense fallback={<SuspenseLoader />}><CRM /></Suspense></LicenseRouteGuard>} />
+              <Route path="crm" element={<LicenseRouteGuard featureKey="crm" inlineBlocked errorMessage="O CRM/Funil não está habilitado na licença desta empresa. Solicite a liberação do módulo ao administrador."><Suspense fallback={<SuspenseLoader />}><CRM /></Suspense></LicenseRouteGuard>} />
               <Route path="automations" element={<LicenseRouteGuard featureKey="aiAssistant" errorMessage="O módulo de Automações requer o assistente Bella IA."><Suspense fallback={<SuspenseLoader />}><Automations /></Suspense></LicenseRouteGuard>} />
               <Route path="integrations" element={<LicenseRouteGuard featureKey="whatsapp" errorMessage="O módulo de Integrações requer o addon do WhatsApp Premium."><Suspense fallback={<SuspenseLoader />}><Integrations /></Suspense></LicenseRouteGuard>} />
               <Route path="queue" element={<Suspense fallback={<SuspenseLoader />}><Queue /></Suspense>} />
