@@ -10,7 +10,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      return isSignedIn() && request.auth.token.keys().hasAny(['admin']) && request.auth.token.admin == true && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function tenantId() {
