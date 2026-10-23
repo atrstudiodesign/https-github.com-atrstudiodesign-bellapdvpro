@@ -6,11 +6,15 @@ import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Calendar, MoreVertical, Plus, Star, ArrowUpRight, Scissors, Edit, Trash2, X, Download, Share2, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { auth, db } from '../lib/firebase';
+import { addDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 
 export default function Professionals() {
   const { getConfig } = useNicheStore();
   const config = getConfig();
   const isDemo = useAuthStore(state => state.user?.isDemo === true);
+  const account = useAuthStore(state => state.user);
+  const [staffInvites, setStaffInvites] = useState<Array<{ id: string; email: string; professionalId: string; status: string }>>([]);
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -18,6 +22,54 @@ export default function Professionals() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [currentProf, setCurrentProf] = useState<Partial<Professional>>({});
+
+  useEffect(() => {
+    if (!account?.id || isDemo || account.companyId && account.companyId !== account.id) {
+      setStaffInvites([]);
+      return;
+    }
+    const q = query(collection(db, 'staff_invites'), where('companyId', '==', account.id));
+    const unsubscribe = onSnapshot(q, snapshot => setStaffInvites(snapshot.docs.map(item => ({
+      id: item.id,
+      email: String(item.data().email || ''),
+      professionalId: String(item.data().professionalId || ''),
+      status: String(item.data().status || 'pending')
+    }))), () => setStaffInvites([]));
+    return unsubscribe;
+  }, [account?.id, account?.companyId, isDemo]);
+
+  const requestStaffInvite = async (professional: Professional) => {
+    const email = professional.email?.trim().toLowerCase();
+    if (isDemo || !account || account.companyId && account.companyId !== account.id) {
+      toast.error('Convites disponíveis apenas ao proprietário da empresa.');
+      return;
+    }
+    if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      toast.error('Cadastre um e-mail válido no profissional antes de solicitar acesso.');
+      return;
+    }
+    if (staffInvites.some(invite => invite.email === email && invite.status === 'pending')) {
+      toast.info('Já existe uma solicitação pendente para este e-mail.');
+      return;
+    }
+    if (!auth.currentUser || auth.currentUser.uid !== account.id) {
+      toast.error('Faça login como proprietário para solicitar o vínculo.');
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'staff_invites'), {
+        companyId: account.id,
+        ownerUid: account.id,
+        professionalId: professional.id,
+        email,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      toast.success('Solicitação registrada. O acesso só será liberado após aprovação e vínculo seguro no Firebase.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a solicitação.');
+    }
+  };
 
   const [newsIndex, setNewsIndex] = useState(0);
   const breakingNews = [
