@@ -23,6 +23,9 @@ await env.withSecurityRulesDisabled(async context => {
   await setDoc(doc(db, 'users/companyB'), { role: 'client', companyId: 'companyB' });
   await setDoc(doc(db, 'users/employee'), { role: 'employee', companyId: 'companyA' });
   await setDoc(doc(db, 'staff_members/employee'), { companyId: 'companyA', role: 'professional', active: true });
+  await setDoc(doc(db, 'staff_portal/employee/appointments/a1'), { title: 'Agenda individual' });
+  await setDoc(doc(db, 'staff_portal/employee/commissions/c1'), { amount: 100 });
+  await setDoc(doc(db, 'staff_portal/companyB/appointments/b1'), { title: 'Outra pessoa' });
   await setDoc(doc(db, 'clients/clientA'), { ownerId: 'companyA', name: 'A' });
   await setDoc(doc(db, 'clients/clientB'), { ownerId: 'companyB', name: 'B' });
   await setDoc(doc(db, 'clients/demo'), { ownerId: 'demo', name: 'Demonstração' });
@@ -112,4 +115,26 @@ test('somente administrador com claim pode vincular ou alterar funcionário', as
   await assertFails(getDoc(doc(b, 'staff_members/employee')));
   await assertFails(getDoc(doc(guest, 'staff_members/employee')));
   await assertSucceeds(getDoc(doc(adminB, 'staff_members/employee')));
+});
+
+test('portal pessoal permite somente leitura do funcionário ativo', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/commissions/c1')));
+  await assertFails(getDoc(doc(employee, 'staff_portal/companyB/appointments/b1')));
+  await assertFails(setDoc(doc(employee, 'staff_portal/employee/appointments/forged'), { title: 'Fraude' }));
+  await assertFails(updateDoc(doc(employee, 'staff_portal/employee/commissions/c1'), { amount: 999 }));
+  await assertFails(getDoc(doc(a, 'staff_portal/employee/appointments/a1')));
+  await assertFails(getDoc(doc(guest, 'staff_portal/employee/appointments/a1')));
+  await assertFails(getDoc(doc(anonymous, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(getDoc(doc(adminA, 'staff_portal/employee/appointments/a1')));
+  await assertFails(getDoc(doc(employee, 'staff_portal/employee/private/secrets')));
+});
+
+test('funcionário inativo perde acesso ao portal', async () => {
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: false }));
+  await assertFails(getDoc(doc(employee, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: true }));
 });
