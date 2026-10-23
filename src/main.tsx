@@ -40,6 +40,7 @@ const Totem = lazy(() => import('./pages/Totem.tsx'));
 const Online = lazy(() => import('./pages/Online.tsx'));
 const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
+const EmployeePortal = lazy(() => import('./pages/EmployeePortal.tsx'));
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isAuthReady, authError, retryAuth } = useAuthStore();
@@ -118,6 +119,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/instalar/android" element={<Navigate to="/ajuda/instalar-android" replace />} />
             <Route path="/instalar/windows" element={<Navigate to="/ajuda/instalar-windows" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/funcionario" element={<Suspense fallback={<StartupScreen />}><EmployeePortal /></Suspense>} />
+            <Route path="/portal-funcionario" element={<Navigate to="/funcionario" replace />} />
             <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />
             <Route path="/menu-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Online publicMode={true} /></Suspense></PublicRouteWrapper>} />
             <Route 

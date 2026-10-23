@@ -97,10 +97,16 @@ export default defineConfig(({mode}) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
-      dedupe: ['firebase', '@firebase/app'],
+      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'firebase', '@firebase/app'],
     },
     optimizeDeps: {
       include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'react-router-dom',
         'firebase/app',
         'firebase/auth',
         'firebase/firestore',

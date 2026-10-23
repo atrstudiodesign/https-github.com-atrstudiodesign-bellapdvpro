@@ -61,3 +61,118 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* =========================================================================
+   BellaPDV Pro — Custom Guided Tour Popover Theme (Driver.js)
+   ========================================================================= */
+.driver-popover {
+  background-color: #0E172A !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(0, 217, 255, 0.35) !important;
+  border-radius: 18px !important;
+  padding: 20px 22px !important;
+  min-width: 280px !important;
+  max-width: 380px !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.75), 0 0 35px rgba(0, 217, 255, 0.18) !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+.driver-popover-title {
+  color: #FFFFFF !important;
+  font-family: var(--font-display, "Outfit", sans-serif) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+}
+
+.driver-popover-description {
+  color: #94A3B8 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  margin-top: 6px !important;
+}
+
+.driver-popover-footer {
+  margin-top: 18px !important;
+  padding-top: 14px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.driver-popover-progress-text {
+  color: #38BDF8 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.driver-popover-close-btn {
+  color: #64748B !important;
+  transition: color 0.2s ease !important;
+  top: 14px !important;
+  right: 14px !important;
+  font-size: 20px !important;
+}
+.driver-popover-close-btn:hover {
+  color: #F1F5F9 !important;
+}
+
+.driver-popover-navigation-btns {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.driver-popover-prev-btn {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #CBD5E1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.driver-popover-prev-btn:hover {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  color: #FFFFFF !important;
+}
+
+.driver-popover-next-btn {
+  background: linear-gradient(135deg, #00D9FF 0%, #087CFF 100%) !important;
+  color: #030817 !important;
+  border: none !important;
+  border-radius: 9px !important;
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.35) !important;
+  transition: all 0.2s ease !important;
+}
+.driver-popover-next-btn:hover {
+  opacity: 0.92 !important;
+  transform: translateY(-1px) !important;
+}
+
+.driver-popover-arrow-side-left {
+  border-left-color: #0E172A !important;
+}
+.driver-popover-arrow-side-right {
+  border-right-color: #0E172A !important;
+}
+.driver-popover-arrow-side-top {
+  border-top-color: #0E172A !important;
+}
+.driver-popover-arrow-side-bottom {
+  border-bottom-color: #0E172A !important;
+}
+

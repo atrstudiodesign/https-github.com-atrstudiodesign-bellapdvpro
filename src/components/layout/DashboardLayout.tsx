@@ -33,7 +33,8 @@ import {
   MonitorSmartphone,
   Globe,
   Smartphone,
-  Menu
+  Menu,
+  HelpCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -45,6 +46,7 @@ import { DemoLeadCaptureModal } from '../demo/DemoLeadCaptureModal';
 import { useDemoModalStore } from '../../services/demoService';
 import { ArrowRight, Flame } from 'lucide-react';
 import { toast } from 'sonner';
+import { WelcomeTour, startWelcomeTour } from '../onboarding/WelcomeTour';
 const AndroidApkModal = React.lazy(() =>
   import('../pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
 );
@@ -271,7 +273,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Sidebar */}
       <aside className="hidden md:flex w-[260px] bg-[#0F172A] border-r border-white/5 flex-col z-20 flex-shrink-0">
-        <div className="p-6 flex flex-col gap-1 border-b border-white/5 h-20 justify-center">
+        <div id="tour-welcome-brand" className="p-6 flex flex-col gap-1 border-b border-white/5 h-20 justify-center">
           <Logo size="sm" />
           <span className="text-[10px] text-slate-500 pl-11 -mt-1 uppercase tracking-widest">{config.title || 'Outro Negócio'}</span>
         </div>
@@ -295,8 +297,19 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
              
              const isRestricted = isRestrictedByDunning || isRestrictedByPlan;
 
+             const getTourId = (path: string) => {
+               if (path === '/schedule') return 'tour-schedule';
+               if (path === '/pos') return 'tour-pos';
+               if (path === '/clients') return 'tour-clients';
+               if (path === '/finance') return 'tour-finance';
+               if (path === '/marketing') return 'tour-marketing';
+               return undefined;
+             };
+
+             const tourId = getTourId(item.path);
+
              return isRestricted ? (
-                <div key={item.path} className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-slate-600 opacity-50 cursor-not-allowed border border-transparent" title={isRestrictedByPlan ? "Upgrade seu plano para acessar" : "Bloqueado por inadimplência"}>
+                <div key={item.path} id={tourId} className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-slate-600 opacity-50 cursor-not-allowed border border-transparent" title={isRestrictedByPlan ? "Upgrade seu plano para acessar" : "Bloqueado por inadimplência"}>
                   <div className="flex items-center gap-3">
                      <item.icon className="w-[18px] h-[18px]" />
                      <span className="tracking-wide line-through">{item.label}</span>
@@ -306,6 +319,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
              ) : (
                 <NavLink
                   key={item.path}
+                  id={tourId}
                   to={item.path}
                   className={({ isActive }) =>
                     cn(
@@ -438,11 +452,20 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
            </div>
 
            {/* Global Search Component */}
-           <div className="flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-1 sm:mx-3">
+           <div id="tour-global-search" className="flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-1 sm:mx-3">
               <GlobalSearch />
            </div>
            
-           <div className="flex items-center gap-2 md:gap-4 shrink-0">
+           <div className="flex items-center gap-2 md:gap-3 shrink-0">
+              <button 
+                 onClick={() => startWelcomeTour(true)} 
+                 className="flex items-center gap-1.5 px-2.5 py-1.5 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg text-xs font-semibold transition-all shadow-[0_0_12px_rgba(0,217,255,0.15)] shrink-0 cursor-pointer"
+                 title="Iniciar Tour Guiado de Boas-vindas"
+              >
+                 <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+                 <span className="hidden sm:inline">Tour Guiado</span>
+              </button>
+
               <button 
                  onClick={() => setIsInstallModalOpen(true)} 
                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3 sm:py-1.5 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-[0_0_12px_rgba(16,185,129,0.15)] shrink-0"
@@ -602,6 +625,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
         {/* Demo Lead Capture & Conversion Modal */}
         <DemoLeadCaptureModal />
+
+        {/* First-login Guided Welcome Tour */}
+        <WelcomeTour />
       </main>
 
       {/* Mobile Bottom Navigation */}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, ShieldCheck, MonitorDown } from 'lucide-react';
 import { trackEvent } from '../../services/analyticsService';
 
