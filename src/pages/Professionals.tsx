@@ -562,8 +562,8 @@ export default function Professionals() {
                 ))}
                 <p className="mt-2 text-xs text-slate-400">
                   {staffInvites.find(item => item.professionalId === prof.id)?.status === 'pending'
-                    ? 'Aguardando aprovação administrativa e vínculo no Firebase.'
-                    : 'A solicitação não concede login automaticamente.'}
+                    ? 'Aguardando o funcionário aceitar o convite com e-mail verificado.'
+                    : 'Compartilhe o link. A conta só será vinculada após aceite do e-mail verificado.'}
                 </p>
                 {staffInvites.some(item => item.professionalId === prof.id && item.status === 'pending') && (
                   <button type="button" className="mt-2 text-xs text-cyan-300 underline"
