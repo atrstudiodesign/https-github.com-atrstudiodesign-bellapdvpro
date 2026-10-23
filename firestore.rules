@@ -78,7 +78,7 @@ service cloud.firestore {
       allow read: if isAdmin() || (
         isSignedIn() && !isEmployee() &&
         resource.data.companyId == tenantId() &&
-        resource.data.ownerUid == request.auth.uid
+        request.auth.uid == tenantId()
       ) || (
         isSignedIn() && request.auth.token.email_verified == true
         && request.auth.token.email == resource.data.email
@@ -94,6 +94,8 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.email.size() <= 254
         && request.resource.data.professionalId is string
+        && exists(/databases/$(database)/documents/professionals/$(request.resource.data.professionalId))
+        && get(/databases/$(database)/documents/professionals/$(request.resource.data.professionalId)).data.ownerId == request.auth.uid
         && request.resource.data.status == 'pending';
       allow update, delete: if isAdmin();
     }
