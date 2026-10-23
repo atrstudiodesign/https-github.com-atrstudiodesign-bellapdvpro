@@ -57,7 +57,7 @@ export default function Professionals() {
       return;
     }
     try {
-      await addDoc(collection(db, 'staff_invites'), {
+      const invitation = await addDoc(collection(db, 'staff_invites'), {
         companyId: account.id,
         ownerUid: account.id,
         professionalId: professional.id,
@@ -65,7 +65,9 @@ export default function Professionals() {
         status: 'pending',
         createdAt: new Date().toISOString()
       });
-      toast.success('Solicitação registrada. O acesso só será liberado após aprovação e vínculo seguro no Firebase.');
+      const inviteUrl = `${window.location.origin}/funcionario?convite=${invitation.id}`;
+      try { await navigator.clipboard.writeText(inviteUrl); toast.success('Convite criado! Link copiado para compartilhar com o funcionário.'); }
+      catch { toast.success(`Convite criado. Compartilhe: ${inviteUrl}`, { duration: 12000 }); }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a solicitação.');
     }
@@ -471,6 +473,13 @@ export default function Professionals() {
                     ? 'Aguardando aprovação administrativa e vínculo no Firebase.'
                     : 'A solicitação não concede login automaticamente.'}
                 </p>
+                {staffInvites.some(item => item.professionalId === prof.id && item.status === 'pending') && (
+                  <button type="button" className="mt-2 text-xs text-cyan-300 underline"
+                    onClick={() => {
+                      const invite = staffInvites.find(item => item.professionalId === prof.id && item.status === 'pending');
+                      if (invite) void navigator.clipboard.writeText(`${window.location.origin}/funcionario?convite=${invite.id}`).then(() => toast.success('Link do convite copiado.')).catch(() => toast.error('Não foi possível copiar o link.'));
+                    }}>Copiar link de convite</button>
+                )}
               </div>
             )}
 
