@@ -31,6 +31,18 @@ service cloud.firestore {
       return isSignedIn() && !isEmployee() && request.auth.token.firebase.sign_in_provider != 'anonymous' && data.ownerId == tenantId();
     }
 
+    function hasVerifiedInvite(inviteId, requestedCompany) {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && inviteId is string
+        && exists(/databases/$(database)/documents/staff_invites/$(inviteId))
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.status == 'pending'
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.email == request.auth.token.email
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.companyId == requestedCompany
+        && get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.ownerUid == requestedCompany;
+    }
+
     function validStock(data) {
       return !data.keys().hasAny(['stock']) || (data.stock is number && data.stock >= 0);
     }
@@ -39,6 +51,14 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client' && request.resource.data.companyId == request.auth.uid;
       allow update: if isAdmin() || (
+        isSignedIn() && request.auth.uid == userId
+        && resource.data.role == 'client'
+        && resource.data.companyId == request.auth.uid
+        && request.resource.data.role == 'employee'
+        && request.resource.data.staffInviteId is string
+        && hasVerifiedInvite(request.resource.data.staffInviteId, request.resource.data.companyId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'companyId', 'staffInviteId'])
+      ) || (
         isSignedIn() && request.auth.uid == userId
         && request.resource.data.role == resource.data.role
         && (
@@ -59,6 +79,10 @@ service cloud.firestore {
         isSignedIn() && !isEmployee() &&
         resource.data.companyId == tenantId() &&
         resource.data.ownerUid == request.auth.uid
+      ) || (
+        isSignedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email == resource.data.email
+        && resource.data.status == 'pending'
       );
       allow create: if isSignedIn()
         && !isEmployee()
@@ -76,7 +100,18 @@ service cloud.firestore {
 
     match /staff_members/{staffUid} {
       allow read: if isSignedIn() && (request.auth.uid == staffUid || isAdmin());
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        isSignedIn() && request.auth.uid == staffUid
+        && request.resource.data.keys().hasOnly(['companyId', 'professionalId', 'staffInviteId', 'email', 'active', 'name'])
+        && request.resource.data.staffInviteId is string
+        && hasVerifiedInvite(request.resource.data.staffInviteId, request.resource.data.companyId)
+        && request.resource.data.professionalId == get(/databases/$(database)/documents/staff_invites/$(request.resource.data.staffInviteId)).data.professionalId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.active == true
+        && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.role == 'employee'
+        && getAfter(/databases/$(database)/documents/users/$(staffUid)).data.companyId == request.resource.data.companyId
+      );
+      allow update, delete: if isAdmin();
     }
 
     // Read-only personal staff feed: created by privileged server/admin only.
