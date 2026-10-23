@@ -7,7 +7,9 @@ import { User, Mail, Phone, Calendar, MoreVertical, Plus, Star, ArrowUpRight, Sc
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { auth, db } from '../lib/firebase';
-import { addDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { useAppointmentStore } from '../store/appointments';
+import { useTransactionStore } from '../store/transactions';
 
 export default function Professionals() {
   const { getConfig } = useNicheStore();
@@ -15,6 +17,8 @@ export default function Professionals() {
   const isDemo = useAuthStore(state => state.user?.isDemo === true);
   const account = useAuthStore(state => state.user);
   const [staffInvites, setStaffInvites] = useState<Array<{ id: string; email: string; professionalId: string; status: string }>>([]);
+  const [linkedStaff, setLinkedStaff] = useState<Array<{ id: string; professionalId: string; active: boolean }>>([]);
+  const [syncingStaff, setSyncingStaff] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -37,6 +41,80 @@ export default function Professionals() {
     }))), () => setStaffInvites([]));
     return unsubscribe;
   }, [account?.id, account?.companyId, isDemo]);
+
+  useEffect(() => {
+    if (!account?.id || isDemo || account.companyId && account.companyId !== account.id) {
+      setLinkedStaff([]);
+      return;
+    }
+    return onSnapshot(
+      query(collection(db, 'staff_members'), where('companyId', '==', account.id)),
+      snapshot => setLinkedStaff(snapshot.docs.map(item => ({
+        id: item.id,
+        professionalId: String(item.data().professionalId || ''),
+        active: item.data().active === true
+      }))),
+      () => setLinkedStaff([])
+    );
+  }, [account?.id, account?.companyId, isDemo]);
+
+  const toggleStaffAccess = async (uid: string, active: boolean) => {
+    if (!account || auth.currentUser?.uid !== account.id || isDemo) return;
+    try {
+      await updateDoc(doc(db, 'staff_members', uid), { active });
+      toast.success(active ? 'Acesso individual reativado.' : 'Acesso individual revogado.');
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Não foi possível alterar a permissão.');
+    }
+  };
+
+  const syncStaffData = async (professional: Professional, staffUid: string) => {
+    if (!account || auth.currentUser?.uid !== account.id || isDemo) return;
+    const appointmentsStore = useAppointmentStore.getState();
+    const salesStore = useTransactionStore.getState();
+    if (!appointmentsStore.isLoaded || !salesStore.isLoaded) {
+      toast.error('Aguarde o carregamento da agenda e das vendas reais.');
+      return;
+    }
+    if (professionals.filter(item => item.name.trim().toLowerCase() === professional.name.trim().toLowerCase()).length !== 1) {
+      toast.error('Há profissionais com nomes repetidos. Diferencie os nomes para sincronizar a agenda com segurança.');
+      return;
+    }
+    setSyncingStaff(staffUid);
+    try {
+      const ownerId = account.id;
+      const appointments = appointmentsStore.appointments.filter(item =>
+        item.ownerId === ownerId && item.employee.trim().toLowerCase() === professional.name.trim().toLowerCase()
+      ).slice(0, 100).map(item => ({
+        id: item.id, companyId: ownerId, title: `${item.client} — ${item.service}`,
+        date: item.date || '', time: item.time, status: item.status
+      }));
+      const commissions = salesStore.transactions.filter(item =>
+        item.ownerId === ownerId && item.status === 'completed'
+      ).map(sale => {
+        const value = sale.items
+          .filter(item => item.professionalId === professional.id)
+          .reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const percent = Math.max(0, Math.min(100, Number(professional.commission) || 0));
+        return { id: sale.id, companyId: ownerId, title: 'Comissão de serviços realizados',
+          date: sale.date, status: 'Concluída', amount: Math.round(value * percent) / 100 };
+      }).filter(item => item.amount > 0).slice(0, 100);
+      for (const [section, entries] of [
+        ['appointments', appointments], ['commissions', commissions]
+      ] as const) {
+        const target = collection(db, 'staff_portal', staffUid, section);
+        const existing = await getDocs(target);
+        const currentIds = new Set(entries.map(item => item.id));
+        await Promise.all(existing.docs.filter(item => !currentIds.has(item.id))
+          .map(item => deleteDoc(item.ref)));
+        await Promise.all(entries.map(({ id, ...fields }) =>
+          setDoc(doc(target, id), fields)));
+      }
+      toast.success('Agenda e comissões reais sincronizadas com o portal individual.');
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Falha na sincronização do funcionário.');
+    } finally { setSyncingStaff(null); }
+  };
 
   const requestStaffInvite = async (professional: Professional) => {
     const email = professional.email?.trim().toLowerCase();
@@ -468,6 +546,20 @@ export default function Professionals() {
                   <Mail className="mr-2 inline h-4 w-4" />
                   Solicitar acesso ao portal
                 </button>
+                {linkedStaff.filter(staff => staff.professionalId === prof.id).map(staff => (
+                  <div key={staff.id} className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-slate-300">Portal: {staff.active ? 'Ativo' : 'Desativado'}</span>
+                    <button type="button" className="text-xs text-cyan-300 underline"
+                      disabled={syncingStaff === staff.id || !staff.active}
+                      onClick={() => void syncStaffData(prof, staff.id)}>
+                      {syncingStaff === staff.id ? 'Sincronizando…' : 'Sincronizar agenda e comissões'}
+                    </button>
+                    <button type="button" className="text-xs text-amber-300 underline"
+                      onClick={() => void toggleStaffAccess(staff.id, !staff.active)}>
+                      {staff.active ? 'Desativar acesso' : 'Reativar acesso'}
+                    </button>
+                  </div>
+                ))}
                 <p className="mt-2 text-xs text-slate-400">
                   {staffInvites.find(item => item.professionalId === prof.id)?.status === 'pending'
                     ? 'Aguardando aprovação administrativa e vínculo no Firebase.'
