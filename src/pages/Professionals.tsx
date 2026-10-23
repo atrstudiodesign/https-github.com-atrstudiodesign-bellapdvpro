@@ -459,6 +459,21 @@ export default function Professionals() {
                </div>
             </div>
 
+            {!isDemo && account?.id === (account.companyId || account.id) && (
+              <div className="mb-4">
+                <button type="button" onClick={() => void requestStaffInvite(prof)}
+                  className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20">
+                  <Mail className="mr-2 inline h-4 w-4" />
+                  Solicitar acesso ao portal
+                </button>
+                <p className="mt-2 text-xs text-slate-400">
+                  {staffInvites.find(item => item.professionalId === prof.id)?.status === 'pending'
+                    ? 'Aguardando aprovação administrativa e vínculo no Firebase.'
+                    : 'A solicitação não concede login automaticamente.'}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2 mb-6">
                <div className="bg-[#0C1627] rounded-xl p-2 md:p-3 border border-[#1A2C47]">
                   <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Serviços</p>
