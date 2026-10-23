@@ -189,3 +189,21 @@ test('convite de outra empresa e cadastro sem email verificado não podem vincul
     email:'outsider@example.com', status:'pending', createdAt:'2026-10-22'
   }));
 });
+
+test('dono sincroniza apenas a agenda e comissão de seus funcionários', async () => {
+  await assertSucceeds(setDoc(doc(a, 'staff_portal/employee/appointments/real'), {
+    companyId: 'companyA', title: 'Serviço real', date: '2026-10-22', time: '14:30', status: 'confirmed'
+  }));
+  await assertSucceeds(getDoc(doc(a, 'staff_portal/employee/appointments/real')));
+  await assertFails(setDoc(doc(b, 'staff_portal/employee/appointments/attack'), {
+    companyId: 'companyB', title: 'Não permitido'
+  }));
+  await assertFails(setDoc(doc(a, 'staff_portal/employee/appointments/hidden'), {
+    companyId: 'companyA', title: 'Fraude', customerFullProfile: 'Excesso de informações'
+  }));
+  await assertSucceeds(updateDoc(doc(a, 'staff_members/employee'), { active: false }));
+  const employee = env.authenticatedContext('employee', token).firestore();
+  await assertFails(getDoc(doc(employee, 'staff_portal/employee/appointments/real')));
+  await assertSucceeds(updateDoc(doc(a, 'staff_members/employee'), { active: true }));
+  await assertSucceeds(getDoc(doc(employee, 'staff_portal/employee/appointments/real')));
+});
