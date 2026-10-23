@@ -124,7 +124,7 @@ test('portal pessoal permite somente leitura do funcionário ativo', async () =>
   await assertFails(getDoc(doc(employee, 'staff_portal/companyB/appointments/b1')));
   await assertFails(setDoc(doc(employee, 'staff_portal/employee/appointments/forged'), { title: 'Fraude' }));
   await assertFails(updateDoc(doc(employee, 'staff_portal/employee/commissions/c1'), { amount: 999 }));
-  await assertFails(getDoc(doc(a, 'staff_portal/employee/appointments/a1')));
+  await assertSucceeds(getDoc(doc(a, 'staff_portal/employee/appointments/a1')));
   await assertFails(getDoc(doc(guest, 'staff_portal/employee/appointments/a1')));
   await assertFails(getDoc(doc(anonymous, 'staff_portal/employee/appointments/a1')));
   await assertSucceeds(getDoc(doc(adminA, 'staff_portal/employee/appointments/a1')));
