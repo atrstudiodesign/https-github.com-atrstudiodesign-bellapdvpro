@@ -474,35 +474,9 @@ Responda APENAS com um arquivo JSON válido e nada mais:
   const [receiptType, setReceiptType] = useState<'standard' | 'nfce'>('standard');
 
   const handleApplyCoupon = () => {
-    if (!couponCode) return;
-    const code = couponCode.toUpperCase();
-    
-    // Simulating coupons database
-    const mockCoupons = {
-      'VERAO20': { discount: 20, type: 'percent', expires: '2026-10-01' }, 
-      'BEMVINDO': { discount: 15, type: 'fixed', expires: '2026-12-31' },
-      'OFF10': { discount: 10, type: 'percent', expires: '2025-01-01' }, // Expired
-      'CLIENTE10': { discount: 10, type: 'percent', expires: '2026-05-31' }, // Expires at the end of next month
-    };
-
-    const coupon = mockCoupons[code as keyof typeof mockCoupons];
-
-    if (coupon) {
-      const today = new Date();
-      // Reset hours to compare dates easily
-      today.setHours(0, 0, 0, 0); 
-      const expirationDate = new Date(`${coupon.expires}T00:00:00`);
-      
-      if (today > expirationDate) {
-        setCouponError(`Cupom expirado em ${expirationDate.toLocaleDateString('pt-BR')}`);
-      } else {
-        setAppliedCoupon({ code, discount: coupon.discount, type: coupon.type as 'percent' | 'fixed' });
-        setCouponError('');
-        setCouponCode('');
-      }
-    } else {
-      setCouponError('Cupom não encontrado.');
-    }
+    setAppliedCoupon(null);
+    setCouponError('Cupons não disponíveis até conectar uma base de promoções reais por empresa.');
+    setCouponCode('');
   };
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
