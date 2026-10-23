@@ -138,3 +138,19 @@ test('funcionário inativo perde acesso ao portal', async () => {
   await assertFails(getDoc(doc(employee, 'staff_portal/employee/appointments/a1')));
   await assertSucceeds(updateDoc(doc(adminA, 'staff_members/employee'), { active: true }));
 });
+
+test('solicitação de convite não concede acesso nem permite convidar empresa alheia', async () => {
+  await assertSucceeds(setDoc(doc(a, 'staff_invites/inviteA'), {
+    companyId: 'companyA', ownerUid: 'companyA', professionalId: 'profA',
+    email: 'funcionario@example.com', status: 'pending', createdAt: '2026-10-22'
+  }));
+  await assertSucceeds(getDoc(doc(a, 'staff_invites/inviteA')));
+  await assertFails(getDoc(doc(b, 'staff_invites/inviteA')));
+  await assertFails(setDoc(doc(b, 'staff_invites/forged'), {
+    companyId: 'companyA', ownerUid: 'companyA', professionalId: 'profA',
+    email: 'atacante@example.com', status: 'pending', createdAt: '2026-10-22'
+  }));
+  await assertFails(updateDoc(doc(a, 'staff_invites/inviteA'), { status: 'approved' }));
+  await assertFails(setDoc(doc(a, 'staff_members/forged'), { companyId: 'companyA', active: true }));
+  await assertSucceeds(updateDoc(doc(adminA, 'staff_invites/inviteA'), { status: 'approved' }));
+});
