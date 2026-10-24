@@ -21,6 +21,7 @@ export default function Integrations() {
     queue: whatsappQueue,
     isModalOpen: isQrModalOpen,
     setModalOpen: setIsQrModalOpen,
+    checkStatus: checkWhatsappStatus,
     setPhone: setWhatsappPhone,
     setProvider: setWhatsappProvider,
     startSession: startWhatsappSession,
@@ -500,7 +501,7 @@ export default function Integrations() {
                            ) : (
                               <button 
                                  onClick={() => {
-                                    setWhatsappStatus('DISCONNECTED');
+                                    void disconnectWhatsappSession();
                                     toast.error('WhatsApp Desconectado com sucesso.');
                                  }}
                                  className="w-full py-2 border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs uppercase rounded-lg transition"
@@ -642,7 +643,7 @@ export default function Integrations() {
                       <QrCode className="w-5 h-5 text-emerald-400" />
                       Conectar WhatsApp
                    </h3>
-                   <button onClick={() => { setIsQrModalOpen(false); setWhatsappStatus('DISCONNECTED'); }} className="p-2 text-slate-400 hover:text-white bg-white/5 rounded-xl transition-colors">
+                   <button onClick={() => { setIsQrModalOpen(false); void disconnectWhatsappSession(); }} className="p-2 text-slate-400 hover:text-white bg-white/5 rounded-xl transition-colors">
                       <X className="w-5 h-5" />
                    </button>
                 </div>
@@ -651,7 +652,7 @@ export default function Integrations() {
                       Abra o WhatsApp no seu celular, vá em <strong className="text-white">Aparelhos Conectados</strong> e aponte a câmera para o QRCode abaixo.
                    </p>
                    <div 
-                      onClick={verifyWhatsAppConnection}
+                      onClick={() => { void checkWhatsappStatus(); }}
                       className="w-48 h-48 bg-white rounded-xl shadow-[0_0_20px_rgba(37,211,102,0.2)] flex items-center justify-center cursor-pointer border-[8px] border-white relative group mb-6 overflow-hidden" 
                    >
                       {qrCodeBase64 ? (

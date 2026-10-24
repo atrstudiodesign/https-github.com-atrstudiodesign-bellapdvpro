@@ -125,7 +125,9 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
       }
       return statusData;
     } catch {
-      return { status: get().status };
+      const current = get().status;
+      const fallbackStatus: WhatsappSessionStatus['status'] = current === 'LOADING' ? 'INITIALIZING' : current;
+      return { status: fallbackStatus };
     }
   },
 

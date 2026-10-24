@@ -125,38 +125,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     return user.planFeatures?.includes(feature) ?? false;
   },
-  login: (userData: any, token?: string, company?: any) => {
-    const fullUser: AuthUser = {
-      id: userData?.id || auth.currentUser?.uid || 'u_admin',
-      name: userData?.name || 'Administrador',
-      email: userData?.email || 'admin@bellapdv.com',
-      role: userData?.role === 'employee' ? 'employee' : userData?.role === 'admin' ? 'admin' : 'client',
-      isPlatformAdmin: userData?.isPlatformAdmin === true,
-      isDemo: userData?.isDemo === true,
-      companyId: company?.id || userData?.companyId,
-      avatar: userData?.avatar,
-      planFeatures: Array.isArray(userData?.planFeatures) ? userData.planFeatures : DEFAULT_FEATURES
-    };
-
-    if (activeIdentityKey !== identityKey(fullUser)) {
-      resetSubscriptionsAndTenant();
-      activeIdentityKey = identityKey(fullUser);
-    }
-    setFirebaseTenantContext(fullUser.id, fullUser.companyId);
-    try {
-      localStorage.setItem('bellapdv_auth_user', JSON.stringify(fullUser));
-      localStorage.setItem('last_merchant_uid', fullUser.companyId || fullUser.id);
-      if (token) localStorage.setItem('bellapdv_auth_token', token);
-    } catch (e) {
-      console.warn('Failed to save auth to localStorage', e);
-    }
-
-    set({
-      isAuthenticated: true, 
-      user: fullUser,
-      isAuthReady: true,
-      authError: null
-    });
+  // Compatibility entry point: never grant a session from caller-supplied profile data.
+  login: () => {
+    console.warn('Direct login is disabled; Firebase must hydrate and verify the active session.');
   },
   logout: async () => {
     unsubscribes.forEach(unsub => unsub());
