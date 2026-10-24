@@ -125,7 +125,7 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
       }
       return statusData;
     } catch {
-      return { status: get().status };
+      return { status: get().status === 'LOADING' ? 'INITIALIZING' : get().status };
     }
   },
 
