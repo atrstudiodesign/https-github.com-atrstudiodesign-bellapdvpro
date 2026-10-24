@@ -526,11 +526,8 @@ export default function Login() {
 
       const niche = typeof profile.niche === 'string' ? profile.niche as NicheType : selectedNiche;
       setNiche(niche);
-      login(socialUser, undefined, {
-        id: tenantId,
-        name: typeof profile.companyName === 'string' ? profile.companyName : `${provider} Empresa`,
-        niche
-      });
+      await retryAuth();
+      if (!useAuthStore.getState().isAuthenticated) throw new Error('Falha ao validar sessão social no Firebase.');
 
       toast.success(`Conectado com ${provider}!`, {
         description: 'Bem-vindo ao painel BellaPDV.'
