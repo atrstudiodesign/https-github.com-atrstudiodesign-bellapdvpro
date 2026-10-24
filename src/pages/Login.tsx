@@ -56,7 +56,7 @@ export default function Login() {
   const [phoneCode, setPhoneCode] = useState('');
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
-  const { login, isAuthenticated } = useAuthStore();
+  const { retryAuth, isAuthenticated } = useAuthStore();
   const { setNiche } = useNicheStore();
   const navigate = useNavigate();
 
@@ -311,7 +311,8 @@ export default function Login() {
         setNiche(selectedNiche);
         trialFormRef.current.complete = true;
         void logBellaEvent('trial_started', { source: 'signup_form', trial_days: 15 });
-        login(newUser, undefined, companyData);
+        await retryAuth();
+        if (!useAuthStore.getState().isAuthenticated) throw new Error('Falha ao validar sessão e empresa no Firebase.');
 
         // Track successful signup lead capture completion
         isRegisteredSuccessRef.current = true;
@@ -396,7 +397,8 @@ export default function Login() {
           setNiche(companyData.niche as NicheType);
         }
 
-        login(loggedUser, undefined, companyData);
+        await retryAuth();
+        if (!useAuthStore.getState().isAuthenticated) throw new Error('Falha ao validar sessão e empresa no Firebase.');
         toast.success('Login realizado com sucesso!', {
           description: `Bem-vindo de volta, ${loggedUser.name}!`
         });
