@@ -46,16 +46,6 @@ interface AuthState {
 let unsubscribes: Array<() => void> = [];
 
 const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
-const getStoredUser = (): AuthUser | null => {
-  try {
-    const raw = localStorage.getItem('bellapdv_auth_user');
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
 let activeIdentityKey: string | null = null;
 let authChangeVersion = 0;
 
@@ -157,14 +147,8 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
 
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
-      // Firebase automatically signs anonymous users into public pages.
-      // Do not treat this as an authenticated business or administrator unless in local demo session.
-      const stored = getStoredUser();
-      if (stored?.isDemo) {
-        useAuthStore.getState().setUser(stored);
-      } else {
-        useAuthStore.getState().setUser(null);
-      }
+      // Anonymous Firebase identities are not business sessions.
+      useAuthStore.getState().setUser(null);
       return;
     }
     // Resolve the tenant before allowing protected routes or subscriptions.
@@ -214,11 +198,7 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
       console.warn('Could not start Firestore subscriptions:', err);
     }
   } else {
-    const stored = getStoredUser();
-    if (stored?.isDemo) {
-      useAuthStore.getState().setUser(stored);
-      return;
-    }
+    // The public demo route remains read-only and independent of authentication.
     useAuthStore.getState().setUser(null);
   }
 }
