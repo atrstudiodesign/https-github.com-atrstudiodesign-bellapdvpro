@@ -345,6 +345,59 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Global BellaAdmin settings: restricted to verified platform-admin claim.
+    match /bella_platform_settings/{settingsId} {
+      allow read, write: if settingsId == 'master' && isAdmin()
+        && (request.method == 'get' || request.method == 'delete' || (
+          request.resource.data.keys().hasOnly(['featureFlags', 'whiteLabelConfig', 'updatedAt', 'updatedBy'])
+          && request.resource.data.featureFlags.keys().hasOnly(['ai', 'whatsapp', 'cashbook', 'whitelabel'])
+          && request.resource.data.featureFlags.ai is bool
+          && request.resource.data.featureFlags.whatsapp is bool
+          && request.resource.data.featureFlags.cashbook is bool
+          && request.resource.data.featureFlags.whitelabel is bool
+          && request.resource.data.whiteLabelConfig.domain is string
+          && request.resource.data.whiteLabelConfig.domain.size() <= 253
+          && request.resource.data.whiteLabelConfig.color is string
+          && request.resource.data.whiteLabelConfig.color.matches('^#[0-9A-Fa-f]{6}
+    match /push_tokens/{tokenId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid) && (request.method == 'delete' || request.resource.data.userId == resource.data.userId);
+    }
+
+    // Rate limits (Anti-abuse)
+    match /bella_rate_limits/{limitId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.count == 1;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.routeGroup == resource.data.routeGroup
+        && request.resource.data.windowStart == resource.data.windowStart
+        && request.resource.data.count == resource.data.count + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count']);
+      allow delete: if false;
+    }
+
+    match /voice_settings/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /voice_analytics/{logId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+)
+          && request.resource.data.updatedBy == request.auth.uid
+        ));
+      allow list: if false;
+    }
+
     // Device push tokens
     match /push_tokens/{tokenId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
