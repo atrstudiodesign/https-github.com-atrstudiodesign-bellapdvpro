@@ -39,6 +39,8 @@ export interface CompanyLicense {
   maxUsers: number;
   addons?: string[];
   modules?: string[];
+  billingStatus?: 'paid' | 'warning' | 'inactive' | 'price_mismatch' | 'subscription_active';
+  billingUpdatedAt?: unknown;
 }
 
 export interface FeatureFlags {
