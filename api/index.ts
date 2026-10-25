@@ -34,28 +34,14 @@ const whatsappLogs = new Map<string, any[]>();
 // --- INTEGRATION LAYER (CAMADA DE INTEGRAÇÃO LIMPA) ---
 class IntegrationService {
     static async sendMessage(companyId: string, type: 'whatsapp' | 'email', data: any) {
-        if (type === 'whatsapp') {
-            const session = whatsappSessions.get(companyId);
-            if (session && session.status === 'CONNECTED') {
-                const logs = whatsappLogs.get(companyId) || [];
-                const msgId = `wamid.${Date.now()}`;
-                logs.unshift({
-                    id: `wpp_${Date.now()}`,
-                    companyId,
-                    recipient: data.to,
-                    text: data.text,
-                    status: 'Sent',
-                    time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    messageId: msgId
-                });
-                whatsappLogs.set(companyId, logs.slice(0, 100));
-                console.log(`[WhatsApp Business] Mensagem enviada para ${data.to}: ${data.text}`);
-                return { success: true, messageId: msgId };
-            }
-            console.warn(`[WhatsApp] Sessão não conectada para a empresa ${companyId}.`);
-            return { success: false, error: 'Sessão WhatsApp desconectada.' };
-        }
+        // Fail closed: a transient connection status is not evidence of provider delivery.
+        // Never fabricate a WhatsApp message ID, delivery log, or success response.
+        void companyId;
+        void type;
+        void data;
+        return { success: false, error: 'Provedor de mensagens real não configurado; nenhum envio realizado.' };
     }
+
 }
 
 // --- WORKERS / AUTOMATIONS (CONSUMERS) ---
