@@ -38,6 +38,7 @@ const Integrations = lazy(() => import('./pages/Integrations.tsx'));
 const CRM = lazy(() => import('./pages/CRM.tsx'));
 const Totem = lazy(() => import('./pages/Totem.tsx'));
 const Online = lazy(() => import('./pages/Online.tsx'));
+const Explore = lazy(() => import('./pages/Explore.tsx'));
 const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.tsx'));
@@ -119,6 +120,8 @@ createRoot(document.getElementById('root')!).render(
         <Suspense fallback={<StartupScreen />}>
           <Routes>
             <Route path="/landing" element={<Landing />} />
+            <Route path="/explorar" element={<PublicRouteWrapper><Explore /></PublicRouteWrapper>} />
+            <Route path="/estabelecimento/:slug" element={<PublicRouteWrapper><Explore /></PublicRouteWrapper>} />
           <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/ajuda" element={<HelpCenter />} />
