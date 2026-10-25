@@ -20,6 +20,8 @@ export default function App() {
   const { setStatus } = useSubscriptionStore();
 
   useEffect(() => {
+    // Changing tenants must immediately clear the previous tenant's license state.
+    setStatus('WARNING');
     if (!companyId) return;
 
     let previousStatus: string | null = null;
@@ -27,12 +29,14 @@ export default function App() {
 
     // 🔄 Real-time subscription to company license status
     const unsubLicense = subscribeToCompanyLicense(companyId, (license) => {
-      if (!license) return;
+      if (!license) { setStatus('WARNING'); return; }
 
       console.log('Real-time License Update:', license);
       
-      let subStatus: SubscriptionStatus = 'ACTIVE';
-      if (license.status === 'expired') {
+      let subStatus: SubscriptionStatus = 'WARNING';
+      if (license.status === 'active') {
+        subStatus = 'ACTIVE';
+      } else if (license.status === 'expired') {
         subStatus = 'BLOCK_TOTAL';
       } else if (license.status === 'trial') {
         subStatus = 'TRIAL';
