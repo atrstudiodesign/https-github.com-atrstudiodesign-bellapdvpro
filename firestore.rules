@@ -88,18 +88,9 @@ service cloud.firestore {
 
     // Public online bookings requested by consumers (Multi-Tenant & Anti-Leak Isolation)
     match /public_bookings/{bookingId} {
-      // Consumers (authenticated or anonymous) can request a booking with strict schema verification
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['id','ownerId','clientName','clientPhone','clientEmail','serviceName','servicePrice','serviceDuration','professionalName','professionalId','date','time','status','bookingCode','notes','createdAt'])
-        && request.resource.data.ownerId is string
-        && request.resource.data.clientName is string && request.resource.data.clientName.size() >= 2 && request.resource.data.clientName.size() <= 100
-        && request.resource.data.clientPhone is string && request.resource.data.clientPhone.size() >= 8 && request.resource.data.clientPhone.size() <= 30
-        && request.resource.data.serviceName is string && request.resource.data.serviceName.size() >= 2
-        && request.resource.data.date is string && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
-        && request.resource.data.time is string && request.resource.data.time.matches('^\\d{2}:\\d{2}$')
-        && request.resource.data.bookingCode is string
-        && request.resource.data.status in ['confirmed', 'pending', 'cancelled'];
-      
+      // Public clients must not forge confirmed reservations. Backend-only transactional writes required.
+      allow create: if false;
+
       // Tenant owner can list and read only their own bookings; anonymous visitors CANNOT dump all bookings
       allow list: if isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId();
       allow get: if (isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId()) || isAdmin();
