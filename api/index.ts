@@ -297,6 +297,7 @@ app.use('/api', async (req, res, next) => {
   
   // 1. Calculate conflict-free available slots in America/Sao_Paulo timezone
   app.get('/api/public/slots', (req, res) => {
+    return res.status(503).json({error:'Serviço temporariamente indisponível enquanto a persistência segura é configurada.',code:'PERSISTENT_BOOKING_BACKEND_REQUIRED'});
     try {
       const { companyId, date, serviceDuration = '30', professionalId, openTime = '08:00', closeTime = '19:00' } = req.query;
       
@@ -390,6 +391,7 @@ app.use('/api', async (req, res, next) => {
 
   // 3. Customer self-service lookup (Meus Agendamentos)
   app.get('/api/public/my-bookings', (req, res) => {
+    return res.status(503).json({error:'Serviço temporariamente indisponível enquanto a persistência segura é configurada.',code:'PERSISTENT_BOOKING_BACKEND_REQUIRED'});
     const { phone, code } = req.query;
     const cleanPhone = String(phone || '').replace(/\D/g, '');
     const searchCode = String(code || '').trim().toUpperCase();
@@ -415,6 +417,7 @@ app.use('/api', async (req, res, next) => {
 
   // 4. Cancel booking with automated notifications
   app.post('/api/public/cancel-booking', (req, res) => {
+    return res.status(503).json({error:'Serviço temporariamente indisponível enquanto a persistência segura é configurada.',code:'PERSISTENT_BOOKING_BACKEND_REQUIRED'});
     const { bookingCode, clientPhone, reason } = req.body;
     if (!bookingCode) {
       return res.status(400).json({ error: 'Código da reserva é obrigatório.' });
@@ -449,6 +452,7 @@ app.use('/api', async (req, res, next) => {
 
   // 5. Verified reviews
   app.post('/api/public/reviews', (req, res) => {
+    return res.status(503).json({error:'Serviço temporariamente indisponível enquanto a persistência segura é configurada.',code:'PERSISTENT_BOOKING_BACKEND_REQUIRED'});
     const { companyId, clientName, rating, comment, serviceName, bookingCode } = req.body;
     if (!companyId || !clientName || !comment) {
       return res.status(400).json({ error: 'Dados da avaliação incompletos.' });
