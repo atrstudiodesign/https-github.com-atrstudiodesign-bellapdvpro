@@ -44,6 +44,7 @@ const MyAppointments = lazy(() => import('./pages/MyAppointments.tsx'));
 const VerifiedReviews = lazy(() => import('./pages/VerifiedReviews.tsx'));
 const PublicProfessional = lazy(() => import('./pages/PublicProfessional.tsx'));
 const PublishListing = lazy(() => import('./pages/PublishListing.tsx'));
+const ClientImport = lazy(() => import('./pages/ClientImport.tsx'));
 const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.tsx'));
@@ -105,6 +106,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/avaliacoes" element={<PublicRouteWrapper><VerifiedReviews /></PublicRouteWrapper>} />
             <Route path="/profissional/:slug" element={<PublicRouteWrapper><PublicProfessional /></PublicRouteWrapper>} />
             <Route path="/divulgar" element={<ProtectedRoute><PublishListing /></ProtectedRoute>} />
+            <Route path="/importar-clientes" element={<ProtectedRoute><ClientImport /></ProtectedRoute>} />
             <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/ajuda" element={<HelpCenter />} />
