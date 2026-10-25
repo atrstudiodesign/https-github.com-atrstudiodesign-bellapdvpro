@@ -899,6 +899,15 @@ export default function Settings() {
        </div>
 
        {/* BACKUP E EXPORTAÇÃO DE DADOS (FIRESTORE & LOCAL) */}
+       <section className="my-6 rounded-2xl border border-white/10 bg-white/5 p-5 space-y-3">
+         <h3 className="text-lg font-bold text-white">Importação e divulgação</h3>
+         <p className="text-sm text-slate-400">Importe clientes de uma planilha e compartilhe seu perfil público. As reservas online só serão habilitadas após a homologação do backend.</p>
+         <div className="flex flex-wrap gap-3">
+           <a href="/importar-clientes" className="rounded-lg border border-pink-500 px-4 py-2 text-sm text-pink-200">Importar clientes (CSV)</a>
+           <a href="/divulgar" className="rounded-lg border border-slate-500 px-4 py-2 text-sm text-slate-200">Divulgar meu negócio</a>
+         </div>
+         <p className="text-xs text-amber-200">Backup automático no servidor: ainda não configurado. Utilize a exportação manual abaixo até a ativação e verificação de cópias agendadas.</p>
+       </section>
        <DataBackupExportCard />
 
     </div>
