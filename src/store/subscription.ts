@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-// Representa o status atual do SaaS para esta empresa (Mock)
+// Status visual derivado de licença verificada; desconhecido não equivale a ativo.
 export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'WARNING' | 'BLOCK_PARTIAL' | 'BLOCK_TOTAL';
 
 interface SubscriptionStore {
@@ -10,7 +10,7 @@ interface SubscriptionStore {
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
-  status: 'ACTIVE', // start normal
+  status: 'WARNING', // desconhecido até leitura da licença real
   setStatus: (status) => set({ status }),
   getRestrictedRoutes: () => {
     const { status } = get();
