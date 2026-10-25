@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, getDocs, query, where, addDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -319,30 +319,6 @@ export default function BookingEngine() {
           return;
         }
         throw new Error(data.error || 'Erro ao processar reserva');
-      }
-
-      // 2. Also write to secured Firestore public_bookings collection for real-time sync with merchant
-      try {
-        await addDoc(collection(db, 'public_bookings'), {
-          id: data.booking?.id || `pbk_${Date.now()}`,
-          ownerId: establishment.id,
-          clientName: clientName.trim(),
-          clientPhone: clientPhone.trim(),
-          clientEmail: clientEmail.trim(),
-          serviceName: selectedService.name,
-          servicePrice: selectedService.price || 0,
-          serviceDuration: selectedService.duration || 30,
-          professionalName: selectedProfessional?.name || 'Qualquer profissional',
-          professionalId: selectedProfessional?.id || '',
-          date: selectedDate,
-          time: selectedSlot,
-          status: 'confirmed',
-          bookingCode: data.booking?.bookingCode || 'BK000000',
-          notes: clientNotes.trim(),
-          createdAt: new Date().toISOString()
-        });
-      } catch (fsErr) {
-        console.warn('Notice: Firestore public write synced via API gateway');
       }
 
       setConfirmedBooking(data.booking);
