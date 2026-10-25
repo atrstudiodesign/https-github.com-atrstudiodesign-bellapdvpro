@@ -58,7 +58,24 @@ service cloud.firestore {
         && request.resource.data.slug is string
         && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
         && request.resource.data.published is bool;
-      allow delete: if isAdmin();
+      // Verified tenant owner may publish ONLY their own public marketing record.
+      allow create, update: if isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && !isEmployee() && request.auth.uid == listingId && tenantId() == request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.slug == request.auth.uid
+        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
+        && request.resource.data.published is bool
+        && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 100
+        && request.resource.data.city is string && request.resource.data.city.size() > 0 && request.resource.data.city.size() <= 80
+        && request.resource.data.category is string && request.resource.data.category.size() > 0 && request.resource.data.category.size() <= 60
+        && request.resource.data.description is string && request.resource.data.description.size() <= 600
+        && request.resource.data.services is list && request.resource.data.services.size() == 0
+        && request.resource.data.bookingUrl is string && request.resource.data.bookingUrl.size() <= 500
+        && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 500
+        && (request.resource.data.bookingUrl == '' || request.resource.data.bookingUrl.matches('https://.*'))
+        && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'));
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == listingId && tenantId() == request.auth.uid && !isEmployee());
     }
 
     match /users/{userId} {
