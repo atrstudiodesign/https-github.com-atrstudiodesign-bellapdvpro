@@ -36,6 +36,8 @@ export default function App() {
         subStatus = 'BLOCK_TOTAL';
       } else if (license.status === 'trial') {
         subStatus = 'TRIAL';
+      } else if (license.billingStatus === 'warning' || license.billingStatus === 'price_mismatch') {
+        subStatus = 'WARNING';
       }
 
       setStatus(subStatus);

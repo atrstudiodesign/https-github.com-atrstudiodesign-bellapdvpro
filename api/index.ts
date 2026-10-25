@@ -8,6 +8,7 @@ import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate, randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
+import { billingCheckout, billingConfig, handleAsaasWebhook, mapBillingSubscription, reconcileBilling } from './asaasBilling';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();
@@ -88,7 +89,7 @@ app.use(cors({
       return callback(null, allowed);
     } catch { return callback(null, false); }
   },
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id', 'x-gemini-key', 'x-asaas-key', 'x-asaas-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id', 'x-gemini-key'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '256kb' }));
@@ -506,10 +507,9 @@ app.use('/api', async (req, res, next) => {
     return res.status(400).json({ error: result?.error || 'Sessão desconectada. Conecte via QR Code primeiro.' });
   });
 
-  // Webhooks: Asaas Dunning / Billing
-  app.post('/api/webhooks/asaas', (_req, res) => {
-      res.status(501).json({ error: 'Webhook Asaas ainda não está vinculado a empresas persistidas no Firebase.' });
-  });
+  // Asaas sends events at least once. The handler authenticates the source,
+  // reserves each event ID atomically and resolves the tenant server-side.
+  app.post('/api/webhooks/asaas', handleAsaasWebhook);
 
   // --- GEMINI PROXY ROUTES WITH HIGH-RESILIENCE FALLBACK ---
   app.post('/api/gemini/generateContent', async (req, res) => {
@@ -786,48 +786,12 @@ app.use('/api', async (req, res, next) => {
       }
   });
 
-  // --- ASAAS PROXY ROUTES ---
-  app.post('/api/asaas/proxy', async (req, res) => {
-      try {
-          if ((req as any).firebaseUser?.provider === 'anonymous') {
-              return res.status(403).json({ error: 'Conta de demonstração não pode acessar cobranças.' });
-          }
-          const { path, method, body } = req.body;
-          const clientKey = req.headers['x-asaas-key'] as string;
-          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : null;
-          
-          if (!effectiveKey) {
-             return res.status(400).json({ error: "Chave da API do Asaas não configurada nas configurações." });
-          }
-
-          // Use Sandbox or Production depending on key prefix, typical Asaas logic
-          const baseUrl = effectiveKey.includes('sandbox') ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
-
-          const requestConfig: any = {
-              method: method || 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'access_token': effectiveKey
-              }
-          };
-
-          if (body && (method === 'POST' || method === 'PUT')) {
-              requestConfig.body = JSON.stringify(body);
-          }
-
-          const response = await fetch(`${baseUrl}${path}`, requestConfig);
-          const data = await response.json();
-          
-          if (!response.ok) {
-              return res.status(response.status).json({ error: data.errors?.[0]?.description || 'Erro na API do Asaas', details: data });
-          }
-
-          res.json(data);
-      } catch (err: any) {
-          console.error('[Asaas Proxy Error]', err);
-          res.status(500).json({ error: err.message });
-      }
-  });
+  // --- ASAAS BILLING ROUTES ---
+  // No client-provided API key, arbitrary upstream path or mutation proxy is exposed.
+  app.get('/api/billing/config', billingConfig);
+  app.post('/api/billing/checkout', billingCheckout);
+  app.post('/api/billing/reconcile', reconcileBilling);
+  app.post('/api/billing/map-subscription', mapBillingSubscription);
 
   // Finance data cannot be returned until it is backed by verified tenant persistence.
   app.get('/api/dashboard/stats', (_req, res) => {

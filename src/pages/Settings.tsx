@@ -35,6 +35,7 @@ import {
   VoiceEngineMode 
 } from '../services/voiceNarrationService';
 import { auth } from '../lib/firebase';
+import { BELLA_COMMERCIAL_PLANS, planPriceLabel, type BellaPlanId } from '../lib/commercialPlans';
 const AndroidApkModal = React.lazy(() =>
   import('../components/pwa/AndroidApkModal').then((module) => ({ default: module.AndroidApkModal }))
 );
@@ -99,20 +100,25 @@ export default function Settings() {
     setSelectedPlan(plan);
   };
 
-  const handleConfirmPurchase = () => {
-    let paymentLink = 'https://www.asaas.com/';
-    
-    // Links de pagamento
-    if (selectedPlan === 'Básico') {
-      paymentLink = 'https://www.asaas.com/c/z7f8pxtethrwwubw'; // Link do Asaas para o plano Básico
-    } else if (selectedPlan === 'Pro') {
-      paymentLink = 'https://www.asaas.com/c/zbup4e02d4w6oc9e';    // Link do Asaas para o plano Pro
-    } else if (selectedPlan === 'Premium') {
-      paymentLink = 'https://www.asaas.com/c/rpawsbwgfgrsp2xu';// Link do Asaas para o plano Premium
+  const handleConfirmPurchase = async () => {
+    const planIdByName: Record<string, BellaPlanId> = { 'Básico': 'basic', 'Pro': 'pro', 'Premium': 'premium' };
+    const planId = selectedPlan ? planIdByName[selectedPlan] : null;
+    if (!planId) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Sessão Firebase não verificada.');
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ planId }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout indisponível.');
+      window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
+      setSelectedPlan(null);
+    } catch (error) {
+      toast.error('Não foi possível abrir o checkout.', { description: error instanceof Error ? error.message : 'Falha inesperada.' });
     }
-
-    window.open(paymentLink, '_blank');
-    setSelectedPlan(null);
   };
 
   // Select persona and update default speed for that persona
@@ -764,7 +770,7 @@ export default function Settings() {
              <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
                 <h3 className="text-lg font-semibold text-white">Básico</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$ 29,90</span>
+                   <span className="text-3xl font-bold text-white">R$ {planPriceLabel(BELLA_COMMERCIAL_PLANS.basic.promoPriceCents!)}</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
@@ -774,7 +780,7 @@ export default function Settings() {
                 </ul>
                 <div className="mt-auto space-y-3">
                    <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Promoção: R$ 29,90/mês nos 3 primeiros meses; depois R$ 89,90/mês
+                      Promoção: R$ {planPriceLabel(BELLA_COMMERCIAL_PLANS.basic.promoPriceCents!)}/mês nos {BELLA_COMMERCIAL_PLANS.basic.promoMonths} primeiros meses; depois R$ {planPriceLabel(BELLA_COMMERCIAL_PLANS.basic.monthlyPriceCents)}/mês
                    </div>
                    <button 
                      onClick={() => handleBuyPlan('Básico')}
@@ -792,7 +798,7 @@ export default function Settings() {
                 </div>
                 <h3 className="text-lg font-semibold text-white">Pro</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-blue-400 neon-text">R$ 149,90</span>
+                   <span className="text-3xl font-bold text-blue-400 neon-text">R$ {planPriceLabel(BELLA_COMMERCIAL_PLANS.pro.monthlyPriceCents)}</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
@@ -819,7 +825,7 @@ export default function Settings() {
              <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
                 <h3 className="text-lg font-semibold text-white">Premium</h3>
                 <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$ 249,90</span>
+                   <span className="text-3xl font-bold text-white">R$ {planPriceLabel(BELLA_COMMERCIAL_PLANS.premium.monthlyPriceCents)}</span>
                    <span className="text-slate-400 mb-1">/mês</span>
                 </div>
                 <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">

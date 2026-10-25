@@ -6,6 +6,7 @@ import { useApiKeysStore } from '../store/apiKeys';
 import { useWhatsAppStore } from '../store/whatsapp';
 import { FeatureGate } from '../components/ui/FeatureGate';
 import { checkBellaSupabase, testBellaSupabaseAuth } from '../lib/bellaSupabase';
+import { auth } from '../lib/firebase';
 
 export default function Integrations() {
   const {
@@ -45,31 +46,26 @@ export default function Integrations() {
   // Custom states for WhatsApp CRM dashboards
   const [whatsappToken, setWhatsappToken] = useState('');
 
-  const { evolutionUrl, evolutionKey, asaasKey, geminiKey, setAsaasKey } = useApiKeysStore();
+  const { evolutionUrl, evolutionKey, geminiKey } = useApiKeysStore();
   const [isAsaasIntegrated, setIsAsaasIntegrated] = useState(false);
+  const [asaasStatus, setAsaasStatus] = useState('Credencial protegida no servidor');
 
   const handleValidateAsaas = async () => {
-      if (!asaasKey) {
-          toast.error("Informe a API Key do Asaas primeiro.");
-          return;
-      }
-      const toastId = toast.loading("Validando conta Asaas...");
+      const toastId = toast.loading("Validando integração Asaas...");
       try {
-          const response = await fetch('/api/asaas/proxy', {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'x-asaas-key': asaasKey
-              },
-              body: JSON.stringify({
-                  path: '/myAccount',
-                  method: 'GET'
-              })
+          const token = await auth.currentUser?.getIdToken();
+          if (!token) throw new Error('Sessão Firebase não verificada.');
+          const response = await fetch('/api/billing/config', {
+              headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
-          if (response.ok) {
-              toast.success(`Conta Asaas confirmada!`, { id: toastId, description: `Empresa: ${data.name || data.companyName}`});
+          if (response.ok && data.configured && data.webhookConfigured) {
+              setAsaasStatus(`Produção protegida • ${data.plans?.length || 0} planos catalogados`);
+              toast.success('Integração Asaas configurada no servidor.', { id: toastId });
               setIsAsaasIntegrated(true);
+          } else if (response.ok) {
+              setAsaasStatus('Configuração incompleta no servidor');
+              throw new Error('API Key e token do webhook precisam estar configurados no servidor.');
           } else {
               throw new Error(data.error || 'Não localizado');
           }
@@ -203,19 +199,19 @@ export default function Integrations() {
                            )}
                         </div>
                         <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-                           Sincronize clientes e crie cobranças reais (Pix, Cartão e Boleto) usando nossa integração com API do Asaas.
+                           Assinaturas, pagamentos e conciliação são sincronizados pelo backend com isolamento por empresa.
                         </p>
                         
-                        <div className="mb-4">
-                           <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 block">API Key do Asaas</label>
-                           <input type="password" value={asaasKey} onChange={(e) => setAsaasKey(e.target.value)} placeholder="$aact_..." className="w-full bg-[#111] border border-[#1A2C47] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
+                        <div className="mb-4 rounded-lg border border-white/5 bg-black/20 p-3">
+                           <p className="text-xs font-semibold text-slate-300">{asaasStatus}</p>
+                           <p className="mt-1 text-[11px] text-slate-500">A chave da API nunca é exibida nem enviada ao navegador.</p>
                         </div>
                      </div>
                      <button 
                         onClick={handleValidateAsaas}
                         className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors font-medium text-sm flex items-center justify-center gap-2"
                      >
-                        Verificar Conexão e Meus Dados
+                        Verificar configuração segura
                      </button>
                   </div>
 
