@@ -43,7 +43,7 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
     { id: 'recursos', label: 'Recursos', href: '#recursos' },
     { id: 'planos', label: 'Planos', href: '#planos' },
     { id: 'depoimentos', label: 'Depoimentos', href: '#depoimentos' },
-    { id: 'marketplace', label: 'Marketplace', href: '/marketplace', isRoute: true },
+    { id: 'marketplace', label: 'Buscar serviços', href: '/explorar', isRoute: true },
     { id: 'instalar', label: 'Instalar', href: '#baixar-android' },
     { id: 'ajuda', label: 'Ajuda', href: '/ajuda', isRoute: true },
   ];
