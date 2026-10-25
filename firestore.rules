@@ -70,7 +70,7 @@ service cloud.firestore {
         && request.resource.data.city is string && request.resource.data.city.size() > 0 && request.resource.data.city.size() <= 80
         && request.resource.data.category is string && request.resource.data.category.size() > 0 && request.resource.data.category.size() <= 60
         && request.resource.data.description is string && request.resource.data.description.size() <= 600
-        && request.resource.data.services is list && request.resource.data.services.size() == 0
+        && request.resource.data.services is list && request.resource.data.services.size() <= 20
         && request.resource.data.bookingUrl is string && request.resource.data.bookingUrl.size() <= 500
         && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 500
         && (request.resource.data.bookingUrl == '' || request.resource.data.bookingUrl.matches('https://.*'))
