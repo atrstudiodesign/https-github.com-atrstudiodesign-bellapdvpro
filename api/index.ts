@@ -380,116 +380,12 @@ app.use('/api', async (req, res, next) => {
   });
 
   // 2. Create booking with transactional conflict prevention (P0 Concurrency Control)
-  app.post('/api/public/bookings', async (req, res) => {
-    // P0: fail closed. In-memory Map is neither durable nor atomic between Vercel instances.
-    return res.status(503).json({
+  // P0: public bookings require durable transactions before a confirmed response.
+  app.post('/api/public/bookings', (_req, res) => {
+    res.status(503).json({
       error: 'Reservas online temporariamente indisponíveis. Contate o estabelecimento.',
       code: 'BOOKING_PERSISTENCE_NOT_CONFIGURED'
     });
-    try {
-      const {
-        companyId,
-        companyName,
-        serviceName,
-        servicePrice = 0,
-        serviceDuration = 30,
-        professionalId = '',
-        professionalName = 'Qualquer profissional',
-        date,
-        time,
-        clientName,
-        clientPhone,
-        clientEmail = '',
-        notes = ''
-      } = req.body;
-
-      if (!companyId || typeof companyId !== 'string') {
-        return res.status(400).json({ error: 'Estabelecimento inválido.' });
-      }
-      if (!clientName || typeof clientName !== 'string' || clientName.trim().length < 2) {
-        return res.status(400).json({ error: 'Nome do cliente é obrigatório (mínimo 2 caracteres).' });
-      }
-      const cleanPhone = String(clientPhone || '').replace(/\D/g, '');
-      if (cleanPhone.length < 8) {
-        return res.status(400).json({ error: 'Telefone/WhatsApp de contato é obrigatório (mínimo 8 dígitos).' });
-      }
-      if (!serviceName || typeof serviceName !== 'string') {
-        return res.status(400).json({ error: 'Serviço selecionado é obrigatório.' });
-      }
-      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return res.status(400).json({ error: 'Data inválida (formato YYYY-MM-DD).' });
-      }
-      if (!time || !/^\d{2}:\d{2}$/.test(time)) {
-        return res.status(400).json({ error: 'Horário inválido (formato HH:mm).' });
-      }
-
-      const duration = Math.max(15, Math.min(360, Number(serviceDuration) || 30));
-      const [h, m] = time.split(':').map(Number);
-      const newStart = h * 60 + m;
-      const newEnd = newStart + duration;
-
-      // Concurrency conflict check: ensure slot is still free
-      for (const existing of publicBookingsMap.values()) {
-        if (existing.companyId === companyId && existing.date === date && existing.status !== 'cancelled') {
-          if (!professionalId || !existing.professionalId || existing.professionalId === professionalId) {
-            const [eH, eM] = existing.time.split(':').map(Number);
-            const eStart = eH * 60 + eM;
-            const eEnd = eStart + (existing.serviceDuration || 30);
-            if (newStart < eEnd && newEnd > eStart) {
-              return res.status(409).json({
-                error: 'O horário selecionado acabou de ser reservado por outro cliente. Por favor, escolha outro horário disponível.'
-              });
-            }
-          }
-        }
-      }
-
-      const bookingCode = 'BK' + Math.floor(100000 + Math.random() * 900000);
-      const bookingId = `pbk_${Date.now()}_${randomUUID().slice(0, 8)}`;
-
-      const newBooking: PublicBookingRecord = {
-        id: bookingId,
-        bookingCode,
-        companyId,
-        companyName: String(companyName || 'Bella PDV').slice(0, 100),
-        clientName: clientName.trim().slice(0, 80),
-        clientPhone: String(clientPhone).trim(),
-        clientEmail: String(clientEmail || '').trim().slice(0, 120),
-        serviceName: String(serviceName).trim().slice(0, 100),
-        servicePrice: Math.max(0, Number(servicePrice) || 0),
-        serviceDuration: duration,
-        professionalId: String(professionalId || ''),
-        professionalName: String(professionalName || 'Qualquer profissional').slice(0, 80),
-        date,
-        time,
-        status: 'confirmed',
-        notes: String(notes || '').slice(0, 400),
-        createdAt: new Date().toISOString()
-      };
-
-      publicBookingsMap.set(bookingId, newBooking);
-
-      // Emit event for automated WhatsApp confirmation
-      eventBus.emit('APPOINTMENT_CREATED', {
-        companyId,
-        companyName: newBooking.companyName,
-        clientName: newBooking.clientName,
-        clientPhone: newBooking.clientPhone,
-        service: newBooking.serviceName,
-        professional: newBooking.professionalName,
-        date: newBooking.date,
-        time: newBooking.time,
-        bookingCode
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: 'Agendamento confirmado com sucesso!',
-        booking: newBooking
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: 'Erro ao processar agendamento', details: err.message });
-    }
   });
 
   // 3. Customer self-service lookup (Meus Agendamentos)
