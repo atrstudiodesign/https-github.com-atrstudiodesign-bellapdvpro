@@ -8,7 +8,7 @@ import compression from 'compression';
 import http from 'http';
 import { createVerify, X509Certificate, randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
-import { billingCheckout, billingConfig, handleAsaasWebhook, mapBillingSubscription, reconcileBilling } from './asaasBilling';
+import { billingCheckout, billingConfig, handleAsaasWebhook, mapBillingSubscription, reconcileBilling } from './asaasBilling.js';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
 const eventBus = new EventEmitter();

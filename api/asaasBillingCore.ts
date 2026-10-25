@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { BELLA_COMMERCIAL_PLANS, type BellaPlanId } from '../src/lib/commercialPlans';
+import { BELLA_COMMERCIAL_PLANS, type BellaPlanId } from '../src/lib/commercialPlans.js';
 
 export function constantTimeEqual(actual: unknown, expected: string): boolean {
   if (typeof actual !== 'string') return false;

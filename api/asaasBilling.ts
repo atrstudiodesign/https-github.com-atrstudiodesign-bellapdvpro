@@ -5,8 +5,8 @@ import {
   type BellaPlanId,
   isBellaPlanId,
   parseBellaExternalReference,
-} from '../src/lib/commercialPlans';
-import { constantTimeEqual, expectedPrice, moneyToCents } from './asaasBillingCore';
+} from '../src/lib/commercialPlans.js';
+import { constantTimeEqual, expectedPrice, moneyToCents } from './asaasBillingCore.js';
 
 const PAYMENT_ACTIVE_EVENTS = new Set([
   'PAYMENT_RECEIVED',
