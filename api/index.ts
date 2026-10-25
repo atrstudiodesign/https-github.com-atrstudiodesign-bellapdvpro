@@ -476,23 +476,15 @@ app.use('/api', async (req, res, next) => {
     res.status(201).json({ success: true, review });
   });
 
-  app.get('/api/public/reviews', (req, res) => {
-    const { companyId } = req.query;
-    if (!companyId) return res.status(400).json({ error: 'companyId obrigatório.' });
-    const list = publicReviewsMap.get(String(companyId)) || [];
-    res.json({ reviews: list });
+  app.get('/api/public/reviews', (_req, res) => {
+    res.status(503).json({ error: 'Avaliações verificadas indisponíveis até a persistência e moderação segura.' });
   });
 
   // 6. Sync public bookings for merchant schedule (Agenda Bella)
-  app.get('/api/public/company-bookings/:companyId', (req, res) => {
-    const { companyId } = req.params;
-    const list: PublicBookingRecord[] = [];
-    for (const b of publicBookingsMap.values()) {
-      if (b.companyId === companyId) {
-        list.push(b);
-      }
-    }
-    res.json({ bookings: list });
+  // P0: do not expose tenant appointment details from an unauthenticated public endpoint.
+  // Merchant bookings must be loaded via authenticated, tenant-scoped Firestore access.
+  app.get('/api/public/company-bookings/:companyId', (_req, res) => {
+    res.status(410).json({ error: 'Consulta pública de reservas desativada. Utilize a agenda autenticada do Bella.' });
   });
 
   // --- REST API ROUTES ---
