@@ -26,7 +26,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
-  GoogleAuthProvider, 
+  GoogleAuthProvider,
+  OAuthProvider,
   signOut,
   updateProfile,
   RecaptchaVerifier,
@@ -484,13 +485,14 @@ function LoginContent() {
   const handleSocialAuth = async (provider: 'Google' | 'Apple' | 'Microsoft') => {
     setIsSubmitting(true);
     try {
-      if (provider !== 'Google') {
-        toast.error('Provedor indisponível até configurar autenticação real.');
-        return;
-      }
-      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const oauthProvider = provider === 'Google'
+        ? new GoogleAuthProvider()
+        : new OAuthProvider(provider === 'Apple' ? 'apple.com' : 'microsoft.com');
+      if (provider === 'Microsoft') oauthProvider.setCustomParameters({ prompt: 'select_account' });
+      if (provider === 'Apple') oauthProvider.addScope('email');
+      const result = await signInWithPopup(auth, oauthProvider);
       const uid = result.user.uid;
-      const displayName = result.user.displayName || 'Usuário Google';
+      const displayName = result.user.displayName || 'Usuário Bella';
       const userEmail = result.user.email || '';
 
       let profile: Record<string, any> = {};
@@ -499,16 +501,22 @@ function LoginContent() {
         const snapshot = await getDoc(doc(db, 'users', uid));
         if (snapshot.exists()) { profile = snapshot.data(); profileExists = true; }
       } catch (err) {
-        console.warn('Could not load Google user profile:', err);
+        console.warn('Could not load social user profile:', err);
       }
 
-      const isSuperAdmin = isSuperAdminEmail(userEmail);
+      const resolvedEmail = userEmail || (typeof profile.email === 'string' ? profile.email : '');
+      if (!resolvedEmail && !profileExists) {
+        await signOut(auth);
+        toast.error('O provedor não disponibilizou e-mail para criar sua conta. Configure o compartilhamento de e-mail e tente novamente.');
+        return;
+      }
+      const isSuperAdmin = isSuperAdminEmail(resolvedEmail);
       const tenantId = typeof profile.companyId === 'string' && profile.companyId ? profile.companyId : uid;
       const socialUser = {
         id: uid,
         companyId: tenantId,
         name: displayName,
-        email: userEmail,
+        email: resolvedEmail,
         role: (isSuperAdmin || profile.role === 'admin') ? 'admin' as const : 'client' as const,
         isPlatformAdmin: await hasPlatformAdminClaim(result.user),
         planFeatures: Array.isArray(profile.planFeatures) ? profile.planFeatures : ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace']
@@ -517,7 +525,7 @@ function LoginContent() {
       try {
         await setDoc(doc(db, 'users', uid), {
           name: displayName,
-          email: userEmail,
+          ...(resolvedEmail ? { email: resolvedEmail } : {}),
           companyId: tenantId,
           ...(!profileExists ? { role: 'client' } : {}),
           provider,
@@ -546,12 +554,16 @@ function LoginContent() {
       console.error(`${provider} login error:`, error);
       const code = error?.code || '';
       const message = code === 'auth/account-exists-with-different-credential'
-        ? 'Este e-mail já existe com outro método de acesso. Entre com e-mail/senha primeiro para vincular o Google.'
+        ? 'Este e-mail já existe com outro método de acesso. Entre com o método de acesso já cadastrado antes de vincular outro provedor.'
         : code === 'auth/popup-blocked'
-          ? 'O navegador bloqueou a janela do Google. Libere pop-ups e tente novamente.'
+          ? 'O navegador bloqueou a janela de autenticação. Libere pop-ups e tente novamente.'
           : code === 'auth/unauthorized-domain'
             ? 'Este domínio ainda não está autorizado no Firebase Authentication.'
-            : `Erro ao autenticar com ${provider}.`;
+            : code === 'auth/operation-not-allowed'
+              ? `Ative o provedor ${provider} no Firebase Authentication e configure o OAuth no painel do fornecedor.`
+              : code === 'auth/popup-closed-by-user'
+                ? 'A janela de autenticação foi fechada antes de concluir o login.'
+                : `Erro ao autenticar com ${provider}${code ? ` (${code})` : ''}.`;
       setLoginError(message);
       toast.error(message);
     } finally {
