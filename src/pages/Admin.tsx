@@ -237,21 +237,13 @@ export default function AdminPanel() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
 
   const [activeSupportTicket, setActiveSupportTicket] = useState(1);
-  const [tickets, setTickets] = useState([
-    { id: 1, title: 'Problema no Webhook Asaas', client: 'Barber Prime', time: '10:42 AM', preview: 'Estou recebendo o erro 401 ao tentar...', tag: 'Urgente', status: 'Aberto', 
-      messages: [
-        { sender: 'client', text: 'Olá, desde a atualização de ontem meu webhook do Asaas está retornando 401 Unauthorized e os pagamentos não sincronizam no painel. O que eu faço?', time: '10:42 AM' }
-      ],
-      aiSuggestion: 'Identifiquei que a API key deste cliente foi rotacionada no painel de segurança. Sugiro enviar a instrução para renovar o token do Asaas em Configurações > Integrações.'
-    },
-    { id: 2, title: 'Dúvida sobre IA', client: 'Studio Elegance', time: 'Ontem', preview: 'Como configuro a mensagem automática?', tag: 'Dúvida', status: 'Resolvido',
-      messages: [
-        { sender: 'client', text: 'Como configuro a mensagem automática da IA?', time: 'Ontem' },
-        { sender: 'admin', text: 'Vá em Configurações > Automações e habilite a IA WhatsApp.', time: 'Ontem' }
-      ],
-      aiSuggestion: ''
-    }
-  ]);
+  // Não exibir chamados fabricados como se tivessem sido enviados por clientes.
+  // Integração de suporte real pendente; a lista começa vazia.
+  const [tickets, setTickets] = useState<Array<{
+    id: number; title: string; client: string; time: string; preview: string;
+    tag: string; status: string; messages: Array<{sender:string;text:string;time:string}>;
+    aiSuggestion: string;
+  }>>([]);
   const [replyText, setReplyText] = useState('');
 
   const currentStats = useMemo(() => {
@@ -1303,7 +1295,7 @@ export default function AdminPanel() {
                        <h2 className="text-2xl font-display font-semibold text-white tracking-tight">System Configuration & White-Label</h2>
                        <p className="text-sm text-slate-400">Gerencie recursos globais, planos VIP e personalização da plataforma.</p>
                     </div>
-                    <button onClick={() => toast.success("Configurações e personalização White-Label atualizadas em todos os tenants!")} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
+                    <button onClick={() => toast.error("Configurações globais ainda não possuem persistência validada. Nenhuma alteração foi aplicada.")} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
                        <Save className="w-4 h-4" /> Salvar Configurações
                     </button>
                  </div>
