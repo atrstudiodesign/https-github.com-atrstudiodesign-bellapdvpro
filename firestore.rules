@@ -47,6 +47,19 @@ service cloud.firestore {
       return !data.keys().hasAny(['stock']) || (data.stock is number && data.stock >= 0);
     }
 
+    // Public directory: only explicit published marketing data, never tenant-private records.
+    match /public_listings/{listingId} {
+      allow get, list: if resource.data.published == true;
+      // Listings require privileged provisioning; regular users cannot self-publish arbitrary profiles.
+      allow create, update, delete: if isAdmin()
+        && request.resource.data.ownerId is string
+        && request.resource.data.name is string
+        && request.resource.data.city is string
+        && request.resource.data.slug is string
+        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
+        && request.resource.data.published is bool;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'client' && request.resource.data.companyId == request.auth.uid;
