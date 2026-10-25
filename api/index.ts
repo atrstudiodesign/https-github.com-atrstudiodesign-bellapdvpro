@@ -403,72 +403,15 @@ app.use('/api', async (req, res, next) => {
 
   // 5. Send Real WhatsApp Message
   app.post('/api/integrations/whatsapp/send', async (req, res) => {
-    try {
-      const companyId = (req as any).company?.id || 'empresa_padrao';
-      const { to, text } = req.body;
-
-      if (!to || !text) {
-        return res.status(400).json({ error: 'Destinatário e mensagem são obrigatórios.' });
-      }
-
-      const session = whatsappSessions.get(companyId);
-      if (!session || session.status !== 'CONNECTED') {
-        return res.status(400).json({
-          error: 'WhatsApp Business não está conectado. Escaneie o QR Code na aba Integrações para habilitar envios.',
-        });
-      }
-
-      // Sanitize phone
-      const cleanPhone = to.replace(/\D/g, '');
-      const formattedPhone = cleanPhone.length === 10 || cleanPhone.length === 11 ? `55${cleanPhone}` : cleanPhone;
-
-      // If Evolution is configured, dispatch through external server
-      if (session.evolutionUrl && session.evolutionKey) {
-        try {
-          const cleanUrl = session.evolutionUrl.replace(/\/$/, '');
-          await fetch(`${cleanUrl}/message/sendText/${session.instanceName}`, {
-            method: 'POST',
-            headers: {
-              apikey: session.evolutionKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              number: formattedPhone,
-              text,
-            }),
-            signal: AbortSignal.timeout(6000),
-          });
-        } catch (evoSendErr) {
-          console.warn('[Evolution Send Text Error - Proceeding with Gateway delivery]', evoSendErr);
-        }
-      }
-
-      const messageId = `wamid.HBgM${Date.now()}`;
-      const logs = whatsappLogs.get(companyId) || [];
-      logs.unshift({
-        id: `wpp_${Date.now()}`,
-        companyId,
-        recipient: formattedPhone,
-        text,
-        status: 'Sent',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        messageId,
-      });
-      whatsappLogs.set(companyId, logs.slice(0, 100));
-
-      return res.json({
-        success: true,
-        messageId,
-        status: 'Sent',
-        recipient: formattedPhone,
-      });
-    } catch (err: any) {
-      console.error('[WhatsApp Send Error]', err);
-      res.status(500).json({ error: 'Erro ao disparar mensagem', details: err.message });
-    }
+    const identity = (req as any).firebaseUser;
+    if (!identity?.uid || !identity?.companyId) return res.status(401).json({ error: 'Sessão Firebase verificada obrigatória.' });
+    // A browser-held connection flag is not a delivery provider. Until a
+    // tenant-bound provider and explicit recipient consent are verified,
+    // reject this action rather than fabricate a message identifier.
+    return res.status(503).json({ success: false, error: 'Envio desativado até homologação do provedor WhatsApp e consentimento.' });
   });
 
-  // 6. Get Message History Logs
+    // 6. Get Message History Logs
   app.get('/api/integrations/whatsapp/logs', (req, res) => {
     const companyId = (req as any).company?.id || 'empresa_padrao';
     const logs = whatsappLogs.get(companyId) || [];
