@@ -23,6 +23,7 @@ import { useCatalogStore, CatalogItem } from '../../store/catalog';
 import { useTransactionStore, Transaction } from '../../store/transactions';
 import { useNicheStore } from '../../store/niche';
 import { useAuthStore } from '../../store/auth';
+import { useCommandPaletteStore } from '../../store/commandPalette';
 
 // Sample fallback clients when store is empty (e.g. freshly loaded or demo session)
 const DEMO_FALLBACK_CLIENTS: Client[] = [
@@ -425,7 +426,7 @@ export function GlobalSearch({ className = '' }: GlobalSearchProps) {
       <div className={`relative flex items-center ${className}`}>
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => useCommandPaletteStore.getState().open()}
           className="w-full flex items-center justify-between gap-3 px-3 py-2 bg-[#0F172A]/80 hover:bg-[#1E293B] border border-white/10 hover:border-cyan-500/40 rounded-xl text-xs md:text-sm text-slate-400 hover:text-slate-200 transition-all group shadow-inner focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
           title="Buscar no sistema (Ctrl+K ou ⌘K)"
           aria-label="Buscar clientes, serviços e registros financeiros"

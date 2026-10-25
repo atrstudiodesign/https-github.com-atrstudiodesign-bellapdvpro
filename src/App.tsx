@@ -7,6 +7,7 @@ import { Toaster, toast } from 'sonner';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { BellaAiWidget } from './components/BellaAiWidget';
+import { CommandPalette } from './components/CommandPalette';
 import { useAuthStore } from './store/auth';
 import { useSubscriptionStore, SubscriptionStatus } from './store/subscription';
 import { subscribeToCompanyLicense, subscribeToFeatureFlags } from './services/billing';
@@ -170,6 +171,7 @@ export default function App() {
       </DashboardLayout>
 
       <BellaAiWidget />
+      <CommandPalette />
     </>
   );
 }

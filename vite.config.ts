@@ -141,6 +141,7 @@ export default defineConfig(({mode}) => {
         'firebase/analytics',
         'firebase/app-check',
         '@firebase/app',
+        'cmdk',
       ],
     },
     build: {
