@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { logBellaEvent } from '../services/analytics';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useInRouterContext, BrowserRouter } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuthStore } from '../store/auth';
 import { useNicheStore, NicheType } from '../store/niche';
@@ -37,8 +37,9 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
-export default function Login() {
+function LoginContent() {
   const [searchParams] = useSearchParams();
+
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,7 +50,15 @@ export default function Login() {
   const isDemoLoading = false;
   const [loginError, setLoginError] = useState('');
   const trialFormRef = useRef({ active: false, dirty: false, complete: false });
-  trialFormRef.current = { ...trialFormRef.current, active: isRegister, dirty: !!(email || companyName || password) };
+
+  useEffect(() => {
+    trialFormRef.current = {
+      ...trialFormRef.current,
+      active: isRegister,
+      dirty: !!(email || companyName || password)
+    };
+  }, [isRegister, email, companyName, password]);
+
   useEffect(() => () => { const f = trialFormRef.current; if (f.active && f.dirty && !f.complete) void logBellaEvent('form_abandoned', { source: 'signup_form' }); }, []);
   const [phoneMode, setPhoneMode] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -62,7 +71,7 @@ export default function Login() {
 
   const [lastFieldFocused, setLastFieldFocused] = useState<string>('none');
   const [hasTrackedSignupStart, setHasTrackedSignupStart] = useState<boolean>(false);
-  const isRegisteredSuccessRef = React.useRef(false);
+  const isRegisteredSuccessRef = useRef(false);
 
   const getFieldsCompleted = () => {
     const fields: string[] = [];
@@ -860,4 +869,24 @@ export default function Login() {
       </motion.div>
     </div>
   );
+}
+
+/**
+ * Default export wrapping LoginContent.
+ * Verifies existence of an active Router context with useInRouterContext().
+ * If mounted outside a BrowserRouter (e.g. tests or standalone rendering),
+ * it wraps LoginContent with BrowserRouter to guarantee safe hook execution.
+ */
+export default function Login() {
+  const inRouter = useInRouterContext();
+
+  if (!inRouter) {
+    return (
+      <BrowserRouter>
+        <LoginContent />
+      </BrowserRouter>
+    );
+  }
+
+  return <LoginContent />;
 }

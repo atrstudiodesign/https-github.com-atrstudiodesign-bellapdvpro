@@ -2,13 +2,15 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "User account information",
+      "description": "User account information and multi-tenant association",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "name": { "type": "string" },
-        "role": { "type": "string" }
+        "role": { "type": "string", "enum": ["admin", "client", "employee"] },
+        "companyId": { "type": "string" },
+        "staffInviteId": { "type": "string" }
       },
       "required": ["uid", "email"]
     },
@@ -36,6 +38,47 @@
       },
       "required": ["name", "price", "ownerId"]
     },
+    "Professional": {
+      "title": "Professional",
+      "description": "Tenant team members and service specialists",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "StaffInvite": {
+      "title": "StaffInvite",
+      "description": "Verified onboarding invitation for team members",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["companyId", "ownerUid", "professionalId", "email", "status"]
+    },
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "Active staff member profile associated with a tenant",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "staffInviteId": { "type": "string" },
+        "email": { "type": "string" },
+        "active": { "type": "boolean" },
+        "name": { "type": "string" }
+      },
+      "required": ["companyId", "professionalId", "email", "active"]
+    },
     "Queue": {
       "title": "Queue",
       "description": "Real-time client walk-in queue item",
@@ -50,17 +93,82 @@
     },
     "Appointment": {
       "title": "Appointment",
-      "description": "Scheduled appointments",
+      "description": "Scheduled appointments in establishment calendar",
       "type": "object",
       "properties": {
-        "clientName": { "type": "string" },
-        "serviceName": { "type": "string" },
+        "client": { "type": "string" },
+        "service": { "type": "string" },
+        "employee": { "type": "string" },
         "date": { "type": "string" },
         "time": { "type": "string" },
         "status": { "type": "string" },
-        "ownerId": { "type": "string" }
+        "ownerId": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "source": { "type": "string" },
+        "bookingCode": { "type": "string" }
       },
-      "required": ["clientName", "serviceName", "date", "time"]
+      "required": ["client", "service", "time", "ownerId"]
+    },
+    "PublicBooking": {
+      "title": "PublicBooking",
+      "description": "Online booking requested through public marketplace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "servicePrice": { "type": "number" },
+        "serviceDuration": { "type": "number" },
+        "professionalName": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string" },
+        "bookingCode": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["ownerId", "clientName", "clientPhone", "serviceName", "date", "time", "bookingCode", "status"]
+    },
+    "PublicReview": {
+      "title": "PublicReview",
+      "description": "Verified post-service review left by customers",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "bookingCode": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["companyId", "clientName", "rating", "comment", "bookingCode"]
+    },
+    "PublicListing": {
+      "title": "PublicListing",
+      "description": "Commercial profile published to public marketplace",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "city": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "description": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "slug": { "type": "string" },
+        "published": { "type": "boolean" },
+        "services": { "type": "array" },
+        "workingHours": { "type": "object" },
+        "professionals": { "type": "array" }
+      },
+      "required": ["ownerId", "name", "category", "city", "published"]
     },
     "Transaction": {
       "title": "Transaction",
@@ -80,7 +188,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "domain": { "type": "string" }
+        "domain": { "type": "string" },
+        "ownerId": { "type": "string" }
       }
     },
     "CompanyLicense": {
@@ -136,9 +245,28 @@
         "mobileApp": { "type": "boolean" }
       },
       "required": ["companyId"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Prospective merchant leads captured via demo or landing page",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "companyName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "source": { "type": "string" },
+        "featureAttempted": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email"]
     }
   },
   "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Prospective customer demo leads"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "Private user configurations"
@@ -151,6 +279,18 @@
       "schema": "Catalog",
       "description": "Service catalog items"
     },
+    "/professionals/{professionalId}": {
+      "schema": "Professional",
+      "description": "Team specialists"
+    },
+    "/staff_invites/{inviteId}": {
+      "schema": "StaffInvite",
+      "description": "Verified employee onboarding invitations"
+    },
+    "/staff_members/{staffUid}": {
+      "schema": "StaffMember",
+      "description": "Active staff roster per company"
+    },
     "/queue/{itemId}": {
       "schema": "Queue",
       "description": "Waitlist items"
@@ -158,6 +298,18 @@
     "/appointments/{appointmentId}": {
       "schema": "Appointment",
       "description": "Schedules"
+    },
+    "/public_bookings/{bookingId}": {
+      "schema": "PublicBooking",
+      "description": "Consumer online reservations"
+    },
+    "/public_reviews/{reviewId}": {
+      "schema": "PublicReview",
+      "description": "Verified customer reviews"
+    },
+    "/public_listings/{listingId}": {
+      "schema": "PublicListing",
+      "description": "Directory showcase profiles"
     },
     "/transactions/{transactionId}": {
       "schema": "Transaction",

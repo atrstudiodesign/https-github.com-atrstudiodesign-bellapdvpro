@@ -10,7 +10,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 import { StartupScreen } from './components/StartupScreen';
 import { Loader2 } from 'lucide-react';
-import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const App = lazy(() => import('./App.tsx'));
 const Landing = lazy(() => import('./pages/Landing.tsx'));
@@ -39,6 +38,11 @@ const CRM = lazy(() => import('./pages/CRM.tsx'));
 const Totem = lazy(() => import('./pages/Totem.tsx'));
 const Online = lazy(() => import('./pages/Online.tsx'));
 const Explore = lazy(() => import('./pages/Explore.tsx'));
+const EstablishmentProfile = lazy(() => import('./pages/EstablishmentProfile.tsx'));
+const BookingEngine = lazy(() => import('./pages/BookingEngine.tsx'));
+const MyAppointments = lazy(() => import('./pages/MyAppointments.tsx'));
+const VerifiedReviews = lazy(() => import('./pages/VerifiedReviews.tsx'));
+const PublicProfessional = lazy(() => import('./pages/PublicProfessional.tsx'));
 const PublishListing = lazy(() => import('./pages/PublishListing.tsx'));
 const Marketplace = lazy(() => import('./pages/Marketplace.tsx'));
 const Licensing = lazy(() => import('./pages/Licensing.tsx'));
@@ -77,33 +81,6 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 function PublicRouteWrapper({ children }: { children: ReactNode }) {
-  const [initializing, setInitializing] = useState(true);
-
-  useEffect(() => {
-    const authInstance = getAuth();
-    const unsubscribe = authInstance.onAuthStateChanged((user) => {
-      if (!user) {
-        signInAnonymously(authInstance)
-          .catch((err) => {
-            console.error("Anonymous authentication failed:", err);
-          })
-          .finally(() => {
-            setInitializing(false);
-          });
-      } else {
-        setInitializing(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  if (initializing) {
-    return (
-      <StartupScreen message="Preparando conexão segura…" />
-    );
-  }
-
   return <>{children}</>;
 }
 
@@ -122,16 +99,20 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route path="/landing" element={<Landing />} />
             <Route path="/explorar" element={<PublicRouteWrapper><Explore /></PublicRouteWrapper>} />
+            <Route path="/estabelecimento/:slug" element={<PublicRouteWrapper><EstablishmentProfile /></PublicRouteWrapper>} />
+            <Route path="/agendar/:slug" element={<PublicRouteWrapper><BookingEngine /></PublicRouteWrapper>} />
+            <Route path="/meus-agendamentos" element={<PublicRouteWrapper><MyAppointments /></PublicRouteWrapper>} />
+            <Route path="/avaliacoes" element={<PublicRouteWrapper><VerifiedReviews /></PublicRouteWrapper>} />
+            <Route path="/profissional/:slug" element={<PublicRouteWrapper><PublicProfessional /></PublicRouteWrapper>} />
             <Route path="/divulgar" element={<ProtectedRoute><PublishListing /></ProtectedRoute>} />
-            <Route path="/estabelecimento/:slug" element={<PublicRouteWrapper><Explore /></PublicRouteWrapper>} />
-          <Route path="/demo" element={<DemoShowcase />} />
+            <Route path="/demo" element={<DemoShowcase />} />
             <Route path="/legal/:page" element={<Legal />} />
             <Route path="/ajuda" element={<HelpCenter />} />
             <Route path="/ajuda/:topic" element={<HelpCenter />} />
             <Route path="/como-usar" element={<Navigate to="/ajuda/como-usar" replace />} />
             <Route path="/instalar/android" element={<Navigate to="/ajuda/instalar-android" replace />} />
             <Route path="/instalar/windows" element={<Navigate to="/ajuda/instalar-windows" replace />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Suspense fallback={<StartupScreen message="Carregando portal de acesso..." />}><Login /></Suspense>} />
             <Route path="/funcionario" element={<Suspense fallback={<StartupScreen />}><EmployeePortal /></Suspense>} />
             <Route path="/portal-funcionario" element={<Navigate to="/funcionario" replace />} />
             <Route path="/totem-view" element={<PublicRouteWrapper><Suspense fallback={<StartupScreen />}><Totem publicMode={true} /></Suspense></PublicRouteWrapper>} />

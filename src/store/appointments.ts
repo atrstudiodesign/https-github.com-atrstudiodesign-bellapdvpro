@@ -16,6 +16,8 @@ export interface Appointment {
   status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
   ownerId?: string;
   clientPhone?: string; // Adding for WhatsApp
+  source?: 'pos' | 'online_marketplace';
+  bookingCode?: string;
 }
 
 interface AppointmentStore {
@@ -75,11 +77,57 @@ export const subscribeToAppointments = () => {
   const auth = getAuth();
   if (!auth.currentUser) return () => {};
   
-  const q = query(collection(db, 'appointments'), where('ownerId', '==', currentFirebaseTenantId() || auth.currentUser.uid));
-  return onSnapshot(q, (snapshot) => {
-    const appointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
-    useAppointmentStore.getState().setAppointments(appointments);
+  const tenant = currentFirebaseTenantId() || auth.currentUser.uid;
+  const qLocal = query(collection(db, 'appointments'), where('ownerId', '==', tenant));
+  const qPublic = query(collection(db, 'public_bookings'), where('ownerId', '==', tenant));
+
+  let localApps: Appointment[] = [];
+  let publicApps: Appointment[] = [];
+
+  const mergeAndSet = () => {
+    const map = new Map<string, Appointment>();
+    for (const app of localApps) map.set(app.id, app);
+    for (const app of publicApps) map.set(app.id, app);
+    const combined = Array.from(map.values()).sort((a, b) => {
+      const dA = (a.date || '') + ' ' + (a.time || '');
+      const dB = (b.date || '') + ' ' + (b.time || '');
+      return dA.localeCompare(dB);
+    });
+    useAppointmentStore.getState().setAppointments(combined);
+  };
+
+  const unsubLocal = onSnapshot(qLocal, (snapshot) => {
+    localApps = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Appointment));
+    mergeAndSet();
   }, (error) => {
-    console.error('Error fetching appointments:', error);
+    console.error('Error fetching internal appointments:', error);
   });
+
+  const unsubPublic = onSnapshot(qPublic, (snapshot) => {
+    publicApps = snapshot.docs.map(d => {
+      const v = d.data();
+      return {
+        id: d.id,
+        client: v.clientName || 'Cliente Online',
+        service: v.serviceName || 'Serviço',
+        employee: v.professionalName || 'Qualquer profissional',
+        time: v.time,
+        date: v.date,
+        status: v.status || 'confirmed',
+        ownerId: v.ownerId,
+        clientPhone: v.clientPhone,
+        source: 'online_marketplace',
+        bookingCode: v.bookingCode
+      } as Appointment;
+    });
+    mergeAndSet();
+  }, (error) => {
+    // Graceful fallback if public_bookings collection is empty or not yet provisioned
+    console.warn('Public bookings listener notice:', error?.message);
+  });
+
+  return () => {
+    unsubLocal();
+    unsubPublic();
+  };
 };

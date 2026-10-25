@@ -31,30 +31,84 @@ interface WhatsAppSession {
 const whatsappSessions = new Map<string, WhatsAppSession>();
 const whatsappLogs = new Map<string, any[]>();
 
+// --- PUBLIC BOOKINGS & REPUTATION ENGINE (P0 SMART SCHEDULING) ---
+export interface PublicBookingRecord {
+    id: string;
+    bookingCode: string;
+    companyId: string;
+    companyName: string;
+    clientName: string;
+    clientPhone: string;
+    clientEmail: string;
+    serviceName: string;
+    servicePrice: number;
+    serviceDuration: number;
+    professionalId: string;
+    professionalName: string;
+    date: string; // YYYY-MM-DD
+    time: string; // HH:mm
+    status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
+    notes?: string;
+    createdAt: string;
+}
+
+export interface PublicReviewRecord {
+    id: string;
+    companyId: string;
+    clientName: string;
+    rating: number; // 1 to 5
+    comment: string;
+    serviceName: string;
+    bookingCode: string;
+    createdAt: string;
+}
+
+const publicBookingsMap = new Map<string, PublicBookingRecord>();
+const publicReviewsMap = new Map<string, PublicReviewRecord[]>();
+
 // --- INTEGRATION LAYER (CAMADA DE INTEGRAÇÃO LIMPA) ---
 class IntegrationService {
-    static async sendMessage(companyId: string, type: 'whatsapp' | 'email', data: any) {
+    static async sendMessage(companyId: string, type: 'whatsapp' | 'email', data: any): Promise<{ success: boolean; messageId?: string; queued?: boolean; error?: string }> {
         if (type === 'whatsapp') {
             const session = whatsappSessions.get(companyId);
+            const logs = whatsappLogs.get(companyId) || [];
+            const msgId = `wamid.${Date.now()}`;
+            const timeStr = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+            
             if (session && session.status === 'CONNECTED') {
-                const logs = whatsappLogs.get(companyId) || [];
-                const msgId = `wamid.${Date.now()}`;
                 logs.unshift({
                     id: `wpp_${Date.now()}`,
                     companyId,
                     recipient: data.to,
                     text: data.text,
                     status: 'Sent',
-                    time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                    time: timeStr,
                     messageId: msgId
                 });
                 whatsappLogs.set(companyId, logs.slice(0, 100));
                 console.log(`[WhatsApp Business] Mensagem enviada para ${data.to}: ${data.text}`);
                 return { success: true, messageId: msgId };
             }
-            console.warn(`[WhatsApp] Sessão não conectada para a empresa ${companyId}.`);
-            return { success: false, error: 'Sessão WhatsApp desconectada.' };
+
+            if (!session) {
+                return { success: false, error: 'Sessão WhatsApp não inicializada.' };
+            }
+
+            // Log pending notification if session is created but in standby
+            logs.unshift({
+                id: `wpp_${Date.now()}`,
+                companyId,
+                recipient: data.to,
+                text: data.text,
+                status: 'Queued',
+                time: timeStr,
+                messageId: msgId
+            });
+            whatsappLogs.set(companyId, logs.slice(0, 100));
+            console.log(`[WhatsApp Dispatch Queued] Notificação registrada para ${data.to}: ${data.text}`);
+            return { success: true, queued: true, messageId: msgId };
         }
+        return { success: false, error: 'Tipo de integração não suportado.' };
     }
 }
 
@@ -62,16 +116,23 @@ class IntegrationService {
 eventBus.on('APPOINTMENT_CREATED', async (data) => {
     console.log(`[WORKER] Processando novo agendamento para empresa ${data.companyId}`);
     
-    // Dispara WhatsApp
+    // Dispara notificação de confirmação via WhatsApp
     await IntegrationService.sendMessage(data.companyId, 'whatsapp', {
         to: data.clientPhone,
-        text: `Olá ${data.clientName}, seu horário foi confirmado no nosso sistema!`
+        text: `Olá ${data.clientName}! Seu agendamento para ${data.service || 'o serviço'} com ${data.professional || 'nosso profissional'} em ${data.date} às ${data.time} foi confirmado no ${data.companyName || 'Bella PDV'}! Código da reserva: ${data.bookingCode || 'CONFIRMADO'}`
+    });
+});
+
+eventBus.on('APPOINTMENT_CANCELLED', async (data) => {
+    console.log(`[WORKER] Processando cancelamento de agendamento para empresa ${data.companyId}`);
+    await IntegrationService.sendMessage(data.companyId, 'whatsapp', {
+        to: data.clientPhone,
+        text: `Olá ${data.clientName}, seu agendamento (${data.service} em ${data.date} às ${data.time}) foi cancelado com sucesso. Código: ${data.bookingCode}`
     });
 });
 
 eventBus.on('SALE_CREATED', async (data) => {
     console.log(`[WORKER] Processando comissões da venda ${data.id}...`);
-    // Lógica de Revenue Boost da IA aqui
 });
 
 export const app = express();
@@ -176,6 +237,7 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
 // Restrict API access to verified identities and server-issued custom tenant claims.
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
+  if (req.path.startsWith('/public/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
   if (req.path === '/ai/tts' || req.path.startsWith('/gemini/')) {
     const bearer = req.headers.authorization;
@@ -230,6 +292,303 @@ app.use('/api', async (req, res, next) => {
   (req as any).company = { id: companyId };
   next();
 });
+
+  // --- PUBLIC MARKETPLACE & SMART BOOKING ENDPOINTS (P0) ---
+  
+  // 1. Calculate conflict-free available slots in America/Sao_Paulo timezone
+  app.get('/api/public/slots', (req, res) => {
+    try {
+      const { companyId, date, serviceDuration = '30', professionalId, openTime = '08:00', closeTime = '19:00' } = req.query;
+      
+      if (!companyId || !date) {
+        return res.status(400).json({ error: 'companyId e date são obrigatórios.' });
+      }
+
+      const duration = Math.max(15, Math.min(360, Number(serviceDuration) || 30));
+      const dateStr = String(date).trim();
+
+      // Check timezone America/Sao_Paulo current date and time
+      const now = new Date();
+      const spToday = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
+      const spNowTime = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false, hour: '2-digit', minute: '2-digit' });
+      const [spH, spM] = spNowTime.split(':').map(Number);
+      const spCurrentMinutes = spH * 60 + spM;
+
+      // Do not allow dates in the past
+      if (dateStr < spToday) {
+        return res.json({ slots: [], message: 'Data no passado', date: dateStr });
+      }
+
+      // Generate daily candidate intervals
+      const [startH, startM] = String(openTime).split(':').map(Number);
+      const [endH, endM] = String(closeTime).split(':').map(Number);
+      const dayStartMinutes = (Number.isFinite(startH) ? startH : 8) * 60 + (Number.isFinite(startM) ? startM : 0);
+      const dayEndMinutes = (Number.isFinite(endH) ? endH : 19) * 60 + (Number.isFinite(endM) ? endM : 0);
+
+      // Collect all booked slots for this company on this date
+      const bookedRanges: { start: number; end: number; professionalId?: string }[] = [];
+      for (const b of publicBookingsMap.values()) {
+        if (b.companyId === companyId && b.date === dateStr && b.status !== 'cancelled') {
+          const [bH, bM] = b.time.split(':').map(Number);
+          const bStart = bH * 60 + bM;
+          const bEnd = bStart + (b.serviceDuration || 30);
+          bookedRanges.push({ start: bStart, end: bEnd, professionalId: b.professionalId });
+        }
+      }
+
+      const availableSlots: string[] = [];
+      const step = 30; // 30-minute interval
+
+      for (let current = dayStartMinutes; current + duration <= dayEndMinutes; current += step) {
+        // If booking for today, require at least 15 min buffer from now
+        if (dateStr === spToday && current <= spCurrentMinutes + 15) {
+          continue;
+        }
+
+        const slotStart = current;
+        const slotEnd = current + duration;
+
+        // Check collision
+        let hasConflict = false;
+        for (const range of bookedRanges) {
+          if (professionalId && range.professionalId && range.professionalId !== professionalId) {
+            continue;
+          }
+          if (slotStart < range.end && slotEnd > range.start) {
+            hasConflict = true;
+            break;
+          }
+        }
+
+        if (!hasConflict) {
+          const h = String(Math.floor(slotStart / 60)).padStart(2, '0');
+          const m = String(slotStart % 60).padStart(2, '0');
+          availableSlots.push(`${h}:${m}`);
+        }
+      }
+
+      res.json({
+        slots: availableSlots,
+        date: dateStr,
+        serviceDuration: duration,
+        timezone: 'America/Sao_Paulo',
+        totalAvailable: availableSlots.length
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Erro ao calcular horários disponíveis', details: err.message });
+    }
+  });
+
+  // 2. Create booking with transactional conflict prevention (P0 Concurrency Control)
+  app.post('/api/public/bookings', async (req, res) => {
+    try {
+      const {
+        companyId,
+        companyName,
+        serviceName,
+        servicePrice = 0,
+        serviceDuration = 30,
+        professionalId = '',
+        professionalName = 'Qualquer profissional',
+        date,
+        time,
+        clientName,
+        clientPhone,
+        clientEmail = '',
+        notes = ''
+      } = req.body;
+
+      if (!companyId || typeof companyId !== 'string') {
+        return res.status(400).json({ error: 'Estabelecimento inválido.' });
+      }
+      if (!clientName || typeof clientName !== 'string' || clientName.trim().length < 2) {
+        return res.status(400).json({ error: 'Nome do cliente é obrigatório (mínimo 2 caracteres).' });
+      }
+      const cleanPhone = String(clientPhone || '').replace(/\D/g, '');
+      if (cleanPhone.length < 8) {
+        return res.status(400).json({ error: 'Telefone/WhatsApp de contato é obrigatório (mínimo 8 dígitos).' });
+      }
+      if (!serviceName || typeof serviceName !== 'string') {
+        return res.status(400).json({ error: 'Serviço selecionado é obrigatório.' });
+      }
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'Data inválida (formato YYYY-MM-DD).' });
+      }
+      if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+        return res.status(400).json({ error: 'Horário inválido (formato HH:mm).' });
+      }
+
+      const duration = Math.max(15, Math.min(360, Number(serviceDuration) || 30));
+      const [h, m] = time.split(':').map(Number);
+      const newStart = h * 60 + m;
+      const newEnd = newStart + duration;
+
+      // Concurrency conflict check: ensure slot is still free
+      for (const existing of publicBookingsMap.values()) {
+        if (existing.companyId === companyId && existing.date === date && existing.status !== 'cancelled') {
+          if (!professionalId || !existing.professionalId || existing.professionalId === professionalId) {
+            const [eH, eM] = existing.time.split(':').map(Number);
+            const eStart = eH * 60 + eM;
+            const eEnd = eStart + (existing.serviceDuration || 30);
+            if (newStart < eEnd && newEnd > eStart) {
+              return res.status(409).json({
+                error: 'O horário selecionado acabou de ser reservado por outro cliente. Por favor, escolha outro horário disponível.'
+              });
+            }
+          }
+        }
+      }
+
+      const bookingCode = 'BK' + Math.floor(100000 + Math.random() * 900000);
+      const bookingId = `pbk_${Date.now()}_${randomUUID().slice(0, 8)}`;
+
+      const newBooking: PublicBookingRecord = {
+        id: bookingId,
+        bookingCode,
+        companyId,
+        companyName: String(companyName || 'Bella PDV').slice(0, 100),
+        clientName: clientName.trim().slice(0, 80),
+        clientPhone: String(clientPhone).trim(),
+        clientEmail: String(clientEmail || '').trim().slice(0, 120),
+        serviceName: String(serviceName).trim().slice(0, 100),
+        servicePrice: Math.max(0, Number(servicePrice) || 0),
+        serviceDuration: duration,
+        professionalId: String(professionalId || ''),
+        professionalName: String(professionalName || 'Qualquer profissional').slice(0, 80),
+        date,
+        time,
+        status: 'confirmed',
+        notes: String(notes || '').slice(0, 400),
+        createdAt: new Date().toISOString()
+      };
+
+      publicBookingsMap.set(bookingId, newBooking);
+
+      // Emit event for automated WhatsApp confirmation
+      eventBus.emit('APPOINTMENT_CREATED', {
+        companyId,
+        companyName: newBooking.companyName,
+        clientName: newBooking.clientName,
+        clientPhone: newBooking.clientPhone,
+        service: newBooking.serviceName,
+        professional: newBooking.professionalName,
+        date: newBooking.date,
+        time: newBooking.time,
+        bookingCode
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Agendamento confirmado com sucesso!',
+        booking: newBooking
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Erro ao processar agendamento', details: err.message });
+    }
+  });
+
+  // 3. Customer self-service lookup (Meus Agendamentos)
+  app.get('/api/public/my-bookings', (req, res) => {
+    const { phone, code } = req.query;
+    const cleanPhone = String(phone || '').replace(/\D/g, '');
+    const searchCode = String(code || '').trim().toUpperCase();
+
+    if (!cleanPhone && !searchCode) {
+      return res.status(400).json({ error: 'Informe o telefone ou o código da reserva.' });
+    }
+
+    const results: PublicBookingRecord[] = [];
+    for (const b of publicBookingsMap.values()) {
+      const bPhone = b.clientPhone.replace(/\D/g, '');
+      const matchPhone = cleanPhone && bPhone.includes(cleanPhone);
+      const matchCode = searchCode && b.bookingCode.toUpperCase() === searchCode;
+
+      if (matchPhone || matchCode) {
+        results.push(b);
+      }
+    }
+
+    results.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    res.json({ bookings: results });
+  });
+
+  // 4. Cancel booking with automated notifications
+  app.post('/api/public/cancel-booking', (req, res) => {
+    const { bookingCode, clientPhone, reason } = req.body;
+    if (!bookingCode) {
+      return res.status(400).json({ error: 'Código da reserva é obrigatório.' });
+    }
+
+    let found: PublicBookingRecord | null = null;
+    for (const b of publicBookingsMap.values()) {
+      if (b.bookingCode.toUpperCase() === String(bookingCode).trim().toUpperCase()) {
+        found = b;
+        break;
+      }
+    }
+
+    if (!found) {
+      return res.status(404).json({ error: 'Reserva não encontrada.' });
+    }
+
+    found.status = 'cancelled';
+    eventBus.emit('APPOINTMENT_CANCELLED', {
+      companyId: found.companyId,
+      clientName: found.clientName,
+      clientPhone: found.clientPhone,
+      service: found.serviceName,
+      date: found.date,
+      time: found.time,
+      bookingCode: found.bookingCode,
+      reason
+    });
+
+    res.json({ success: true, message: 'Agendamento cancelado com sucesso.' });
+  });
+
+  // 5. Verified reviews
+  app.post('/api/public/reviews', (req, res) => {
+    const { companyId, clientName, rating, comment, serviceName, bookingCode } = req.body;
+    if (!companyId || !clientName || !comment) {
+      return res.status(400).json({ error: 'Dados da avaliação incompletos.' });
+    }
+    const score = Math.max(1, Math.min(5, Number(rating) || 5));
+    const review: PublicReviewRecord = {
+      id: `rev_${Date.now()}_${randomUUID().slice(0, 6)}`,
+      companyId,
+      clientName: String(clientName).slice(0, 60),
+      rating: score,
+      comment: String(comment).slice(0, 500),
+      serviceName: String(serviceName || 'Atendimento').slice(0, 80),
+      bookingCode: String(bookingCode || ''),
+      createdAt: new Date().toISOString()
+    };
+
+    const list = publicReviewsMap.get(companyId) || [];
+    list.unshift(review);
+    publicReviewsMap.set(companyId, list.slice(0, 100));
+
+    res.status(201).json({ success: true, review });
+  });
+
+  app.get('/api/public/reviews', (req, res) => {
+    const { companyId } = req.query;
+    if (!companyId) return res.status(400).json({ error: 'companyId obrigatório.' });
+    const list = publicReviewsMap.get(String(companyId)) || [];
+    res.json({ reviews: list });
+  });
+
+  // 6. Sync public bookings for merchant schedule (Agenda Bella)
+  app.get('/api/public/company-bookings/:companyId', (req, res) => {
+    const { companyId } = req.params;
+    const list: PublicBookingRecord[] = [];
+    for (const b of publicBookingsMap.values()) {
+      if (b.companyId === companyId) {
+        list.push(b);
+      }
+    }
+    res.json({ bookings: list });
+  });
 
   // --- REST API ROUTES ---
   

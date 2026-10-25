@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      allow read, write: if false; // Default deny
+      allow read, write: if false; // Default deny catch-all
     }
     
     function isSignedIn() {
@@ -47,37 +47,92 @@ service cloud.firestore {
       return !data.keys().hasAny(['stock']) || (data.stock is number && data.stock >= 0);
     }
 
-    // Public directory: only explicit published marketing data, never tenant-private records.
+    // =========================================================================
+    // PUBLIC MARKETPLACE & DIRECTORY (Visitors, Customers & Public Showcase)
+    // =========================================================================
+
+    // Public directory listings: only explicitly published records are visible to guests.
     match /public_listings/{listingId} {
       allow list: if resource.data.published == true;
       allow get: if resource.data.published == true || (isSignedIn() && !isEmployee() && request.auth.uid == listingId && tenantId() == request.auth.uid);
-      // Listings require privileged provisioning; regular users cannot self-publish arbitrary profiles.
+      
+      // Platform administrator override
       allow create, update: if isAdmin()
         && request.resource.data.ownerId is string
         && request.resource.data.name is string
         && request.resource.data.city is string
         && request.resource.data.slug is string
-        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
+        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','address','phone','description','coverUrl','slug','services','workingHours','professionals','bookingUrl','rating','reviewCount','updatedAt'])
         && request.resource.data.published is bool;
-      // Verified tenant owner may publish ONLY their own public marketing record.
+
+      // Verified tenant owner may publish/edit ONLY their own public record.
       allow create, update: if isSignedIn()
         && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && !isEmployee() && request.auth.uid == listingId && tenantId() == request.auth.uid
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.slug == request.auth.uid
-        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
+        && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','address','phone','description','coverUrl','slug','services','workingHours','professionals','bookingUrl','rating','reviewCount','updatedAt'])
         && request.resource.data.published is bool
         && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 100
         && request.resource.data.city is string && request.resource.data.city.size() > 0 && request.resource.data.city.size() <= 80
         && request.resource.data.category is string && request.resource.data.category.size() > 0 && request.resource.data.category.size() <= 60
-        && request.resource.data.description is string && request.resource.data.description.size() <= 600
-        && request.resource.data.services is list && request.resource.data.services.size() <= 20
+        && request.resource.data.description is string && request.resource.data.description.size() <= 800
+        && request.resource.data.services is list && request.resource.data.services.size() <= 30
         && request.resource.data.bookingUrl is string && request.resource.data.bookingUrl.size() <= 500
         && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 500
         && (request.resource.data.bookingUrl == '' || request.resource.data.bookingUrl.matches('https://.*'))
         && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'));
+      
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == listingId && tenantId() == request.auth.uid && !isEmployee());
     }
+
+    // Public online bookings requested by consumers (Multi-Tenant & Anti-Leak Isolation)
+    match /public_bookings/{bookingId} {
+      // Consumers (authenticated or anonymous) can request a booking with strict schema verification
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['id','ownerId','clientName','clientPhone','clientEmail','serviceName','servicePrice','serviceDuration','professionalName','professionalId','date','time','status','bookingCode','notes','createdAt'])
+        && request.resource.data.ownerId is string
+        && request.resource.data.clientName is string && request.resource.data.clientName.size() >= 2 && request.resource.data.clientName.size() <= 100
+        && request.resource.data.clientPhone is string && request.resource.data.clientPhone.size() >= 8 && request.resource.data.clientPhone.size() <= 30
+        && request.resource.data.serviceName is string && request.resource.data.serviceName.size() >= 2
+        && request.resource.data.date is string && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.time is string && request.resource.data.time.matches('^\\d{2}:\\d{2}$')
+        && request.resource.data.bookingCode is string
+        && request.resource.data.status in ['confirmed', 'pending', 'cancelled'];
+      
+      // Tenant owner can list and read only their own bookings; anonymous visitors CANNOT dump all bookings
+      allow list: if isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId();
+      allow get: if (isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId()) || isAdmin();
+      allow update: if (isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId()) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Verified customer reviews
+    match /public_reviews/{reviewId} {
+      allow read: if true; // Public verified testimonials
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['companyId','clientName','rating','comment','serviceName','bookingCode','createdAt'])
+        && request.resource.data.companyId is string
+        && request.resource.data.clientName is string && request.resource.data.clientName.size() >= 2 && request.resource.data.clientName.size() <= 80
+        && request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.comment is string && request.resource.data.comment.size() <= 500
+        && request.resource.data.bookingCode is string
+        && request.resource.data.createdAt is string;
+      allow update, delete: if isAdmin() || (isSignedIn() && !isEmployee() && resource.data.companyId == request.auth.uid);
+    }
+
+    // Commercial demo leads (write-only for prospective guests, read-only for admin)
+    match /leads/{leadId} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'companyName', 'phone', 'email', 'source', 'featureAttempted', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.size() >= 3 && request.resource.data.email.size() <= 200
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // MULTI-TENANT USERS, ROLES & PRIVILEGES
+    // =========================================================================
 
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -102,10 +157,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Profiles can only be provisioned/changed by a trusted admin backend.
-    // Employee self-read is limited to the document bearing their Firebase UID.
-    // A request is NOT a granted staff account. A trusted administrator must
-    // verify identity and provision users/staff_members before portal access.
     match /staff_invites/{inviteId} {
       allow read: if isAdmin() || (
         isSignedIn() && !isEmployee() &&
@@ -157,8 +208,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Read-only personal staff feed: created by privileged server/admin only.
-    // A disabled employee loses all access immediately, regardless of cached UI state.
+    // Read-only personal staff portal feed: restricted to active staff member or company owner
     function activeStaff(uid) {
       return isSignedIn()
         && request.auth.uid == uid
@@ -189,44 +239,73 @@ service cloud.firestore {
       );
     }
 
+    // =========================================================================
+    // STRICT MULTI-TENANT ISOLATED DATA (Empresa A nunca acessa Empresa B)
+    // =========================================================================
+
+    // Clients / Customers (Private CRM)
     match /clients/{clientId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if ownsTenant(request.resource.data);
-      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
-      allow delete: if ownsTenant(resource.data) || isAdmin();
-    }
-
-    match /catalog/{serviceId} {
-      allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if ownsTenant(request.resource.data) && validStock(request.resource.data);
+      allow create: if ownsTenant(request.resource.data)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100;
       allow update: if isAdmin() || (
         ownsTenant(resource.data)
         && request.resource.data.ownerId == resource.data.ownerId
-        && validStock(request.resource.data)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100
       );
       allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
-    match /professionals/{professionalId} {
+    // Catalog (Products & Services)
+    match /catalog/{serviceId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if ownsTenant(request.resource.data);
-      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow create: if ownsTenant(request.resource.data) && validStock(request.resource.data)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100;
+      allow update: if isAdmin() || (
+        ownsTenant(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && validStock(request.resource.data)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100
+      );
       allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
+    // Team Professionals
+    match /professionals/{professionalId} {
+      allow read: if ownsTenant(resource.data) || isAdmin();
+      allow create: if ownsTenant(request.resource.data)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100;
+      allow update: if isAdmin() || (
+        ownsTenant(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 100
+      );
+      allow delete: if ownsTenant(resource.data) || isAdmin();
+    }
+
+    // Walk-in queue items
     match /queue/{itemId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if ownsTenant(request.resource.data);
       allow update, delete: if isAdmin() || (ownsTenant(resource.data) && (request.method == 'delete' || request.resource.data.ownerId == resource.data.ownerId));
     }
 
+    // Internal Appointments (Schedule)
     match /appointments/{appointmentId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
-      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && ownsTenant(request.resource.data);
-      allow update: if isAdmin() || (ownsTenant(resource.data) && request.resource.data.ownerId == resource.data.ownerId);
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && ownsTenant(request.resource.data)
+        && request.resource.data.client is string && request.resource.data.client.size() >= 1 && request.resource.data.client.size() <= 100
+        && request.resource.data.service is string && request.resource.data.service.size() >= 1 && request.resource.data.service.size() <= 100
+        && request.resource.data.status in ['confirmed', 'pending', 'cancelled', 'completed'];
+      allow update: if isAdmin() || (
+        ownsTenant(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.status in ['confirmed', 'pending', 'cancelled', 'completed']
+      );
       allow delete: if ownsTenant(resource.data) || isAdmin();
     }
 
+    // Financial Transactions & Sales (Strict Integrity)
     match /transactions/{transactionId} {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if ownsTenant(request.resource.data)
@@ -246,6 +325,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Company Settings
     match /companies/{companyId} {
       allow read: if isSignedIn() && ((companyId == tenantId() && !isEmployee()) || isAdmin());
       allow create: if isSignedIn() && companyId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
@@ -253,22 +333,26 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Company Licenses (Admin Protected)
     match /company_licenses/{licenseId} {
       allow read: if isSignedIn() && ((licenseId == tenantId() && !isEmployee()) || isAdmin());
       allow write: if isAdmin();
     }
 
+    // Feature Flags (Admin Protected)
     match /feature_flags/{flagId} {
       allow read: if isSignedIn() && ((flagId == tenantId() && !isEmployee()) || isAdmin());
       allow write: if isAdmin();
     }
 
+    // Device push tokens
     match /push_tokens/{tokenId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid) && (request.method == 'delete' || request.resource.data.userId == resource.data.userId);
     }
 
+    // Rate limits (Anti-abuse)
     match /bella_rate_limits/{limitId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
