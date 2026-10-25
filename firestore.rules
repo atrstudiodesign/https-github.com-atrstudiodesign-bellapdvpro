@@ -88,18 +88,9 @@ service cloud.firestore {
 
     // Public online bookings requested by consumers (Multi-Tenant & Anti-Leak Isolation)
     match /public_bookings/{bookingId} {
-      // Consumers (authenticated or anonymous) can request a booking with strict schema verification
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['id','ownerId','clientName','clientPhone','clientEmail','serviceName','servicePrice','serviceDuration','professionalName','professionalId','date','time','status','bookingCode','notes','createdAt'])
-        && request.resource.data.ownerId is string
-        && request.resource.data.clientName is string && request.resource.data.clientName.size() >= 2 && request.resource.data.clientName.size() <= 100
-        && request.resource.data.clientPhone is string && request.resource.data.clientPhone.size() >= 8 && request.resource.data.clientPhone.size() <= 30
-        && request.resource.data.serviceName is string && request.resource.data.serviceName.size() >= 2
-        && request.resource.data.date is string && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
-        && request.resource.data.time is string && request.resource.data.time.matches('^\\d{2}:\\d{2}$')
-        && request.resource.data.bookingCode is string
-        && request.resource.data.status in ['confirmed', 'pending', 'cancelled'];
-      
+      // Public clients must not forge confirmed reservations. Backend-only transactional writes required.
+      allow create: if false;
+
       // Tenant owner can list and read only their own bookings; anonymous visitors CANNOT dump all bookings
       allow list: if isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId();
       allow get: if (isSignedIn() && !isEmployee() && resource.data.ownerId == tenantId()) || isAdmin();
@@ -345,13 +336,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Master settings available only to platform administrators verified by Firebase claims.
+    // BellaAdmin configuration: restricted to trusted custom admin claims.
     match /bella_platform_settings/{settingsId} {
       allow get: if settingsId == 'master' && isAdmin();
       allow list, delete: if false;
       allow create, update: if settingsId == 'master' && isAdmin()
-        && request.resource.data.keys().hasOnly(['featureFlags', 'whiteLabelConfig', 'updatedAt', 'updatedBy'])
-        && request.resource.data.featureFlags.keys().hasOnly(['ai', 'whatsapp', 'cashbook', 'whitelabel'])
+        && request.resource.data.keys().hasOnly(['featureFlags','whiteLabelConfig','updatedAt','updatedBy'])
+        && request.resource.data.featureFlags.keys().hasOnly(['ai','whatsapp','cashbook','whitelabel'])
         && request.resource.data.featureFlags.ai is bool
         && request.resource.data.featureFlags.whatsapp is bool
         && request.resource.data.featureFlags.cashbook is bool
@@ -359,11 +350,7 @@ service cloud.firestore {
         && request.resource.data.whiteLabelConfig.domain is string
         && request.resource.data.whiteLabelConfig.domain.size() <= 253
         && request.resource.data.whiteLabelConfig.color is string
-        && request.resource.data.whiteLabelConfig.color.matches('^#[0-9A-Fa-f]{6}$')
-        && request.resource.data.updatedBy == request.auth.uid;
-    }
-
-    // Device push tokens
+        && request.resource.data.whiteLabelConfig.color.matches('^#[0-9A-Fa-f]{6}
     match /push_tokens/{tokenId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
@@ -398,9 +385,7 @@ service cloud.firestore {
   }
 }
 )
-          && request.resource.data.updatedBy == request.auth.uid
-        ));
-      allow list: if false;
+        && request.resource.data.updatedBy == request.auth.uid;
     }
 
     // Device push tokens
