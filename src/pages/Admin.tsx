@@ -12,8 +12,8 @@ import { Logo } from '../components/ui/Logo';
 import { useAuthStore } from '../store/auth';
 import { isSuperAdminEmail } from '../lib/superAdmins';
 import { toast } from 'sonner';
-import { db } from '../lib/firebase';
-import { collection, query, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { collection, query, getDocs, getDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { migrateCompanyLicenses } from '../services/migration';
 
 type Client = {
@@ -237,21 +237,13 @@ export default function AdminPanel() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
 
   const [activeSupportTicket, setActiveSupportTicket] = useState(1);
-  const [tickets, setTickets] = useState([
-    { id: 1, title: 'Problema no Webhook Asaas', client: 'Barber Prime', time: '10:42 AM', preview: 'Estou recebendo o erro 401 ao tentar...', tag: 'Urgente', status: 'Aberto', 
-      messages: [
-        { sender: 'client', text: 'Olá, desde a atualização de ontem meu webhook do Asaas está retornando 401 Unauthorized e os pagamentos não sincronizam no painel. O que eu faço?', time: '10:42 AM' }
-      ],
-      aiSuggestion: 'Identifiquei que a API key deste cliente foi rotacionada no painel de segurança. Sugiro enviar a instrução para renovar o token do Asaas em Configurações > Integrações.'
-    },
-    { id: 2, title: 'Dúvida sobre IA', client: 'Studio Elegance', time: 'Ontem', preview: 'Como configuro a mensagem automática?', tag: 'Dúvida', status: 'Resolvido',
-      messages: [
-        { sender: 'client', text: 'Como configuro a mensagem automática da IA?', time: 'Ontem' },
-        { sender: 'admin', text: 'Vá em Configurações > Automações e habilite a IA WhatsApp.', time: 'Ontem' }
-      ],
-      aiSuggestion: ''
-    }
-  ]);
+  // Não exibir chamados fabricados como se tivessem sido enviados por clientes.
+  // Integração de suporte real pendente; a lista começa vazia.
+  const [tickets, setTickets] = useState<Array<{
+    id: number; title: string; client: string; time: string; preview: string;
+    tag: string; status: string; messages: Array<{sender:string;text:string;time:string}>;
+    aiSuggestion: string;
+  }>>([]);
   const [replyText, setReplyText] = useState('');
 
   const currentStats = useMemo(() => {
@@ -295,16 +287,61 @@ export default function AdminPanel() {
   };
 
   const [featureFlags, setFeatureFlags] = useState({
-    ai: true,
-    whatsapp: true,
-    cashbook: true,
-    whitelabel: true
+    ai: false,
+    whatsapp: false,
+    cashbook: false,
+    whitelabel: false
   });
 
   const [whiteLabelConfig, setWhiteLabelConfig] = useState({
-    domain: "app.suamarca.com.br",
+    domain: "",
     color: "#4F46E5"
   });
+
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [savingGlobalSettings, setSavingGlobalSettings] = useState(false);
+  useEffect(() => {
+    if (!user?.isPlatformAdmin || !auth.currentUser) return;
+    let alive = true;
+    getDoc(doc(db, 'bella_platform_settings', 'master')).then(snapshot => {
+      if (!alive) return;
+      if (snapshot.exists()) {
+        const saved = snapshot.data();
+        if (saved.featureFlags) setFeatureFlags({
+          ai: saved.featureFlags.ai === true, whatsapp: saved.featureFlags.whatsapp === true,
+          cashbook: saved.featureFlags.cashbook === true, whitelabel: saved.featureFlags.whitelabel === true
+        });
+        if (saved.whiteLabelConfig) setWhiteLabelConfig({
+          domain: String(saved.whiteLabelConfig.domain || ''),
+          color: String(saved.whiteLabelConfig.color || '#4F46E5')
+        });
+      }
+      setSettingsLoaded(true);
+    }).catch(() => { if (alive) toast.error('Configurações globais indisponíveis. Nenhuma configuração foi presumida.'); });
+    return () => { alive = false; };
+  }, [user?.isPlatformAdmin]);
+
+  const saveGlobalSettings = async () => {
+    if (!settingsLoaded || !user?.isPlatformAdmin || !auth.currentUser || auth.currentUser.isAnonymous) return;
+    const domain = whiteLabelConfig.domain.trim().toLowerCase();
+    if (domain && (!/^(?=.{1,253}$)[a-z0-9-]+(?:\\.[a-z0-9-]+)+$/.test(domain) || domain.includes('..'))) {
+      toast.error('Informe um domínio válido, sem https://.'); return;
+    }
+    if (!/^#[0-9a-fA-F]{6}$/.test(whiteLabelConfig.color)) {
+      toast.error('Cor inválida. Use hexadecimal #RRGGBB.'); return;
+    }
+    setSavingGlobalSettings(true);
+    try {
+      await auth.currentUser.getIdToken(true);
+      await setDoc(doc(db, 'bella_platform_settings', 'master'), {
+        featureFlags, whiteLabelConfig: { domain, color: whiteLabelConfig.color },
+        updatedBy: auth.currentUser.uid, updatedAt: new Date().toISOString()
+      });
+      toast.success('Configurações salvas no Firebase. A aplicação por tenant requer integração específica.');
+    } catch {
+      toast.error('Falha ao salvar no Firebase. Verifique a claim de administrador e as regras publicadas.');
+    } finally { setSavingGlobalSettings(false); }
+  };
 
   if (!user?.isPlatformAdmin) {
     return (
@@ -1278,18 +1315,14 @@ export default function AdminPanel() {
                              <p className="text-sm font-semibold text-white">MFA Obrigatório para Admins</p>
                              <p className="text-xs text-slate-500">Força autenticação de 2 fatores (TOTP)</p>
                           </div>
-                          <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                             <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
-                          </div>
+                          <button type="button" disabled={!settingsLoaded} aria-label="Alternar ai" aria-pressed={featureFlags.ai} onClick={() => setFeatureFlags(prev => ({ ...prev, ai: !prev.ai }))} className={`w-10 h-5 rounded-full relative ${featureFlags.ai ? 'bg-indigo-500' : 'bg-slate-700'} disabled:opacity-50`}><span className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${featureFlags.ai ? 'right-0.5' : 'left-0.5'}`} /></button>
                        </div>
                        <div className="flex items-center justify-between p-3 bg-[#111] rounded border border-white/5">
                           <div>
                              <p className="text-sm font-semibold text-white">Rate Limiting (Enterprise API)</p>
                              <p className="text-xs text-slate-500">100 req/s por tenant</p>
                           </div>
-                          <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                             <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
-                          </div>
+                          <button type="button" disabled={!settingsLoaded} aria-label="Alternar whatsapp" aria-pressed={featureFlags.whatsapp} onClick={() => setFeatureFlags(prev => ({ ...prev, whatsapp: !prev.whatsapp }))} className={`w-10 h-5 rounded-full relative ${featureFlags.whatsapp ? 'bg-indigo-500' : 'bg-slate-700'} disabled:opacity-50`}><span className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${featureFlags.whatsapp ? 'right-0.5' : 'left-0.5'}`} /></button>
                        </div>
                     </div>
                  </div>
@@ -1303,7 +1336,7 @@ export default function AdminPanel() {
                        <h2 className="text-2xl font-display font-semibold text-white tracking-tight">System Configuration & White-Label</h2>
                        <p className="text-sm text-slate-400">Gerencie recursos globais, planos VIP e personalização da plataforma.</p>
                     </div>
-                    <button onClick={() => toast.success("Configurações e personalização White-Label atualizadas em todos os tenants!")} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
+                    <button disabled={!settingsLoaded || savingGlobalSettings} onClick={saveGlobalSettings} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
                        <Save className="w-4 h-4" /> Salvar Configurações
                     </button>
                  </div>
@@ -1318,9 +1351,7 @@ export default function AdminPanel() {
                                 <p className="text-sm font-semibold text-white">IA e Módulos Criativos (OpenAI/Gemini)</p>
                                 <p className="text-xs text-slate-500">Libera a geração de descrições e assistente.</p>
                              </div>
-                             <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                                <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
-                             </div>
+                             <button type="button" disabled={!settingsLoaded} aria-label="Alternar cashbook" aria-pressed={featureFlags.cashbook} onClick={() => setFeatureFlags(prev => ({ ...prev, cashbook: !prev.cashbook }))} className={`w-10 h-5 rounded-full relative ${featureFlags.cashbook ? 'bg-indigo-500' : 'bg-slate-700'} disabled:opacity-50`}><span className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${featureFlags.cashbook ? 'right-0.5' : 'left-0.5'}`} /></button>
                           </div>
   
                           <div className="flex items-center justify-between p-3 bg-[#111] rounded border border-white/5">
@@ -1348,9 +1379,7 @@ export default function AdminPanel() {
                                 <p className="text-sm font-semibold text-white">White-Label Ativo</p>
                                 <p className="text-xs text-slate-500">Permite clientes Premium alterarem a marca.</p>
                              </div>
-                             <div className="w-10 h-5 bg-emerald-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.3)]">
-                                <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
-                             </div>
+                             <button type="button" disabled={!settingsLoaded} aria-label="Alternar whitelabel" aria-pressed={featureFlags.whitelabel} onClick={() => setFeatureFlags(prev => ({ ...prev, whitelabel: !prev.whitelabel }))} className={`w-10 h-5 rounded-full relative ${featureFlags.whitelabel ? 'bg-emerald-500' : 'bg-slate-700'} disabled:opacity-50`}><span className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${featureFlags.whitelabel ? 'right-0.5' : 'left-0.5'}`} /></button>
                           </div>
                        </div>
                     </div>

@@ -33,36 +33,13 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
   qrCode: null,
   pairingCode: null,
   expiresIn: 60,
-  phone: '+55 (11) 98421-0492',
-  businessName: 'Bella PDV Business',
+  phone: '',
+  businessName: '',
   provider: 'BellaGateway',
   connectedAt: null,
-  logs: [
-    {
-      id: 'log-1',
-      recipient: '+55 11 98421-0492',
-      text: 'Lembrete de agendamento: Mechas Loiro Supremo às 14:00.',
-      status: 'Delivered',
-      time: '10:14',
-      messageId: 'wamid.demo01'
-    },
-    {
-      id: 'log-2',
-      recipient: '+55 11 97128-5023',
-      text: 'Comprovante fiscal da sua compra no valor de R$ 70,00.',
-      status: 'Read',
-      time: '09:45',
-      messageId: 'wamid.demo02'
-    }
-  ],
-  queue: [
-    {
-      id: 'q-1',
-      recipient: '+55 11 99245-1288',
-      text: 'Olá Mariana, confirmamos seu horário para amanhã às 15h30.',
-      scheduled: 'Hoje às 18:00'
-    }
-  ],
+  // Live accounts must never display demonstration delivery logs or queued messages.
+  logs: [],
+  queue: [],
   isModalOpen: false,
 
   setModalOpen: (open) => set({ isModalOpen: open }),

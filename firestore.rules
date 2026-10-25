@@ -336,6 +336,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /bella_platform_settings/{settingsId} {
+      allow get: if settingsId == 'master' && isAdmin();
+      allow list, delete: if false;
+      allow create, update: if settingsId == 'master' && isAdmin()
+        && request.resource.data.keys().hasOnly(['featureFlags', 'whiteLabelConfig', 'updatedAt', 'updatedBy'])
+        && request.resource.data.featureFlags.keys().hasOnly(['ai', 'whatsapp', 'cashbook', 'whitelabel'])
+        && request.resource.data.featureFlags.ai is bool
+        && request.resource.data.featureFlags.whatsapp is bool
+        && request.resource.data.featureFlags.cashbook is bool
+        && request.resource.data.featureFlags.whitelabel is bool
+        && request.resource.data.whiteLabelConfig.domain is string
+        && request.resource.data.whiteLabelConfig.domain.size() <= 253
+        && request.resource.data.whiteLabelConfig.color is string
+        && request.resource.data.whiteLabelConfig.color.size() == 7
+        && request.resource.data.whiteLabelConfig.color.matches('^#[0-9A-Fa-f]+')
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     // Device push tokens
     match /push_tokens/{tokenId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
