@@ -381,6 +381,11 @@ app.use('/api', async (req, res, next) => {
 
   // 2. Create booking with transactional conflict prevention (P0 Concurrency Control)
   app.post('/api/public/bookings', async (req, res) => {
+    // P0: fail closed. In-memory Map is neither durable nor atomic between Vercel instances.
+    return res.status(503).json({
+      error: 'Reservas online temporariamente indisponíveis. Contate o estabelecimento.',
+      code: 'BOOKING_PERSISTENCE_NOT_CONFIGURED'
+    });
     try {
       const {
         companyId,
