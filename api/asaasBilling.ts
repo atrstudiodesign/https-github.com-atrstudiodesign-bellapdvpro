@@ -1,7 +1,5 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import {
   BELLA_COMMERCIAL_PLANS,
   type BellaPlanId,
@@ -58,7 +56,17 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-function getAdminFirestore() {
+let adminContextPromise: Promise<{ db: any; FieldValue: any }> | null = null;
+
+async function getAdminContext() {
+  if (adminContextPromise) return adminContextPromise;
+  adminContextPromise = (async () => {
+    const [appModule, firestoreModule] = await Promise.all([
+      import('firebase-admin/app'),
+      import('firebase-admin/firestore'),
+    ]);
+    const { applicationDefault, cert, getApps, initializeApp } = appModule;
+    const { FieldValue, getFirestore } = firestoreModule;
   if (!getApps().length) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
     if (serviceAccountJson) {
@@ -76,7 +84,9 @@ function getAdminFirestore() {
       initializeApp({ credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || 'bellapdv-15ae0' });
     }
   }
-  return getFirestore();
+    return { db: getFirestore(), FieldValue };
+  })();
+  return adminContextPromise;
 }
 
 function cleanId(value: unknown): string | null {
@@ -116,7 +126,7 @@ async function asaasWrite(path: string, method: 'POST' | 'PUT', body: Record<str
 }
 
 async function resolveMapping(payload: any): Promise<BillingMapping | null> {
-  const db = getAdminFirestore();
+  const { db } = await getAdminContext();
   const checkoutId = cleanId(payload?.checkout?.id);
   if (checkoutId) {
     const snap = await db.collection('billing_checkouts').doc(checkoutId).get();
@@ -155,7 +165,7 @@ async function resolveMapping(payload: any): Promise<BillingMapping | null> {
 }
 
 async function reserveWebhook(eventId: string, eventType: string): Promise<'reserved' | 'duplicate'> {
-  const db = getAdminFirestore();
+  const { db, FieldValue } = await getAdminContext();
   const ref = db.collection('billing_webhook_events').doc(eventId);
   return db.runTransaction(async (tx) => {
     const existing = await tx.get(ref);
@@ -177,7 +187,8 @@ async function reserveWebhook(eventId: string, eventType: string): Promise<'rese
 }
 
 async function markWebhook(eventId: string, status: 'processed' | 'unmapped' | 'failed', details?: Record<string, unknown>) {
-  await getAdminFirestore().collection('billing_webhook_events').doc(eventId).set({
+  const { db, FieldValue } = await getAdminContext();
+  await db.collection('billing_webhook_events').doc(eventId).set({
     status,
     ...details,
     updatedAt: FieldValue.serverTimestamp(),
@@ -185,7 +196,7 @@ async function markWebhook(eventId: string, status: 'processed' | 'unmapped' | '
 }
 
 async function applyWebhook(payload: any, mapping: BillingMapping) {
-  const db = getAdminFirestore();
+  const { db, FieldValue } = await getAdminContext();
   const { companyId, planId } = mapping;
   const eventType = String(payload.event);
   const plan = BELLA_COMMERCIAL_PLANS[planId];
@@ -388,7 +399,7 @@ export async function billingCheckout(req: Request, res: Response) {
   const intentId = randomUUID();
   const externalReference = `bellapdv:${intentId}`;
   const amountCents = plan.promoPriceCents ?? plan.monthlyPriceCents;
-  const db = getAdminFirestore();
+  const { db, FieldValue } = await getAdminContext();
   const intentRef = db.collection('billing_intents').doc(intentId);
 
   try {
@@ -454,7 +465,7 @@ export async function reconcileBilling(req: Request, res: Response) {
   if (!companyId || !/^[A-Za-z0-9_-]{6,128}$/.test(companyId)) return res.status(400).json({ error: 'Empresa inválida.' });
 
   try {
-    const db = getAdminFirestore();
+    const { db } = await getAdminContext();
     const mappingSnap = await db.collection('billing_tenants').doc(companyId).get();
     if (!mappingSnap.exists) {
       return res.json({ dryRun: true, companyId, status: 'mapping_required', changes: [] });
@@ -507,7 +518,7 @@ export async function mapBillingSubscription(req: Request, res: Response) {
   }
 
   try {
-    const db = getAdminFirestore();
+    const { db, FieldValue } = await getAdminContext();
     const [subscription, existing] = await Promise.all([
       asaasGet(`/subscriptions/${encodeURIComponent(subscriptionId)}`),
       db.collection('billing_subscriptions').doc(subscriptionId).get(),
