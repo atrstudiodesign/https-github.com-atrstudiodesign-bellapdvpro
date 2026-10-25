@@ -51,13 +51,14 @@ service cloud.firestore {
     match /public_listings/{listingId} {
       allow get, list: if resource.data.published == true;
       // Listings require privileged provisioning; regular users cannot self-publish arbitrary profiles.
-      allow create, update, delete: if isAdmin()
+      allow create, update: if isAdmin()
         && request.resource.data.ownerId is string
         && request.resource.data.name is string
         && request.resource.data.city is string
         && request.resource.data.slug is string
         && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','description','coverUrl','slug','services','bookingUrl','updatedAt'])
         && request.resource.data.published is bool;
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {
