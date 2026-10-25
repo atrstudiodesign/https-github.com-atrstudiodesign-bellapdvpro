@@ -49,7 +49,8 @@ service cloud.firestore {
 
     // Public directory: only explicit published marketing data, never tenant-private records.
     match /public_listings/{listingId} {
-      allow get, list: if resource.data.published == true;
+      allow list: if resource.data.published == true;
+      allow get: if resource.data.published == true || (isSignedIn() && !isEmployee() && request.auth.uid == listingId && tenantId() == request.auth.uid);
       // Listings require privileged provisioning; regular users cannot self-publish arbitrary profiles.
       allow create, update: if isAdmin()
         && request.resource.data.ownerId is string
