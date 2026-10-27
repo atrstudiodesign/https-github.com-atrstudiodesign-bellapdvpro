@@ -286,7 +286,7 @@ service cloud.firestore {
       allow read: if ownsTenant(resource.data) || isAdmin();
       allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous' && ownsTenant(request.resource.data)
         && request.resource.data.client is string && request.resource.data.client.size() >= 1 && request.resource.data.client.size() <= 100
-        && request.resource.data.service is string && request.resource.data.service.size() >= 1 && request.resource.data.service.size() <= 100
+        && request.resource.data['service'] is string && request.resource.data['service'].size() >= 1 && request.resource.data['service'].size() <= 100
         && request.resource.data.status in ['confirmed', 'pending', 'cancelled', 'completed'];
       allow update: if isAdmin() || (
         ownsTenant(resource.data)

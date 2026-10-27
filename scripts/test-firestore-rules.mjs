@@ -44,7 +44,7 @@ test('A e B leem e alteram apenas seus clientes; demo fica isolada', async () =>
   await assertFails(updateDoc(doc(a, 'clients/clientB'), { name: 'alterado' }));
   await assertFails(deleteDoc(doc(b, 'clients/clientA')));
   await assertFails(setDoc(doc(a, 'clients/newB'), { ownerId: 'companyB' }));
-  await assertSucceeds(setDoc(doc(a, 'clients/newA'), { ownerId: 'companyA' }));
+  await assertSucceeds(setDoc(doc(a, 'clients/newA'), { ownerId: 'companyA', name: 'Cliente A' }));
 });
 
 test('funcionário não recebe automaticamente os dados integrais da empresa', async () => {
