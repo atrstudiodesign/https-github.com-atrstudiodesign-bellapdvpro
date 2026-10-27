@@ -47,35 +47,61 @@ export default function Integrations() {
 
   const { evolutionUrl, evolutionKey, asaasKey, geminiKey, setAsaasKey } = useApiKeysStore();
   const [isAsaasIntegrated, setIsAsaasIntegrated] = useState(false);
+  const [asaasServerStatus, setAsaasServerStatus] = useState<{
+    configured: boolean;
+    environment: 'sandbox' | 'production';
+    hasWebhookSecret: boolean;
+  } | null>(null);
+  const [asaasAccountInfo, setAsaasAccountInfo] = useState<{
+    name?: string;
+    email?: string;
+    cpfCnpj?: string;
+    environment?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/asaas/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.configured === 'boolean') {
+          setAsaasServerStatus(data);
+          if (data.configured) {
+            setIsAsaasIntegrated(true);
+          }
+        }
+      })
+      .catch(() => { /* silent fail */ });
+  }, []);
 
   const handleValidateAsaas = async () => {
-      if (!asaasKey) {
-          toast.error("Informe a API Key do Asaas primeiro.");
-          return;
-      }
-      const toastId = toast.loading("Validando conta Asaas...");
+      const toastId = toast.loading("Validando credenciais do Asaas...");
       try {
-          const response = await fetch('/api/asaas/proxy', {
+          const headers: Record<string, string> = {
+              'Content-Type': 'application/json'
+          };
+          if (asaasKey?.trim()) {
+              headers['x-asaas-key'] = asaasKey.trim();
+          }
+
+          const response = await fetch('/api/asaas/validate', {
               method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'x-asaas-key': asaasKey
-              },
-              body: JSON.stringify({
-                  path: '/myAccount',
-                  method: 'GET'
-              })
+              headers
           });
           const data = await response.json();
-          if (response.ok) {
-              toast.success(`Conta Asaas confirmada!`, { id: toastId, description: `Empresa: ${data.name || data.companyName}`});
+          if (response.ok && data.success) {
+              const account = data.account;
+              setAsaasAccountInfo(account);
               setIsAsaasIntegrated(true);
+              toast.success("Conta Asaas autenticada com sucesso!", { 
+                  id: toastId, 
+                  description: `${account?.name || 'Titular identificado'} (${account?.environment === 'production' ? 'Produção' : 'Sandbox'})`
+              });
           } else {
-              throw new Error(data.error || 'Não localizado');
+              throw new Error(data.error || 'Falha na validação com o gateway Asaas');
           }
       } catch (err: any) {
           console.error(err);
-          toast.error("Erro ao validar", { id: toastId, description: err.message });
+          toast.error("Erro ao validar Asaas", { id: toastId, description: err.message });
           setIsAsaasIntegrated(false);
       }
   };
@@ -192,30 +218,77 @@ export default function Integrations() {
                            <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white text-xl tracking-tighter">AS</div>
                               <div>
-                                 <h4 className="text-white font-semibold flex items-center gap-2 text-lg">Asaas API</h4>
-                                 <p className="text-xs text-slate-400">Motor de cobrança e subcontas</p>
+                                 <h4 className="text-white font-semibold flex items-center gap-2 text-lg">Asaas Gateway</h4>
+                                 <p className="text-xs text-slate-400">Pix, Boletos e Cartão de Crédito</p>
                               </div>
                            </div>
-                           {isAsaasIntegrated ? (
-                              <span className="text-[10px] text-green-400 bg-green-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-green-500/20 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Integrado</span>
-                           ) : (
-                              <span className="text-[10px] text-slate-400 bg-slate-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-slate-500/20 flex items-center gap-1">Pendente</span>
-                           )}
+                           <div className="flex items-center gap-2">
+                              {asaasServerStatus?.environment && (
+                                 <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-cyan-500/20">
+                                    {asaasServerStatus.environment === 'production' ? 'Produção' : 'Sandbox'}
+                                 </span>
+                              )}
+                              {isAsaasIntegrated ? (
+                                 <span className="text-[10px] text-green-400 bg-green-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-green-500/20 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Integrado</span>
+                              ) : asaasServerStatus?.configured ? (
+                                 <span className="text-[10px] text-blue-400 bg-blue-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-blue-500/20 flex items-center gap-1">Servidor OK</span>
+                              ) : (
+                                 <span className="text-[10px] text-slate-400 bg-slate-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-slate-500/20 flex items-center gap-1">Pendente</span>
+                              )}
+                           </div>
                         </div>
-                        <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-                           Sincronize clientes e crie cobranças reais (Pix, Cartão e Boleto) usando nossa integração com API do Asaas.
+                        <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                           Faturamento automatizado, geração de cobranças Pix instantâneas com QR Code, boletos bancários e conciliação via Webhook.
                         </p>
+
+                        {/* Status do Servidor (.env) */}
+                        <div className="bg-black/30 p-3 rounded-lg border border-white/5 mb-4 text-xs space-y-1.5 font-mono">
+                           <div className="flex justify-between items-center text-slate-400">
+                              <span>Variável ASAAS_API_KEY:</span>
+                              <span className={asaasServerStatus?.configured ? "text-green-400 font-semibold" : "text-amber-400"}>
+                                 {asaasServerStatus?.configured ? "Configurada no .env" : "Não detectada no .env"}
+                              </span>
+                           </div>
+                           <div className="flex justify-between items-center text-slate-400">
+                              <span>Webhook Secret:</span>
+                              <span className={asaasServerStatus?.hasWebhookSecret ? "text-green-400" : "text-slate-500"}>
+                                 {asaasServerStatus?.hasWebhookSecret ? "Ativo" : "Opcional"}
+                              </span>
+                           </div>
+                        </div>
+
+                        {/* Detalhes da Conta Asaas Conectada */}
+                        {asaasAccountInfo && (
+                           <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs space-y-1">
+                              <p className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                                 <CheckCircle className="w-3.5 h-3.5" /> {asaasAccountInfo.name || 'Conta Asaas Ativa'}
+                              </p>
+                              {asaasAccountInfo.cpfCnpj && <p className="text-slate-300">Doc: {asaasAccountInfo.cpfCnpj}</p>}
+                              {asaasAccountInfo.email && <p className="text-slate-400">E-mail: {asaasAccountInfo.email}</p>}
+                           </div>
+                        )}
                         
                         <div className="mb-4">
-                           <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 block">API Key do Asaas</label>
-                           <input type="password" value={asaasKey} onChange={(e) => setAsaasKey(e.target.value)} placeholder="$aact_..." className="w-full bg-[#111] border border-[#1A2C47] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
+                           <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 block">
+                              Chave Manual (opcional para teste)
+                           </label>
+                           <input 
+                              type="password" 
+                              value={asaasKey} 
+                              onChange={(e) => setAsaasKey(e.target.value)} 
+                              placeholder={asaasServerStatus?.configured ? "Usando chave do arquivo .env" : "$aact_..."} 
+                              className="w-full bg-[#111] border border-[#1A2C47] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-500" 
+                           />
+                           <p className="text-[11px] text-slate-400 mt-1">
+                              Para maior segurança, configure <code className="text-blue-400 font-mono">ASAAS_API_KEY</code> no arquivo <code className="text-blue-400 font-mono">.env</code> do backend.
+                           </p>
                         </div>
                      </div>
                      <button 
                         onClick={handleValidateAsaas}
                         className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors font-medium text-sm flex items-center justify-center gap-2"
                      >
-                        Verificar Conexão e Meus Dados
+                        Verificar Conexão Asaas
                      </button>
                   </div>
 

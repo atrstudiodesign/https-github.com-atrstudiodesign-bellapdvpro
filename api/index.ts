@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 // Vercel's API entrypoint must contain the Express app so its runtime bundles it.
 // This file is the canonical backend; server.ts re-exports it for local dev.
 import express from 'express';
@@ -149,7 +152,7 @@ app.use(cors({
       return callback(null, allowed);
     } catch { return callback(null, false); }
   },
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id', 'x-gemini-key', 'x-asaas-key', 'x-asaas-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-company-id', 'x-gemini-key', 'x-asaas-key', 'x-asaas-token', 'x-asaas-environment'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '256kb' }));
@@ -239,6 +242,19 @@ app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/webhooks/')) return next();
   if (req.path.startsWith('/public/')) return next();
   if (['/auth/login', '/auth/register'].includes(req.path)) return next();
+  if (req.path.startsWith('/asaas/')) {
+    const bearer = req.headers.authorization;
+    if (bearer?.startsWith('Bearer ')) {
+      try {
+        const claims = await verifyFirebaseIdToken(bearer.slice(7));
+        const companyId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
+        (req as any).firebaseUser = { uid: claims.sub, email: claims.email, companyId };
+      } catch {
+        // Fallback for valid headers/env
+      }
+    }
+    return next();
+  }
   if (req.path === '/ai/tts' || req.path.startsWith('/gemini/')) {
     const bearer = req.headers.authorization;
     if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Autenticação obrigatória para narração IA.' });
@@ -763,8 +779,36 @@ app.use('/api', async (req, res, next) => {
   });
 
   // Webhooks: Asaas Dunning / Billing
-  app.post('/api/webhooks/asaas', (_req, res) => {
-      res.status(501).json({ error: 'Webhook Asaas ainda não está vinculado a empresas persistidas no Firebase.' });
+  app.post('/api/webhooks/asaas', (req, res) => {
+      try {
+          const expectedSecret = process.env.ASAAS_WEBHOOK_SECRET?.trim();
+          const incomingToken = req.headers['asaas-access-token'] as string;
+
+          if (expectedSecret && expectedSecret !== 'MY_ASAAS_WEBHOOK_SECRET' && incomingToken !== expectedSecret) {
+              console.warn('[Asaas Webhook] Token de autenticação inválido recebido.');
+              return res.status(401).json({ error: 'Token de webhook inválido.' });
+          }
+
+          const { event, payment } = req.body || {};
+          console.log(`[Asaas Webhook] Evento recebido: ${event}`, { 
+              paymentId: payment?.id, 
+              value: payment?.value, 
+              billingType: payment?.billingType,
+              status: payment?.status 
+          });
+
+          // Notificar barramento de eventos interno
+          eventBus.emit('asaas:webhook', { 
+              event, 
+              payment, 
+              timestamp: new Date().toISOString() 
+          });
+
+          res.status(200).json({ received: true, event });
+      } catch (err: any) {
+          console.error('[Asaas Webhook Error]', err);
+          res.status(500).json({ error: err.message });
+      }
   });
 
   // --- GEMINI PROXY ROUTES WITH HIGH-RESILIENCE FALLBACK ---
@@ -1042,22 +1086,119 @@ app.use('/api', async (req, res, next) => {
       }
   });
 
-  // --- ASAAS PROXY ROUTES ---
+  // --- ASAAS PROXY & INTEGRATION ROUTES ---
+  function getAsaasBaseUrl(key?: string | null, envHeader?: string | null): string {
+      const configuredEnv = (envHeader || process.env.ASAAS_ENVIRONMENT || '').toLowerCase().trim();
+      if (configuredEnv === 'sandbox' || configuredEnv === 'teste' || configuredEnv === 'dev') {
+          return 'https://api-sandbox.asaas.com/v3';
+      }
+      if (configuredEnv === 'production' || configuredEnv === 'prod') {
+          return 'https://api.asaas.com/v3';
+      }
+      // Auto-detect based on key string
+      if (key && (key.toLowerCase().includes('sandbox') || key.toLowerCase().includes('teste'))) {
+          return 'https://api-sandbox.asaas.com/v3';
+      }
+      return 'https://api.asaas.com/v3';
+  }
+
+  // Status check for server-side Asaas configuration
+  app.get('/api/asaas/status', (_req, res) => {
+      const serverKey = process.env.ASAAS_API_KEY?.trim();
+      const hasServerKey = Boolean(serverKey && serverKey !== '' && serverKey !== 'MY_ASAAS_API_KEY');
+      const env = (process.env.ASAAS_ENVIRONMENT || 'sandbox').toLowerCase().trim();
+      const hasWebhookSecret = Boolean(process.env.ASAAS_WEBHOOK_SECRET && process.env.ASAAS_WEBHOOK_SECRET.trim() !== '' && process.env.ASAAS_WEBHOOK_SECRET !== 'MY_ASAAS_WEBHOOK_SECRET');
+
+      res.json({
+          configured: hasServerKey,
+          environment: (env === 'production' || env === 'prod') ? 'production' : 'sandbox',
+          hasWebhookSecret,
+          source: hasServerKey ? 'env' : 'none'
+      });
+  });
+
+  // Dedicated validation endpoint
+  app.post('/api/asaas/validate', async (req, res) => {
+      try {
+          const clientKey = typeof req.headers['x-asaas-key'] === 'string' ? req.headers['x-asaas-key'].trim() : '';
+          const serverKey = process.env.ASAAS_API_KEY?.trim() || '';
+          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null') ? clientKey : (serverKey !== 'MY_ASAAS_API_KEY' ? serverKey : null);
+
+          if (!effectiveKey) {
+              return res.status(400).json({ 
+                  success: false, 
+                  error: "Chave da API do Asaas não configurada. Defina ASAAS_API_KEY no arquivo .env ou informe sua chave no painel." 
+              });
+          }
+
+          const envHeader = req.headers['x-asaas-environment'] as string | undefined;
+          const baseUrl = getAsaasBaseUrl(effectiveKey, envHeader);
+
+          const response = await fetch(`${baseUrl}/myAccount`, {
+              method: 'GET',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'access_token': effectiveKey
+              }
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+              return res.status(response.status).json({
+                  success: false,
+                  error: data.errors?.[0]?.description || 'Chave da API Asaas não aceita ou credenciais inválidas.',
+                  details: data
+              });
+          }
+
+          res.json({
+              success: true,
+              account: {
+                  name: data.name || data.companyName,
+                  email: data.email,
+                  cpfCnpj: data.cpfCnpj,
+                  personType: data.personType,
+                  environment: baseUrl.includes('sandbox') ? 'sandbox' : 'production'
+              }
+          });
+      } catch (err: any) {
+          console.error('[Asaas Validate Error]', err);
+          res.status(500).json({ success: false, error: err.message });
+      }
+  });
+
+  // Generic proxy route for Asaas calls
   app.post('/api/asaas/proxy', async (req, res) => {
       try {
           if ((req as any).firebaseUser?.provider === 'anonymous') {
               return res.status(403).json({ error: 'Conta de demonstração não pode acessar cobranças.' });
           }
-          const { path, method, body } = req.body;
-          const clientKey = req.headers['x-asaas-key'] as string;
-          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null' && clientKey.trim() !== '') ? clientKey : null;
-          
-          if (!effectiveKey) {
-             return res.status(400).json({ error: "Chave da API do Asaas não configurada nas configurações." });
+          const { path: apiPath, method, body } = req.body;
+          if (!apiPath) {
+              return res.status(400).json({ error: "Caminho da requisição ('path') não informado." });
           }
 
-          // Use Sandbox or Production depending on key prefix, typical Asaas logic
-          const baseUrl = effectiveKey.includes('sandbox') ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
+          const clientKey = typeof req.headers['x-asaas-key'] === 'string' ? req.headers['x-asaas-key'].trim() : '';
+          const serverKey = process.env.ASAAS_API_KEY?.trim() || '';
+          const effectiveKey = (clientKey && clientKey !== 'undefined' && clientKey !== 'null') ? clientKey : (serverKey !== 'MY_ASAAS_API_KEY' ? serverKey : null);
+          
+          if (!effectiveKey) {
+             return res.status(400).json({ error: "Chave da API do Asaas não configurada. Defina a variável ASAAS_API_KEY no .env ou informe sua chave nas integrações." });
+          }
+
+          const envHeader = req.headers['x-asaas-environment'] as string | undefined;
+          const baseUrl = getAsaasBaseUrl(effectiveKey, envHeader);
+
+          // Normalize path: strip duplicate /v3 or /api/v3 prefixes
+          let cleanPath = apiPath;
+          if (cleanPath.startsWith('/api/v3')) {
+              cleanPath = cleanPath.replace('/api/v3', '');
+          } else if (cleanPath.startsWith('/v3')) {
+              cleanPath = cleanPath.replace('/v3', '');
+          }
+          if (!cleanPath.startsWith('/')) {
+              cleanPath = '/' + cleanPath;
+          }
 
           const requestConfig: any = {
               method: method || 'POST',
@@ -1067,11 +1208,11 @@ app.use('/api', async (req, res, next) => {
               }
           };
 
-          if (body && (method === 'POST' || method === 'PUT')) {
+          if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
               requestConfig.body = JSON.stringify(body);
           }
 
-          const response = await fetch(`${baseUrl}${path}`, requestConfig);
+          const response = await fetch(`${baseUrl}${cleanPath}`, requestConfig);
           const data = await response.json();
           
           if (!response.ok) {
