@@ -6,7 +6,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import compression from 'compression';
 import http from 'http';
-import { createVerify, X509Certificate, randomUUID } from 'node:crypto';
+import { createVerify, createSign, timingSafeEqual, X509Certificate, randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
 
 // --- SAAS EVENT BUS (ORIENTAÇÃO A EVENTOS) ---
@@ -231,6 +231,118 @@ async function verifyFirebaseIdToken(token: string): Promise<Record<string, any>
     throw new Error('Invalid Firebase token signature');
   }
   return claims;
+}
+
+
+type BellaPlanCode = 'basic' | 'pro' | 'premium';
+const BELLA_PLANS: Record<BellaPlanCode, { name: string; value: number; regularValue: number; promoCycles: number; licensePlan: 'Bronze' | 'Prata' | 'Ouro'; maxUsers: number }> = {
+  basic: { name: 'Básico', value: 29.90, regularValue: 89.90, promoCycles: 3, licensePlan: 'Bronze', maxUsers: 1 },
+  pro: { name: 'Pro', value: 149.90, regularValue: 149.90, promoCycles: 0, licensePlan: 'Prata', maxUsers: 5 },
+  premium: { name: 'Premium', value: 249.90, regularValue: 249.90, promoCycles: 0, licensePlan: 'Ouro', maxUsers: 999 }
+};
+const bellaAppUrl = (process.env.PUBLIC_APP_URL || process.env.APP_URL || 'https://bellapdvpro.vercel.app').replace(/\/+$/, '');
+
+function parseJsonSecret(raw: string | undefined): any {
+  if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON não configurado.');
+  const value = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+  const parsed = JSON.parse(value);
+  if (!parsed.project_id || !parsed.client_email || !parsed.private_key) throw new Error('Credencial Firebase incompleta.');
+  return parsed;
+}
+let googleTokenCache: { token: string; expiresAt: number } | null = null;
+async function googleAccessToken(): Promise<{ token: string; projectId: string }> {
+  const service = parseJsonSecret(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  if (googleTokenCache && googleTokenCache.expiresAt > Date.now() + 60000) return { token: googleTokenCache.token, projectId: service.project_id };
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const unsigned = encode({ alg: 'RS256', typ: 'JWT' }) + '.' + encode({
+    iss: service.client_email,
+    scope: 'https://www.googleapis.com/auth/datastore',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600
+  });
+  const signer = createSign('RSA-SHA256');signer.update(unsigned);signer.end();
+  const assertion = unsigned + '.' + signer.sign(service.private_key, 'base64url');
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion })
+  });
+  const data: any = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) throw new Error('Não foi possível autenticar o backend no Firebase.');
+  googleTokenCache = { token: data.access_token, expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000 };
+  return { token: data.access_token, projectId: service.project_id };
+}
+function toFirestoreValue(value: any): any {
+  if (value === null || value === undefined) return { nullValue: null };
+  if (typeof value === 'string') return { stringValue: value };
+  if (typeof value === 'boolean') return { booleanValue: value };
+  if (typeof value === 'number') return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(toFirestoreValue) } };
+  return { mapValue: { fields: Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toFirestoreValue(item)])) } };
+}
+function fromFirestoreValue(value: any): any {
+  if (!value) return null;
+  if ('nullValue' in value) return null;
+  if ('stringValue' in value) return value.stringValue;
+  if ('booleanValue' in value) return value.booleanValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('doubleValue' in value) return Number(value.doubleValue);
+  if ('timestampValue' in value) return value.timestampValue;
+  if ('arrayValue' in value) return (value.arrayValue.values || []).map(fromFirestoreValue);
+  if ('mapValue' in value) return Object.fromEntries(Object.entries(value.mapValue.fields || {}).map(([key, item]) => [key, fromFirestoreValue(item)]));
+  return null;
+}
+async function firestoreGet(collection: string, id: string): Promise<any | null> {
+  const { token, projectId } = await googleAccessToken();
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 404) return null;
+  const data: any = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error?.message || 'Falha ao consultar cobrança no Firebase.');
+  return Object.fromEntries(Object.entries(data.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)]));
+}
+async function firestoreMerge(collection: string, id: string, values: Record<string, any>): Promise<void> {
+  const { token, projectId } = await googleAccessToken();
+  const params = new URLSearchParams();
+  Object.keys(values).forEach((key) => params.append('updateMask.fieldPaths', key));
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?${params}`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, toFirestoreValue(value)])) })
+  });
+  const data: any = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error?.message || 'Falha ao salvar cobrança no Firebase.');
+}
+function asaasBaseUrl(): string {
+  return process.env.ASAAS_ENVIRONMENT === 'production' ? 'https://api.asaas.com/v3' : 'https://api-sandbox.asaas.com/v3';
+}
+async function platformAsaas(pathname: string, init: RequestInit = {}): Promise<any> {
+  const apiKey = String(process.env.ASAAS_API_KEY || '').trim();
+  if (!apiKey) throw new Error('ASAAS_API_KEY não configurada no servidor.');
+  const response = await fetch(asaasBaseUrl() + pathname, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'BellaPDV-Pro/1.0', access_token: apiKey, ...(init.headers || {}) }
+  });
+  const data: any = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.errors?.map((item: any) => item.description).filter(Boolean).join(' ') || data.error || 'Solicitação recusada pelo Asaas.');
+  return data;
+}
+function plusDays(days: number): string {
+  const date = new Date();date.setUTCDate(date.getUTCDate() + days);return date.toISOString().slice(0, 10);
+}
+function bellaReference(companyId: string, planCode: BellaPlanCode): string {
+  return `bella|${companyId}|${planCode}`;
+}
+function parseBellaReference(value: unknown): { companyId: string; planCode: BellaPlanCode } | null {
+  const [prefix, companyId, rawPlan] = String(value || '').split('|');
+  const planCode = rawPlan as BellaPlanCode;
+  return prefix === 'bella' && companyId && BELLA_PLANS[planCode] ? { companyId, planCode } : null;
+}
+function safeEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left), b = Buffer.from(right);return a.length === b.length && timingSafeEqual(a, b);
 }
 
 
@@ -762,9 +874,142 @@ app.use('/api', async (req, res, next) => {
     return res.status(400).json({ error: result?.error || 'Sessão desconectada. Conecte via QR Code primeiro.' });
   });
 
-  // Webhooks: Asaas Dunning / Billing
-  app.post('/api/webhooks/asaas', (_req, res) => {
-      res.status(501).json({ error: 'Webhook Asaas ainda não está vinculado a empresas persistidas no Firebase.' });
+  // BellaPDV subscription checkout and lifecycle.
+  app.get('/api/billing/status', async (req, res) => {
+    try {
+      const companyId = (req as any).company?.id;
+      const billing = companyId ? await firestoreGet('billing_subscriptions', companyId) : null;
+      return res.json({ configured: Boolean(process.env.ASAAS_API_KEY && process.env.FIREBASE_SERVICE_ACCOUNT_JSON), environment: process.env.ASAAS_ENVIRONMENT === 'production' ? 'production' : 'sandbox', subscription: billing });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Não foi possível consultar a assinatura.' });
+    }
+  });
+
+  app.post('/api/billing/checkout', async (req, res) => {
+    try {
+      const companyId = String((req as any).company?.id || '');
+      const firebaseUser = (req as any).firebaseUser || {};
+      const planCode = String(req.body?.plan || '') as BellaPlanCode;
+      const plan = BELLA_PLANS[planCode];
+      if (!companyId || !plan) return res.status(400).json({ error: 'Empresa ou plano inválido.' });
+      const current = await firestoreGet('billing_subscriptions', companyId);
+      if (current?.providerSubscriptionId && !['cancelled', 'expired'].includes(String(current.status || ''))) {
+        return res.status(409).json({ error: 'Já existe uma assinatura no Asaas. Cancele ou altere o plano existente para evitar cobrança duplicada.' });
+      }
+      const externalReference = bellaReference(companyId, planCode);
+      const callbackBase = `${bellaAppUrl}/settings`;
+      const checkout = await platformAsaas('/checkouts', {
+        method: 'POST',
+        body: JSON.stringify({
+          billingTypes: ['CREDIT_CARD'],
+          chargeTypes: ['RECURRENT'],
+          minutesToExpire: 60,
+          externalReference,
+          callback: {
+            successUrl: `${callbackBase}?checkout=success`,
+            cancelUrl: `${callbackBase}?checkout=cancelled`,
+            expiredUrl: `${callbackBase}?checkout=expired`
+          },
+          items: [{ externalReference: planCode, name: `BellaPDV Plano ${plan.name}`, description: planCode === 'basic' ? 'R$ 29,90/mês nos 3 primeiros ciclos; depois R$ 89,90/mês' : `Assinatura mensal BellaPDV ${plan.name}`, quantity: 1, value: plan.value }],
+          customerData: { name: firebaseUser.name || firebaseUser.email || 'Cliente BellaPDV', ...(firebaseUser.email ? { email: firebaseUser.email } : {}) },
+          subscription: { cycle: 'MONTHLY', nextDueDate: plusDays(1) }
+        })
+      });
+      const checkoutId = String(checkout?.id || '');
+      if (!checkoutId) throw new Error('O Asaas não retornou o identificador do checkout.');
+      await firestoreMerge('billing_subscriptions', companyId, {
+        companyId, userId: String(firebaseUser.uid || ''), planCode, planName: plan.name, licensePlan: plan.licensePlan,
+        status: 'checkout_created', provider: 'asaas', providerCheckoutId: checkoutId, providerSubscriptionId: '',
+        promoCycles: plan.promoCycles, promoConverted: false, environment: process.env.ASAAS_ENVIRONMENT === 'production' ? 'production' : 'sandbox',
+        updatedAt: new Date().toISOString()
+      });
+      const url = checkout.link || (process.env.ASAAS_ENVIRONMENT === 'production'
+        ? `https://asaas.com/checkoutSession/show?id=${encodeURIComponent(checkoutId)}`
+        : `https://sandbox.asaas.com/checkoutSession/show?id=${encodeURIComponent(checkoutId)}`);
+      return res.json({ id: checkoutId, url });
+    } catch (error: any) {
+      console.error('[Bella Billing Checkout]', error);
+      return res.status(500).json({ error: error.message || 'Não foi possível abrir o checkout.' });
+    }
+  });
+
+  app.post('/api/billing/cancel', async (req, res) => {
+    try {
+      const companyId = String((req as any).company?.id || '');
+      const current = await firestoreGet('billing_subscriptions', companyId);
+      if (!current?.providerSubscriptionId) return res.status(404).json({ error: 'Assinatura no Asaas não encontrada.' });
+      await platformAsaas(`/subscriptions/${encodeURIComponent(current.providerSubscriptionId)}`, { method: 'PUT', body: JSON.stringify({ status: 'INACTIVE' }) });
+      await firestoreMerge('billing_subscriptions', companyId, { status: 'cancelled', updatedAt: new Date().toISOString() });
+      await firestoreMerge('company_licenses', companyId, { status: 'expired', expireDate: new Date().toISOString().slice(0, 10) });
+      return res.json({ ok: true, status: 'cancelled' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Não foi possível cancelar a assinatura.' });
+    }
+  });
+
+  // Webhooks: Asaas subscription and payment events.
+  app.post('/api/webhooks/asaas', async (req, res) => {
+    const expected = String(process.env.ASAAS_WEBHOOK_TOKEN || '');
+    const provided = String(req.headers['asaas-access-token'] || '');
+    if (!expected || !safeEqual(provided, expected)) return res.status(401).json({ error: 'Token de webhook inválido.' });
+    try {
+      const event = req.body || {}, eventId = String(event.id || ''), eventType = String(event.event || '');
+      if (!eventId || !eventType) return res.status(400).json({ error: 'Evento Asaas inválido.' });
+      if (await firestoreGet('billing_events', eventId)) return res.json({ received: true, duplicate: true });
+      const resource = event.checkout || event.subscription || event.payment || {};
+      let reference = parseBellaReference(resource.externalReference);
+      const subscriptionId = String(resource.subscription || (event.subscription ? resource.id : '') || '');
+      if (!reference && subscriptionId) {
+        const index = await firestoreGet('billing_subscription_index', subscriptionId);
+        if (index?.companyId && BELLA_PLANS[index.planCode as BellaPlanCode]) reference = { companyId: index.companyId, planCode: index.planCode as BellaPlanCode };
+      }
+      if (!reference) {
+        await firestoreMerge('billing_events', eventId, { eventType, ignored: true, processedAt: new Date().toISOString() });
+        return res.json({ received: true, ignored: true });
+      }
+      const { companyId, planCode } = reference, plan = BELLA_PLANS[planCode];
+      const now = new Date().toISOString();
+      const billingPatch: Record<string, any> = { companyId, planCode, planName: plan.name, licensePlan: plan.licensePlan, lastEvent: eventType, updatedAt: now };
+      let licenseStatus: 'active' | 'expired' | null = null;
+      if (eventType === 'CHECKOUT_PAID' || eventType === 'SUBSCRIPTION_CREATED' || ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].includes(eventType)) {
+        billingPatch.status = 'active';licenseStatus = 'active';
+      } else if (['PAYMENT_OVERDUE', 'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED', 'PAYMENT_REFUNDED', 'PAYMENT_CHARGEBACK_REQUESTED', 'SUBSCRIPTION_DELETED'].includes(eventType)) {
+        billingPatch.status = eventType === 'SUBSCRIPTION_DELETED' ? 'cancelled' : 'past_due';licenseStatus = 'expired';
+      } else if (eventType === 'CHECKOUT_CANCELED' || eventType === 'CHECKOUT_EXPIRED') {
+        billingPatch.status = eventType.toLowerCase();
+      }
+      if (event.checkout?.id) billingPatch.providerCheckoutId = String(event.checkout.id);
+      if (event.subscription?.id) {
+        billingPatch.providerSubscriptionId = String(event.subscription.id);
+        billingPatch.providerCustomerId = String(event.subscription.customer || '');
+        await firestoreMerge('billing_subscription_index', String(event.subscription.id), { companyId, planCode, updatedAt: now });
+      }
+      await firestoreMerge('billing_subscriptions', companyId, billingPatch);
+      if (licenseStatus) {
+        await firestoreMerge('company_licenses', companyId, {
+          id: companyId, plan: plan.licensePlan, status: licenseStatus,
+          expireDate: licenseStatus === 'active' ? plusDays(35) : new Date().toISOString().slice(0, 10),
+          maxUsers: plan.maxUsers
+        });
+      }
+      if (planCode === 'basic' && ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].includes(eventType) && subscriptionId) {
+        const payments = await platformAsaas(`/subscriptions/${encodeURIComponent(subscriptionId)}/payments`);
+        const paidCycles = (payments?.data || []).filter((payment: any) => ['CONFIRMED', 'RECEIVED'].includes(String(payment.status || '').toUpperCase())).length;
+        const current = await firestoreGet('billing_subscriptions', companyId);
+        if (paidCycles >= plan.promoCycles && !current?.promoConverted) {
+          await platformAsaas(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ value: plan.regularValue, description: `Assinatura mensal BellaPDV ${plan.name}`, externalReference: bellaReference(companyId, planCode), updatePendingPayments: false })
+          });
+          await firestoreMerge('billing_subscriptions', companyId, { promoConverted: true, currentValue: plan.regularValue, updatedAt: now });
+        }
+      }
+      await firestoreMerge('billing_events', eventId, { eventType, companyId, processedAt: now });
+      return res.json({ received: true });
+    } catch (error: any) {
+      console.error('[Bella Billing Webhook]', error);
+      return res.status(500).json({ error: error.message || 'Falha ao processar webhook.' });
+    }
   });
 
   // --- GEMINI PROXY ROUTES WITH HIGH-RESILIENCE FALLBACK ---
