@@ -45,40 +45,7 @@ export default function Integrations() {
   // Custom states for WhatsApp CRM dashboards
   const [whatsappToken, setWhatsappToken] = useState('');
 
-  const { evolutionUrl, evolutionKey, asaasKey, geminiKey, setAsaasKey } = useApiKeysStore();
-  const [isAsaasIntegrated, setIsAsaasIntegrated] = useState(false);
-
-  const handleValidateAsaas = async () => {
-      if (!asaasKey) {
-          toast.error("Informe a API Key do Asaas primeiro.");
-          return;
-      }
-      const toastId = toast.loading("Validando conta Asaas...");
-      try {
-          const response = await fetch('/api/asaas/proxy', {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'x-asaas-key': asaasKey
-              },
-              body: JSON.stringify({
-                  path: '/myAccount',
-                  method: 'GET'
-              })
-          });
-          const data = await response.json();
-          if (response.ok) {
-              toast.success(`Conta Asaas confirmada!`, { id: toastId, description: `Empresa: ${data.name || data.companyName}`});
-              setIsAsaasIntegrated(true);
-          } else {
-              throw new Error(data.error || 'Não localizado');
-          }
-      } catch (err: any) {
-          console.error(err);
-          toast.error("Erro ao validar", { id: toastId, description: err.message });
-          setIsAsaasIntegrated(false);
-      }
-  };
+  const { evolutionUrl, evolutionKey, geminiKey } = useApiKeysStore();
 
   const [whiteLabelDomain, setWhiteLabelDomain] = useState('');
   const [whiteLabelColor, setWhiteLabelColor] = useState('#7A5CFF');
@@ -196,27 +163,14 @@ export default function Integrations() {
                                  <p className="text-xs text-slate-400">Motor de cobrança e subcontas</p>
                               </div>
                            </div>
-                           {isAsaasIntegrated ? (
-                              <span className="text-[10px] text-green-400 bg-green-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-green-500/20 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Integrado</span>
-                           ) : (
-                              <span className="text-[10px] text-slate-400 bg-slate-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-slate-500/20 flex items-center gap-1">Pendente</span>
-                           )}
+                           <span className="text-[10px] text-slate-400 bg-slate-400/10 px-2 py-1 rounded-full font-bold uppercase tracking-widest border border-slate-500/20 flex items-center gap-1">Pendente</span>
                         </div>
                         <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-                           Sincronize clientes e crie cobranças reais (Pix, Cartão e Boleto) usando nossa integração com API do Asaas.
+                           Integração Asaas indisponível até a validação segura em sandbox. Os links de cobrança existentes permanecem disponíveis.
                         </p>
                         
-                        <div className="mb-4">
-                           <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 block">API Key do Asaas</label>
-                           <input type="password" value={asaasKey} onChange={(e) => setAsaasKey(e.target.value)} placeholder="$aact_..." className="w-full bg-[#111] border border-[#1A2C47] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
-                        </div>
                      </div>
-                     <button 
-                        onClick={handleValidateAsaas}
-                        className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors font-medium text-sm flex items-center justify-center gap-2"
-                     >
-                        Verificar Conexão e Meus Dados
-                     </button>
+                     <p className="text-xs text-slate-400">Configure a integração somente no servidor após a homologação.</p>
                   </div>
 
                   {/* OPENAI / GEMINI */}

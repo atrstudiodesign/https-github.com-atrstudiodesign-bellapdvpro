@@ -75,25 +75,7 @@ export const whatsappService = {
 
       return await response.json();
     } catch (err: any) {
-      console.warn('[WhatsApp Service] Start session endpoint error, fallback to client pairing generation', err);
-      // Fallback local QR Code generation if backend is offline or starting up
-      const QRCode = (await import('qrcode')).default;
-      const seed = Math.random().toString(36).substring(2, 12);
-      const pairingString = `2@${seed},bellapdv_session_${Date.now()},${Math.floor(Date.now() / 1000)}`;
-      const qrDataUrl = await QRCode.toDataURL(pairingString, {
-        width: 280,
-        margin: 2,
-        color: { dark: '#0A0F1D', light: '#FFFFFF' },
-      });
-      const pairingCode = 'BLP' + Math.floor(1000 + Math.random() * 9000);
-
-      return {
-        success: true,
-        status: 'QRCODE_READY',
-        qrCode: qrDataUrl,
-        pairingCode,
-        expiresIn: 60,
-      };
+      return { success: false, status: 'DISCONNECTED', error: err.message || 'Conexão WhatsApp indisponível.' };
     }
   },
 
@@ -138,16 +120,8 @@ export const whatsappService = {
       }
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error || 'Falha ao confirmar');
-    } catch {
-      // Local graceful confirmation
-      return {
-        success: true,
-        status: 'CONNECTED',
-        profile: {
-          phone: '+55 (11) 98421-0492',
-          name: 'Bella PDV Pro Oficial',
-        },
-      };
+    } catch (err: any) {
+      return { success: false, status: 'DISCONNECTED', error: err.message || 'Conexão não confirmada pelo provedor.' };
     }
   },
 
@@ -168,7 +142,7 @@ export const whatsappService = {
     } catch (err: any) {
       console.warn('[WhatsApp Service] Disconnect error:', err);
     }
-    return { success: true };
+    return { success: false, error: 'Não foi possível confirmar a desconexão.' };
   },
 
   /**
@@ -200,13 +174,7 @@ export const whatsappService = {
         error: err.error || 'Erro ao disparar mensagem no WhatsApp.',
       };
     } catch (err: any) {
-      console.warn('[WhatsApp Service] Direct backend send error, trying safe fallback:', err);
-      // Simulated receipt / message transmission id
-      const messageId = `wamid.HBgM${Date.now()}`;
-      return {
-        success: true,
-        messageId,
-      };
+      return { success: false, error: err.message || 'Mensagem não enviada.' };
     }
   },
 

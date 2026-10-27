@@ -6,6 +6,7 @@ on:
       - 'database.rules.json'
       - 'firestore.rules'
       - 'firebase.json'
+      - 'api/**'
       - 'scripts/test-rtdb-rules.mjs'
       - 'scripts/test-firestore-rules.mjs'
       - 'scripts/assign-company-claim.py'
@@ -35,9 +36,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      # Reconcile the historical lockfile drift before running clean install.
-      # TODO: commit the regenerated package-lock.json to restore direct npm ci.
-      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - run: npm ci
       - run: npm run lint && npm run build
       - run: python3 -m py_compile scripts/assign-company-claim.py
