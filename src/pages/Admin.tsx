@@ -32,7 +32,6 @@ type Client = {
   geminiKey?: string;
   evolutionUrl?: string;
   evolutionKey?: string;
-  asaasKey?: string;
 };
 
 export default function AdminPanel() {
@@ -118,7 +117,6 @@ export default function AdminPanel() {
             geminiKey: data.geminiKey,
             evolutionUrl: data.evolutionUrl,
             evolutionKey: data.evolutionKey,
-            asaasKey: data.asaasKey,
           } as Client;
         });
         setClients(clientsData);
@@ -1820,16 +1818,6 @@ export default function AdminPanel() {
                                  />
                               </div>
                            </div>
-                           <div>
-                              <p className="text-xs font-medium text-slate-300 mb-2">Asaas API (Cobranças)</p>
-                              <input 
-                                 type="text" 
-                                 id="company-asaas-key"
-                                 defaultValue={editingCompany?.asaasKey || ''}
-                                 placeholder="$aact_..."
-                                 className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                              />
-                           </div>
                         </div>
                      </div>
 
@@ -1858,7 +1846,6 @@ export default function AdminPanel() {
                           const geminiKey = (document.getElementById('company-gemini-key') as HTMLInputElement).value;
                           const evolutionUrl = (document.getElementById('company-evolution-url') as HTMLInputElement).value;
                           const evolutionKey = (document.getElementById('company-evolution-key') as HTMLInputElement).value;
-                          const asaasKey = (document.getElementById('company-asaas-key') as HTMLInputElement).value;
                           
                           if (!name || !email) {
                              toast.error('Preencha os campos obrigatórios (nome e email)!');
@@ -1866,7 +1853,7 @@ export default function AdminPanel() {
                           }
 
                           const clientData = {
-                             name, email, plan, status, niche, geminiKey, evolutionUrl, evolutionKey, asaasKey
+                             name, email, plan, status, niche, geminiKey, evolutionUrl, evolutionKey
                           };
 
                           try {
