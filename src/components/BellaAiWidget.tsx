@@ -340,7 +340,7 @@ export function BellaAiWidget() {
 
       const aiReply = await generateTenantAiText({
         prompt: contentsForApi.map(item => item.parts.map(part => part.text).join(' ')).join('\\n').slice(0, 6000),
-        systemInstruction: getContextInstruction(location.pathname) + '\\n\\n' + liveContext,
+        systemInstruction: getContextInstruction(location.pathname).slice(0, 2400) + '\\n\\n' + liveContext,
       });
 
       const newMsg: Message = {
