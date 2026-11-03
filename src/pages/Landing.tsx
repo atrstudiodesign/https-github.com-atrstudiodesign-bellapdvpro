@@ -55,10 +55,8 @@ export default function Landing() {
     trackTrialStartClick({
       source: 'landing_plans_section',
       plan: planName,
-      promoText: planName.toLowerCase().includes('básico') 
-        ? 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses' 
-        : undefined,
-      buttonLabel: 'Começar com 15 Dias Grátis'
+      promoText: planName.includes('Fidelidade') ? 'R$ 39,90/mês por 12 meses' : 'R$ 89,90/mês sem fidelidade',
+      buttonLabel: 'Selecionar modalidade'
     });
 
     // Allows user to either register directly with pre-selected plan or request custom setup
