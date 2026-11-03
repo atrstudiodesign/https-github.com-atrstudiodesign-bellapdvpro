@@ -31,12 +31,11 @@ const legalData: Record<string, { title: string, content: string }> = {
   },
   'termos-de-uso': {
     title: 'Termos de Uso',
-    content: `
-      <h2>1. Aceitação dos Termos</h2>
-      <p>Ao acessar e usar nossa plataforma, você concorda em cumprir e estar vinculado a estes Termos de Uso.</p>
-      <h2>2. Licença de Uso</h2>
-      <p>Concedemos a você uma licença limitada, não exclusiva e intransferível para usar nossa plataforma de acordo com estes termos.</p>
-    `
+    content: `<h2>Condições comerciais</h2><p>O Bella PDV Pro Completo oferece duas modalidades para novas contratações: fidelidade de 12 meses a R$ 39,90/mês (12 mensalidades; total de R$ 478,80) e mensalidade sem fidelidade de R$ 89,90/mês. Os recursos anunciados são os mesmos em ambas as modalidades.</p><h2>Teste gratuito</h2><p>O teste anunciado de 15 dias pode ser iniciado sem cartão. O cadastro gratuito não gera cobrança nem adesão automática a qualquer plano. A contratação paga depende de aceite expresso.</p><h2>Fidelidade e cancelamento</h2><p>As condições de rescisão antecipada do plano de 12 meses, inclusive eventual multa e cálculo, devem ser exibidas de forma destacada antes do aceite. O plano sem fidelidade não exige permanência mínima. Aplicam-se os direitos legais de cancelamento.</p><h2>Assinaturas anteriores</h2><p>Contratos e cobranças existentes não são alterados automaticamente pela nova oferta.</p>`
+  }
+  'politica-de-promocoes': {
+    title: 'Política de Promoções e Assinaturas',
+    content: `<h2>Fidelidade de 12 meses</h2><p>R$ 39,90/mês por 12 meses, total R$ 478,80. Condições de rescisão antecipada devem ser apresentadas antes da contratação.</p><h2>Sem fidelidade</h2><p>R$ 89,90/mês, sem compromisso mínimo de permanência.</p><h2>Teste de 15 dias</h2><p>O teste gratuito anunciado dispensa cartão e não constitui adesão automática a uma assinatura paga.</p><h2>Contratos existentes</h2><p>Novas ofertas não modificam assinaturas anteriores sem concordância do titular.</p>`
   },
   'politica-de-cadastros': {
     title: 'Política de Cadastros e Serviços',
@@ -46,10 +45,8 @@ const legalData: Record<string, { title: string, content: string }> = {
   },
   'politica-de-pagamentos': {
     title: 'Política de Pagamentos',
-    content: `
-      <p>Os pagamentos pelos serviços prestados devem ser efetuados conforme as datas de vencimento acordadas. A falta de pagamento suspenderá o acesso às funcionalidades premium.</p>
-    `
-  },
+    content: `<p>Novas ofertas: Bella PDV Pro Completo com fidelidade de 12 meses por R$ 39,90/mês (total de R$ 478,80) ou mensal sem fidelidade por R$ 89,90/mês. A antiga promoção de R$ 29,90 nos três primeiros meses não se aplica às novas contratações.</p><p>Valor final, vencimento, meio de pagamento, início da cobrança e eventual renovação devem ser informados antes do aceite. O cadastro gratuito não autoriza cobrança. Atrasos serão tratados conforme o contrato e a legislação, com comunicação adequada.</p>`
+  }
   'politicas-de-uso': {
     title: 'Políticas de Uso',
     content: `
@@ -94,16 +91,12 @@ const legalData: Record<string, { title: string, content: string }> = {
     `
   },
   'formas-de-pagamento': {
-    title: 'Formas de Pagamentos',
-    content: `
-      <p>Aceitamos Pix, Cartão de Crédito e Boleto Bancário. As assinaturas são renovadas automaticamente, mas você pode cancelar a qualquer momento no seu Painel de Faturas.</p>
-    `
-  },
+    title: 'Formas de Pagamento',
+    content: `<p>Os meios de pagamento efetivamente disponíveis serão informados antes da contratação. O início do teste grátis ou o cadastro gratuito de empresa não cria uma assinatura paga. A cobrança automática depende de integração homologada e consentimento expresso.</p>`
+  }
   'reembolso': {
-    title: 'Política de Reembolso',
-    content: `
-      <p>Garantimos a devolução integral (100%) do valor pago caso você solicite o cancelamento nos primeiros 7 dias após a compra, conforme o Art. 49 do CDC. Após esse prazo, não há devoluções, apenas o cancelamento da renovação.</p>
-    `
+    title: 'Política de Reembolso e Cancelamento',
+    content: `<p>Nas contratações fora do estabelecimento comercial, aplica-se o direito de arrependimento previsto no art. 49 do Código de Defesa do Consumidor, quando cabível, dentro do prazo legal de sete dias. Outros reembolsos e cancelamentos observam os direitos legais e as condições contratuais válidas.</p><p>O plano de R$ 89,90/mês não exige fidelidade. Para o plano de R$ 39,90/mês, eventual multa por rescisão antecipada somente poderá ser exigida quando validamente prevista, informada antes da contratação e compatível com a legislação.</p>`
   }
 };
 
