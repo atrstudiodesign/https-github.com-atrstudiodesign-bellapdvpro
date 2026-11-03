@@ -23,6 +23,8 @@ import {
   Compass
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthStore } from '../store/auth';
+import { generateTenantAiText } from '../services/firebaseAiLogic';
 import { voiceNarration, VoicePersona, VoiceEngineMode } from '../services/voiceNarrationService';
 import { systemOperator, SystemAction } from '../services/systemOperatorService';
 
@@ -35,6 +37,7 @@ interface Message {
 
 export function BellaAiWidget() {
   const navigate = useNavigate();
+  const activeUser = useAuthStore(state => state.user);
   const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -271,6 +274,10 @@ export function BellaAiWidget() {
   const handleSendMessage = async (textToSend?: string) => {
     const rawMsg = textToSend || message;
     if (!rawMsg.trim() || isLoading) return;
+    if (!activeUser || activeUser.isDemo) {
+      toast.error('Faça login na sua empresa para usar a Bella IA.');
+      return;
+    }
 
     if (!textToSend) setMessage('');
     setLiveTranscript('');
@@ -331,39 +338,10 @@ export function BellaAiWidget() {
         parts: msg.parts
       }));
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-      const { auth } = await import('../lib/firebase');
-      const storedSupabase = (() => {
-        try { return JSON.parse(sessionStorage.getItem('bella_supabase_session') || 'null'); }
-        catch { return null; }
-      })();
-      const bearer = storedSupabase?.token ||
-        (auth.currentUser && !auth.currentUser.isAnonymous ? await auth.currentUser.getIdToken() : null);
-      if (!bearer) throw new Error('Sessão válida necessária para Bella IA');
-      const response = await fetch('/api/gemini/generateContent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + bearer },
-        body: JSON.stringify({
-          contents: contentsForApi,
-          model: 'gemini-3-flash-preview',
-          config: {
-            systemInstruction: `${getContextInstruction(location.pathname)}\n\n${liveContext}`,
-            temperature: 0.6,
-          }
-        }),
-        signal: controller.signal
+      const aiReply = await generateTenantAiText({
+        prompt: contentsForApi.map(item => item.parts.map(part => part.text).join(' ')).join('\\n').slice(0, 6000),
+        systemInstruction: getContextInstruction(location.pathname).slice(0, 2400) + '\\n\\n' + liveContext,
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error('Falha na resposta do servidor');
-      }
-
-      const data = await response.json();
-      const aiReply = data.text || 'Entendido! O que deseja executar no sistema agora?';
 
       const newMsg: Message = {
         role: 'model',
@@ -392,11 +370,11 @@ export function BellaAiWidget() {
           },
         });
       }
-    } catch {
-      // Instant intelligent fallback enriched with live system context so the operator is NEVER left waiting!
-      const snapshot = systemOperator.getSystemSnapshot();
-      const fallbackReply = `Estou conectada e pronta para operar! Hoje já faturamos **${systemOperator.formatCurrency(snapshot.revenueToday)}** com **${snapshot.appointmentsToday} agendamentos** confirmados. Posso abrir a Frente de Caixa, registrar uma venda, abrir a gaveta ou consultar a agenda agora mesmo.`;
-      const spokenFallback = `Estou conectada e pronta para operar! Hoje já faturamos ${systemOperator.formatCurrency(snapshot.revenueToday)} com ${snapshot.appointmentsToday} agendamentos. Deseja abrir a frente de caixa ou conferir a agenda?`;
+    } catch (error) {
+      console.error('[Bella IA] Falha ao consultar modelo:', error);
+      // Never present an invented AI result when the provider is unavailable.
+      const fallbackReply = 'A IA está indisponível ou ainda não foi habilitada para esta empresa. Nenhuma operação foi executada.';
+      const spokenFallback = fallbackReply;
 
       const fallbackMsg: Message = {
         role: 'model',
