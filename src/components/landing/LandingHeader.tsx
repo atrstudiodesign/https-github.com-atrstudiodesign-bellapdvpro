@@ -80,13 +80,13 @@ export function LandingHeader({ onRequestDemo }: LandingHeaderProps) {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             15 DIAS DE TESTE GRÁTIS
           </span>
-          <span>Oferta exclusiva: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-extrabold text-[#00D9FF]">R$ 29,90 nos primeiros 3 meses</strong></span>
+          <span>Oferta fidelidade: <strong className="font-extrabold text-[#00D9FF]">R$ 39,90/mês por 12 meses</strong> <span className="text-slate-400">ou R$ 89,90/mês sem fidelidade</span></span>
           <a 
             href="#planos" 
             onClick={() => {
               trackTrialStartClick({
                 source: 'header_announcement_bar',
-                promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
+                promoText: 'R$ 39,90/mês com fidelidade de 12 meses ou R$ 89,90/mês sem fidelidade',
                 buttonLabel: 'Aproveitar oferta'
               });
             }}
