@@ -741,105 +741,23 @@ export default function Settings() {
          onClose={() => setIsAndroidModalOpen(false)}
        />
 
-       {/* BILLING & PLANS SECTION */}
-       <div className="glass-card p-0 border border-[#1A2C47] overflow-hidden">
-          <div className="bg-[#0C1627] p-6 border-b border-[#1A2C47] flex items-center justify-between">
-             <div className="flex items-center gap-3">
-               <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl">
-                 <CreditCard className="w-6 h-6" />
-               </div>
-               <div>
-                  <h2 className="text-xl font-semibold text-white">Faturamento & Planos</h2>
-                  <p className="text-sm text-slate-400">Valores e condições conforme os planos anunciados no site oficial.</p>
-               </div>
-             </div>
-             <div className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.1)] cursor-pointer hover:bg-amber-500/20 transition-colors" title="Trial inteligente detecta uso e propõe assinatura">
-                <Clock className="w-4 h-4" />
-                 <span>15 dias de teste grátis nos planos</span>
-             </div>
-          </div>
-
-          <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-             {/* BASIC PLAN */}
-             <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
-                <h3 className="text-lg font-semibold text-white">Básico</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$ 29,90</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> PDV completo</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Agenda</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Até 1 profissional</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                   <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Promoção: R$ 29,90/mês nos 3 primeiros meses; depois R$ 89,90/mês
-                   </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Básico')}
-                     className="w-full py-2.5 rounded-lg border border-[#1A2C47] text-white hover:bg-[#1A2C47] transition-colors font-medium"
-                   >
-                      Assinar Básico
-                   </button>
-                </div>
-             </div>
-
-             {/* PRO PLAN */}
-             <div className="bg-gradient-to-b from-blue-900/40 to-[#0C1627]/50 rounded-2xl border border-blue-500/50 p-6 relative shadow-[0_0_30px_rgba(59,130,246,0.15)] transform scale-105 z-10 flex flex-col">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  Recomendado
-                </div>
-                <h3 className="text-lg font-semibold text-white">Pro</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-blue-400 neon-text">R$ 149,90</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Tudo do Básico</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Até 5 profissionais ativos</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> Agenda online e lembretes de agendamento</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0" /> CRM e relatórios gerenciais</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                    <div className="flex bg-black/40 rounded-lg p-1 border border-white/5 mx-1 mb-2">
-                       <input type="text" placeholder="Código de Cupom" className="bg-transparent border-none outline-none text-xs text-white px-2 w-full" />
-                       <button className="text-xs bg-blue-600 px-2 py-1 rounded text-white font-medium">Aplicar</button>
-                    </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Pro')}
-                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all font-semibold shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"
-                   >
-                      Assinar Plano Pro
-                   </button>
-                </div>
-             </div>
-
-             {/* ENTERPRISE PLAN */}
-             <div className="bg-[#0C1627]/50 rounded-2xl border border-[#1A2C47] p-6 hover:border-[#253B5C] transition-all flex flex-col">
-                <h3 className="text-lg font-semibold text-white">Premium</h3>
-                <div className="flex items-end gap-1 mt-2 mb-4">
-                   <span className="text-3xl font-bold text-white">R$ 249,90</span>
-                   <span className="text-slate-400 mb-1">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-6 text-sm text-slate-300 flex-1">
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Tudo do Pro</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Profissionais ilimitados na mesma unidade</li>
-                   <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" /> Marketing com IA e fidelidade</li>
-                </ul>
-                <div className="mt-auto space-y-3">
-                   <div className="text-xs text-center text-slate-500 mb-2 border-t border-white/5 pt-3">
-                      Atendimento prioritário VIP
-                   </div>
-                   <button 
-                     onClick={() => handleBuyPlan('Premium')}
-                     className="w-full py-2.5 rounded-lg border border-[#1A2C47] text-white hover:bg-[#1A2C47] transition-colors font-medium"
-                   >
-                      Assinar Premium
-                   </button>
-                </div>
-             </div>
-          </div>
+       {/* BILLING & PLANS SECTION — display only until authenticated checkout is ready */}
+       <div className="glass-card p-6 border border-[#1A2C47]">
+         <h2 className="text-xl font-semibold text-white">Bella PDV Pro Completo — Assinaturas</h2>
+         <p className="text-sm text-slate-400 mt-2">Os mesmos recursos em ambas as modalidades. A contratação automática ficará disponível após a homologação da integração de pagamentos.</p>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+           <div className="rounded-2xl border border-emerald-500/50 bg-[#0C1627] p-6">
+             <p className="text-emerald-300 text-xs font-bold">FIDELIDADE 12 MESES</p>
+             <p className="text-white text-3xl font-bold mt-2">R$ 39,90<span className="text-sm font-normal text-slate-400">/mês</span></p>
+             <p className="text-slate-300 text-sm mt-3">12 mensalidades; total R$ 478,80. Todas as funcionalidades incluídas. Condições de cancelamento antecipado apresentadas no aceite.</p>
+           </div>
+           <div className="rounded-2xl border border-blue-500/40 bg-[#0C1627] p-6">
+             <p className="text-cyan-300 text-xs font-bold">SEM FIDELIDADE</p>
+             <p className="text-white text-3xl font-bold mt-2">R$ 89,90<span className="text-sm font-normal text-slate-400">/mês</span></p>
+             <p className="text-slate-300 text-sm mt-3">Mensalidade sem compromisso de permanência. Mesmos recursos. Cancele quando quiser, conforme condições de faturamento.</p>
+           </div>
+         </div>
+         <p className="text-amber-300 text-xs mt-5">Checkout em preparação. Assinaturas e cobranças existentes não serão alteradas automaticamente.</p>
        </div>
 
        {/* AUTOMATIONS SECTION */}
