@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /settings
+Disallow: /pos
+Disallow: /api/
+Sitemap: https://bellapdvpro.vercel.app/sitemap.xml
