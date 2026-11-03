@@ -846,249 +846,42 @@ export default function AdminPanel() {
            )}
 
            {activeTab === 'ia_admin' && (
-              <motion.div key="ia_admin" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                 <div className="flex items-center justify-between">
-                    <div>
-                       <h2 className="text-2xl font-display font-semibold text-white tracking-tight">IA Administrativa e Alertas</h2>
-                       <p className="text-sm text-slate-400 mb-6">OpenAI & Gemini: Monitoramento ativo de anomalias, risco de churn e oportunidades de upgrade na base.</p>
-                    </div>
-                    <button onClick={() => {
-                        const loadingToast = toast.loading("A IA está analisando a base de dados...");
-                        setTimeout(() => {
-                           toast.dismiss(loadingToast);
-                           toast.success("Novos insights gerados com sucesso!");
-                        }, 2500);
-                      }} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
-                       <Bot className="w-4 h-4" /> Gerar Novos Insights Base
-                    </button>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                       <h3 className="text-lg font-semibold text-white border-b border-white/10 pb-3">Alertas Críticos (Risco)</h3>
-                       
-                       <div className="bg-[#0A0A0A] border border-red-500/30 p-5 rounded-xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-2"><AlertTriangle className="w-5 h-5 text-red-500" /></div>
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 font-bold">SE</div>
-                             <span className="font-semibold text-white">Studio Elegance</span>
-                          </div>
-                          <p className="text-sm text-slate-300">Empresa com risco alto de cancelamento. Queda de 45% nos logins nas últimas duas semanas e nenhuma venda registrada nos últimos 4 dias.</p>
-                          <div className="mt-4 flex gap-2">
-                             <button className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded transition-colors font-semibold">Tentar Contato</button>
-                             <button className="text-xs bg-white/5 hover:bg-white/10 text-slate-300 px-3 py-1.5 rounded transition-colors">Ignorar</button>
-                          </div>
-                       </div>
-                       
-                       <div className="bg-[#0A0A0A] border border-orange-500/30 p-5 rounded-xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-2"><AlertTriangle className="w-5 h-5 text-orange-500" /></div>
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 font-bold">BC</div>
-                             <span className="font-semibold text-white">Barbearia Central</span>
-                          </div>
-                          <p className="text-sm text-slate-300">Problemas de integração: Falhas repetidas no Webhook de pagamentos nas últimas 24 horas.</p>
-                          <div className="mt-4 flex gap-2">
-                             <button className="text-xs bg-white/5 hover:bg-white/10 text-slate-300 px-3 py-1.5 rounded transition-colors">Ver Logs de Pagamento</button>
-                          </div>
-                       </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                       <h3 className="text-lg font-semibold text-white border-b border-white/10 pb-3">Oportunidades & Crescimento</h3>
-                       
-                       <div className="bg-[#0A0A0A] border border-emerald-500/30 p-5 rounded-xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-2"><Sparkles className="w-5 h-5 text-emerald-500" /></div>
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-bold">BP</div>
-                             <span className="font-semibold text-white">Barber Prime</span>
-                          </div>
-                          <p className="text-sm text-slate-300">Crescimento acelerado detectado: Aumento de 120% no faturamento via PIX esta semana. Ideal para oferecer o Plano Premium com Webhooks priorizados.</p>
-                          <div className="mt-4 flex gap-2">
-                             <button className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded transition-colors font-semibold">Oferecer Upgrade</button>
-                          </div>
-                       </div>
-                       
-                       <div className="bg-[#0A0A0A] border border-blue-500/30 p-5 rounded-xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-2"><Sparkles className="w-5 h-5 text-blue-500" /></div>
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold">CB</div>
-                             <span className="font-semibold text-white">Clínica Beauty</span>
-                          </div>
-                          <p className="text-sm text-slate-300">Uso intenso de agendamentos. A IA sugere oferecer módulo de automação de WhatsApp complementar.</p>
-                          <div className="mt-4 flex gap-2">
-                             <button className="text-xs bg-white/5 hover:bg-white/10 text-slate-300 px-3 py-1.5 rounded transition-colors">Ver Perfil</button>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </motion.div>
+             <motion.div key="ia_admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+               <h2 className="text-2xl font-semibold text-white">IA Administrativa e Alertas</h2>
+               <p className="text-sm text-amber-400">Análise preditiva por IA não conectada. Nenhum alerta fictício será exibido.</p>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div className="rounded-xl border border-white/10 p-5"><p className="text-slate-400 text-xs">Empresas cadastradas no Firestore</p><p className="text-white text-3xl font-bold">{isClientsLoaded ? clients.length : 'Carregando...'}</p></div>
+                 <div className="rounded-xl border border-white/10 p-5"><p className="text-slate-400 text-xs">Trials identificados</p><p className="text-white text-3xl font-bold">{isClientsLoaded ? currentStats.trials : '—'}</p></div>
+                 <div className="rounded-xl border border-white/10 p-5"><p className="text-slate-400 text-xs">Cancelamentos identificados</p><p className="text-white text-3xl font-bold">{isClientsLoaded ? currentStats.churn : '—'}</p></div>
+               </div>
+               <div className="rounded-xl border border-white/10 p-5 space-y-3">
+                 <h3 className="text-white font-semibold">Pendências operacionais</h3>
+                 <p className="text-slate-400 text-sm">Para detectar churn e anomalias reais, conectar eventos de uso, pagamentos confirmados e um serviço de inferência com autorização administrativa.</p>
+                 <button onClick={() => setActiveTab('empresas')} className="px-4 py-2 bg-indigo-600 rounded text-white text-sm">Consultar empresas reais</button>
+               </div>
+             </motion.div>
            )}
 
            {activeTab === 'suporte' && (
-              <motion.div key="suporte" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                 <div className="flex items-center justify-between">
-                    <div>
-                       <h2 className="text-2xl font-display font-semibold text-white tracking-tight">Suporte Técnico Interno</h2>
-                       <p className="text-sm text-slate-400">Tickets, conversas e logs de suporte com IA sugerindo respostas.</p>
-                    </div>
-                    <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
-                       <MessageSquare className="w-4 h-4" /> Novo Ticket
-                    </button>
-                 </div>
-                 
-                 <div className="grid grid-cols-12 gap-6 h-[500px]">
-                    <div className="col-span-4 bg-[#0A0A0A] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-                       <div className="p-4 border-b border-white/10 bg-[#111]">
-                          <input type="text" placeholder="Buscar chamados..." className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500" />
-                       </div>
-                       
-                          {tickets.map((t: any) => (
-                             <div 
-                                key={t.id} 
-                                onClick={() => setActiveSupportTicket(t.id)}
-                                className={`p-4 border-b border-white/5 cursor-pointer transition-colors ${activeSupportTicket === t.id ? 'bg-white/5 border-l-2 border-l-indigo-500' : 'hover:bg-white/5'}`}
-                             >
-                                <div className="flex justify-between items-start mb-1">
-                                   <span className="font-semibold text-white text-sm truncate pr-2">{t.title}</span>
-                                   <span className="text-[10px] text-slate-400 whitespace-nowrap">{t.time}</span>
-                                </div>
-                                <p className="text-xs text-slate-400 truncate">{t.preview}</p>
-                                <div className="mt-2 flex gap-2">
-                                   <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${t.tag === 'Urgente' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>{t.tag}</span>
-                                   <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-slate-300">{t.client}</span>
-                                </div>
-                             </div>
-                          ))}
-                       
-                       <div className="p-4 border-b border-white/10 bg-[#111] flex justify-between items-center">
-                          <div>
-                             <h3 className="font-semibold text-white">Problema no Webhook Asaas</h3>
-                             <p className="text-xs text-slate-400">Ticket #1042 • Solicitante: Barber Prime</p>
-                          </div>
-                          <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 font-bold uppercase">Aberto</span>
-                       </div>
-                       <div className="flex-1 p-6 overflow-y-auto space-y-4">
-                          <div className="flex flex-col items-start max-w-[80%]">
-                             <div className="bg-white/5 text-slate-300 p-3 rounded-xl rounded-tl-sm text-sm border border-white/5">
-                                Olá, desde a atualização de ontem meu webhook do Asaas está retornando 401 Unauthorized e os pagamentos não sincronizam no painel. O que eu faço?
-                             </div>
-                             <span className="text-[10px] text-slate-500 mt-1 ml-1">10:42 AM</span>
-                          </div>
-                          <div className="my-4 pt-4 border-t border-white/5 relative">
-                             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0A0A0A] px-3 font-semibold text-[10px] text-indigo-400 flex items-center gap-1 uppercase tracking-widest">
-                                <Bot className="w-3 h-3" /> IA Sugere
-                             </div>
-                             <div className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-lg text-sm text-indigo-200 mt-2">
-                                "Identifiquei que a API key deste cliente foi rotacionada no painel de segurança. Sugiro enviar a instrução para renovar o token do Asaas em Configurações &gt; Integrações."
-                                <button onClick={() => {
-                                   setReplyText("Identifiquei que a API key foi rotacionada no painel de segurança. Por favor, vá em Configurações > Integrações para renovar o token.");
-                                }} className="block mt-2 text-xs bg-indigo-500 hover:bg-indigo-400 text-white px-3 py-1.5 rounded transition-colors font-semibold">Usar Resposta Sugerida</button>
-                             </div>
-                          </div>
-                       </div>
-                       <div className="p-4 border-t border-white/10 bg-[#111]">
-                          <div className="flex gap-2">
-                             <textarea id="ticket-reply" value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply(); } }} placeholder="Digite sua resposta..." className="flex-1 bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none h-12" />
-                             <button onClick={handleSendReply} className="h-12 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-colors">
-                                <Send className="w-5 h-5" />
-                             </button>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </motion.div>
+             <motion.div key="suporte" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+               <h2 className="text-2xl font-semibold text-white">Suporte Técnico Interno</h2>
+               <div className="rounded-xl border border-amber-500/30 p-6 space-y-3">
+                 <p className="text-amber-400 font-semibold">Central de tickets ainda não conectada</p>
+                 <p className="text-slate-400 text-sm">Os chamados de demonstração foram retirados. Nenhuma resposta será marcada como enviada sem confirmação de gravação e entrega pelo serviço de suporte.</p>
+                 <p className="text-slate-400 text-sm">Pendente: coleção de tickets, permissões administrativas, histórico de mensagens, atribuição, status e notificações reais.</p>
+               </div>
+             </motion.div>
            )}
 
            {activeTab === 'logs' && (
-              <motion.div key="logs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                 <div className="flex items-center justify-between">
-                    <div>
-                       <h2 className="text-2xl font-display font-semibold text-white tracking-tight">Logs de Auditoria Full</h2>
-                       <p className="text-sm text-slate-400">Histórico rastreável de todas as ações importantes do sistema.</p>
-                    </div>
-                    <button onClick={() => {
-                       toast.success("Exportação iniciada. O arquivo CSV será baixado em instantes.");
-                    }} className="px-4 py-2 bg-white/5 border border-white/10 text-white text-sm font-semibold rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2">
-                       <BarChart3 className="w-4 h-4" /> Exportar CSV
-                    </button>
-                 </div>
-
-                 <div className="flex gap-2">
-                    <button className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-md text-sm text-white font-medium">Todos</button>
-                    <button className="px-3 py-1.5 bg-[#0C1627] border border-white/5 rounded-md text-sm text-slate-400 hover:bg-white/5 transition-colors">Logins</button>
-                    <button className="px-3 py-1.5 bg-[#0C1627] border border-white/5 rounded-md text-sm text-slate-400 hover:bg-white/5 transition-colors">Vendas</button>
-                    <button className="px-3 py-1.5 bg-[#0C1627] border border-white/5 rounded-md text-sm text-slate-400 hover:bg-white/5 transition-colors">Webhooks</button>
-                    <button className="px-3 py-1.5 bg-[#0C1627] border border-white/5 rounded-md text-sm text-slate-400 hover:bg-white/5 transition-colors text-red-400">Errors</button>
-                 </div>
-
-                 <div className="bg-[#0A0A0A] border border-white/10 rounded-xl overflow-hidden">
-                    <table className="w-full text-sm text-left">
-                       <thead className="text-xs text-slate-500 uppercase bg-[#111] border-b border-white/10">
-                          <tr>
-                             <th className="px-4 py-3 font-semibold">Data/Hora</th>
-                             <th className="px-4 py-3 font-semibold">Ação / Evento</th>
-                             <th className="px-4 py-3 font-semibold">Empresa / Usuário</th>
-                             <th className="px-4 py-3 font-semibold">IP / Dispositivo</th>
-                             <th className="px-4 py-3 font-semibold">Status</th>
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-white/5 text-slate-300">
-                          <tr className="hover:bg-white/5 transition-colors">
-                             <td className="px-4 py-3 whitespace-nowrap text-xs">Hoje, 14:32:05</td>
-                             <td className="px-4 py-3">
-                                <div className="font-semibold text-white">SALE_CREATED</div>
-                                <div className="text-xs text-slate-500">Valor: R$ 150,00 • Método: PIX</div>
-                             </td>
-                             <td className="px-4 py-3">
-                                <div className="text-white">Beauty Clinic</div>
-                                <div className="text-xs text-slate-500">ana.silva@beauty.com</div>
-                             </td>
-                             <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">189.45.XX.XX<br/>Mac OS Chrome</td>
-                             <td className="px-4 py-3"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">Success</span></td>
-                          </tr>
-                          <tr className="hover:bg-white/5 transition-colors">
-                             <td className="px-4 py-3 whitespace-nowrap text-xs">Hoje, 14:15:10</td>
-                             <td className="px-4 py-3">
-                                <div className="font-semibold text-white">WEBHOOK_RECEIVED</div>
-                                <div className="text-xs text-slate-500">Asaas • billing.payment.confirmed</div>
-                             </td>
-                             <td className="px-4 py-3">
-                                <div className="text-white">Studio Elegance</div>
-                                <div className="text-xs text-slate-500">Sistema</div>
-                             </td>
-                             <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">10.0.X.X<br/>API Server</td>
-                             <td className="px-4 py-3"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">Success</span></td>
-                          </tr>
-                          <tr className="hover:bg-white/5 transition-colors bg-red-500/5">
-                             <td className="px-4 py-3 whitespace-nowrap text-xs">Hoje, 13:42:21</td>
-                             <td className="px-4 py-3">
-                                <div className="font-semibold text-red-400">LOGIN_FAILED</div>
-                                <div className="text-xs text-red-500/70">Senha incorreta (Tentativa 3)</div>
-                             </td>
-                             <td className="px-4 py-3">
-                                <div className="text-white">Barber Prime</div>
-                                <div className="text-xs text-slate-500">admin@barber.com</div>
-                             </td>
-                             <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">45.2.XX.XX<br/>Windows Firefox</td>
-                             <td className="px-4 py-3"><span className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-widest">Error</span></td>
-                          </tr>
-                          <tr className="hover:bg-white/5 transition-colors">
-                             <td className="px-4 py-3 whitespace-nowrap text-xs">Hoje, 11:05:00</td>
-                             <td className="px-4 py-3">
-                                <div className="font-semibold text-white">FEATURE_ENABLED</div>
-                                <div className="text-xs text-slate-500">Módulo: White-label</div>
-                             </td>
-                             <td className="px-4 py-3">
-                                <div className="text-white">Global</div>
-                                <div className="text-xs text-indigo-400">Admin_Marcel</div>
-                             </td>
-                             <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">192.168.X.X<br/>Mac OS Safari</td>
-                             <td className="px-4 py-3"><span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-500 text-[10px] font-bold uppercase tracking-widest">Warning</span></td>
-                          </tr>
-                       </tbody>
-                    </table>
-                 </div>
-              </motion.div>
+             <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+               <h2 className="text-2xl font-semibold text-white">Logs de Auditoria</h2>
+               <div className="rounded-xl border border-amber-500/30 p-6 space-y-3">
+                 <p className="text-amber-400 font-semibold">Fonte de auditoria não homologada</p>
+                 <p className="text-slate-400 text-sm">Os eventos, endereços IP e vendas fictícios foram removidos. A exportação CSV ficará indisponível até haver uma fonte de logs reais, com autorização e trilha de integridade.</p>
+                 <p className="text-slate-400 text-sm">Pendente: ingestão server-side de logins, vendas, webhooks e erros, com filtros e exportação auditável.</p>
+               </div>
+             </motion.div>
            )}
 
            {activeTab === 'campanhas' && (
@@ -1260,7 +1053,7 @@ export default function AdminPanel() {
            {activeTab === 'segurança' && (
               <motion.div key="segurança" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                  <h2 className="text-2xl font-display font-semibold text-white tracking-tight">Segurança Enterprise & Acessos</h2>
-                 <p className="text-sm text-slate-400 mb-6">Controle de MFA, rate limits, logins suspeitos e IP Tracking.</p>
+                 <p className="text-sm text-slate-400 mb-6">Estado de controles de segurança. MFA, rate limits e IP Tracking exigem configuração e validação no backend.</p>
 
                  <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-xl max-w-2xl">
                     <h3 className="text-lg font-semibold text-white mb-6">Políticas de Segurança Globais</h3>
@@ -1269,18 +1062,18 @@ export default function AdminPanel() {
                        <div className="flex items-center justify-between p-3 bg-[#111] rounded border border-white/5">
                           <div>
                              <p className="text-sm font-semibold text-white">MFA Obrigatório para Admins</p>
-                             <p className="text-xs text-slate-500">Força autenticação de 2 fatores (TOTP)</p>
+                             <p className="text-xs text-slate-500">Não homologado — configurar no provedor de autenticação</p>
                           </div>
-                          <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                          <div className="w-10 h-5 bg-slate-700 rounded-full relative opacity-40">
                              <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
                           </div>
                        </div>
                        <div className="flex items-center justify-between p-3 bg-[#111] rounded border border-white/5">
                           <div>
                              <p className="text-sm font-semibold text-white">Rate Limiting (Enterprise API)</p>
-                             <p className="text-xs text-slate-500">100 req/s por tenant</p>
+                             <p className="text-xs text-slate-500">Não homologado — implementar limites no servidor</p>
                           </div>
-                          <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                          <div className="w-10 h-5 bg-slate-700 rounded-full relative opacity-40">
                              <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
                           </div>
                        </div>
@@ -1296,7 +1089,7 @@ export default function AdminPanel() {
                        <h2 className="text-2xl font-display font-semibold text-white tracking-tight">System Configuration & White-Label</h2>
                        <p className="text-sm text-slate-400">Gerencie recursos globais, planos VIP e personalização da plataforma.</p>
                     </div>
-                    <button onClick={() => toast.success("Configurações e personalização White-Label atualizadas em todos os tenants!")} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
+                    <button onClick={() => toast.error("Persistência global ainda não configurada. Nenhuma alteração foi aplicada.")} className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-500 transition-colors flex items-center gap-2">
                        <Save className="w-4 h-4" /> Salvar Configurações
                     </button>
                  </div>
@@ -1311,7 +1104,7 @@ export default function AdminPanel() {
                                 <p className="text-sm font-semibold text-white">IA e Módulos Criativos (OpenAI/Gemini)</p>
                                 <p className="text-xs text-slate-500">Libera a geração de descrições e assistente.</p>
                              </div>
-                             <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                             <div className="w-10 h-5 bg-slate-700 rounded-full relative opacity-40">
                                 <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
                              </div>
                           </div>
@@ -1321,7 +1114,7 @@ export default function AdminPanel() {
                                 <p className="text-sm font-semibold text-white">Integração WhatsApp Nativa</p>
                                 <p className="text-xs text-slate-500">Agendamentos e confirmações via WABA API.</p>
                              </div>
-                             <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                             <div className="w-10 h-5 bg-slate-700 rounded-full relative opacity-40">
                                 <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
                              </div>
                           </div>
@@ -1331,7 +1124,7 @@ export default function AdminPanel() {
                                 <p className="text-sm font-semibold text-white">Sistema de Cashbook/Fiado</p>
                                 <p className="text-xs text-slate-500">Ativa o módulo de controle de fiados.</p>
                              </div>
-                             <div className="w-10 h-5 bg-indigo-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                             <div className="w-10 h-5 bg-slate-700 rounded-full relative opacity-40">
                                 <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
                              </div>
                           </div>
