@@ -51,6 +51,13 @@ service cloud.firestore {
     // PUBLIC MARKETPLACE & DIRECTORY (Visitors, Customers & Public Showcase)
     // =========================================================================
 
+    // Subscription entitlements are read from server-controlled company_licenses.
+    function hasActiveMarketplaceSubscription() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/company_licenses/$(request.auth.uid))
+        && get(/databases/$(database)/documents/company_licenses/$(request.auth.uid)).data.status == 'active';
+    }
+
     // Public directory listings: only explicitly published records are visible to guests.
     match /public_listings/{listingId} {
       allow list: if resource.data.published == true;
@@ -73,6 +80,14 @@ service cloud.firestore {
         && request.resource.data.slug == request.auth.uid
         && request.resource.data.keys().hasOnly(['ownerId','published','name','category','city','neighborhood','address','phone','description','coverUrl','slug','services','workingHours','professionals','bookingUrl','rating','reviewCount','updatedAt'])
         && request.resource.data.published is bool
+        // A new listing starts in review. Existing approved listings retain their state.
+        && (resource == null ? request.resource.data.published == false : request.resource.data.published == resource.data.published)
+        // Free directory: up to three services, no team listing or online booking.
+        && (hasActiveMarketplaceSubscription() || (
+          request.resource.data.services.size() <= 3
+          && request.resource.data.professionals.size() == 0
+          && request.resource.data.bookingUrl == ''
+        ))
         && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 100
         && request.resource.data.city is string && request.resource.data.city.size() > 0 && request.resource.data.city.size() <= 80
         && request.resource.data.category is string && request.resource.data.category.size() > 0 && request.resource.data.category.size() <= 60
