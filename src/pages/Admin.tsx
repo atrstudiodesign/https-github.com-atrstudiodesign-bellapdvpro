@@ -395,7 +395,7 @@ export default function AdminPanel() {
                     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
                        <span className="text-gray-400 text-sm">MRR (cobranças confirmadas)</span>
                        <h2 className="text-3xl font-bold text-white tracking-tight mt-2">{currentStats.mrr}</h2>
-                       <span className="text-cyan-400 text-sm mt-1 inline-block">Real Time Data</span>
+                       <span className="text-cyan-400 text-sm mt-1 inline-block">Sem conciliação Asaas</span>
                     </div>
                     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
                        <span className="text-gray-400 text-sm">Clientes Ativos</span>
@@ -414,6 +414,19 @@ export default function AdminPanel() {
                     </div>
                  </div>
 
+                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                   <div className="rounded-xl border border-white/10 p-5 space-y-4">
+                     <div className="flex justify-between items-center"><h3 className="text-white font-semibold">Empresas recentes no cadastro</h3><button onClick={() => setActiveTab('empresas')} className="text-cyan-400 text-xs">Ver todas</button></div>
+                     {!isClientsLoaded ? <p className="text-slate-400 text-sm">Carregando dados do Firestore...</p> : clients.length === 0 ? <p className="text-slate-400 text-sm">Nenhuma empresa encontrada ou consulta sem resultados.</p> : clients.slice(0, 6).map(company => <div key={company.id} className="flex justify-between gap-4 border-b border-white/5 pb-2"><div className="min-w-0"><p className="text-white text-sm truncate">{company.name}</p><p className="text-slate-500 text-xs truncate">{company.email}</p></div><span className="text-slate-300 text-xs">{company.status}</span></div>)}
+                   </div>
+                   <div className="rounded-xl border border-white/10 p-5 space-y-3">
+                     <h3 className="text-white font-semibold">Central de operações</h3>
+                     <p className="text-slate-400 text-sm">Indicadores financeiros dependem de pagamentos confirmados no Asaas. Os dados de cadastro não equivalem a receita.</p>
+                     <div className="grid grid-cols-2 gap-2">
+                       {([{ id: 'licenciamento', label: 'Licenças' }, { id: 'assinaturas', label: 'Assinaturas' }, { id: 'ia_admin', label: 'Alertas' }, { id: 'logs', label: 'Auditoria' }, { id: 'segurança', label: 'Segurança' }, { id: 'suporte', label: 'Suporte' }]).map(item => <button key={item.id} onClick={() => setActiveTab(item.id)} className="text-left px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-sm text-slate-200">{item.label}</button>)}
+                     </div>
+                   </div>
+                 </div>
                  <AdminAnalyticsStatus />
               </motion.div>
            )}
