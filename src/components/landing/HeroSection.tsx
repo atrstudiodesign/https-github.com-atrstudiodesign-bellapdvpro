@@ -49,14 +49,14 @@ export function HeroSection({ onRequestDemo, onOpenHowItWorks }: HeroSectionProp
               onClick={() => {
                 trackTrialStartClick({
                   source: 'hero_promo_ribbon',
-                  promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
-                  buttonLabel: 'OFERTA: De R$ 89,90 por R$ 29,90'
+                  promoText: 'R$ 39,90/mês por 12 meses ou R$ 89,90/mês sem fidelidade',
+                  buttonLabel: 'OFERTA: R$ 39,90/mês com fidelidade de 12 meses'
                 });
               }}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/20 via-[#00D9FF]/20 to-[#8545FF]/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold tracking-wide shadow-[0_0_20px_rgba(52,211,153,0.25)] hover:border-emerald-300 transition-colors cursor-pointer group"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>OFERTA: De <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white font-black group-hover:text-emerald-300 transition-colors">R$ 29,90 nos primeiros 3 meses</strong> • 15 dias de teste grátis!</span>
+              <span>OFERTA: <strong className="text-white font-black group-hover:text-emerald-300 transition-colors">R$ 39,90/mês por 12 meses</strong> ou R$ 89,90/mês sem fidelidade • 15 dias de teste grátis!</span>
             </a>
 
             {/* Eyebrow */}
