@@ -229,9 +229,8 @@ export default function AdminPanel() {
   const [editingCompany, setEditingCompany] = useState<Partial<Client> | null>(null);
 
   const [paymentLinks, setPaymentLinks] = useState({
-    basic: "https://asaas.com/c/basico",
-    pro: "https://asaas.com/c/pro",
-    premium: "https://asaas.com/c/premium"
+    loyalty: "",
+    monthly: ""
   });
   const [editingLink, setEditingLink] = useState<{ id: string, name: string, price: string, url: string } | null>(null);
   const [newLinkUrl, setNewLinkUrl] = useState("");
@@ -797,30 +796,24 @@ export default function AdminPanel() {
                     <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-xl">
                        <h3 className="text-lg font-semibold text-white mb-4">Planos de Pagamento Activos</h3>
                        <div className="space-y-4">
-                          <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                             <div>
-                                <p className="text-sm font-semibold text-white">Plano Básico</p>
-                                <p className="text-xs text-slate-400">R$ 89,90/mês <span className="text-emerald-400 font-semibold">• Promo: R$ 29,90/mês (3 meses) • 15 dias teste</span></p>
-                                <a href={paymentLinks.basic} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 hover:underline mt-1 inline-block truncate max-w-[200px]">{paymentLinks.basic}</a>
-                             </div>
-                             <button onClick={() => { setEditingLink({ id: 'basic', name: 'Plano Básico', price: '89,90', url: paymentLinks.basic }); setNewLinkUrl(paymentLinks.basic); }} className="text-xs px-3 py-1.5 rounded bg-white/5 text-slate-300 hover:text-white border border-white/10">Editar Link</button>
-                          </div>
-                          <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                             <div>
-                                <p className="text-sm font-semibold text-white">Plano Pro</p>
-                                <p className="text-xs text-slate-500">R$ 149,90/mês</p>
-                                <a href={paymentLinks.pro} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 hover:underline mt-1 inline-block truncate max-w-[200px]">{paymentLinks.pro}</a>
-                             </div>
-                             <button onClick={() => { setEditingLink({ id: 'pro', name: 'Plano Pro', price: '149,90', url: paymentLinks.pro }); setNewLinkUrl(paymentLinks.pro); }} className="text-xs px-3 py-1.5 rounded bg-white/5 text-slate-300 hover:text-white border border-white/10">Editar Link</button>
-                          </div>
-                          <div className="flex justify-between items-center">
-                             <div>
-                                <p className="text-sm font-semibold text-white">Plano Premium</p>
-                                <p className="text-xs text-slate-500">R$ 249,90/mês</p>
-                                <a href={paymentLinks.premium} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 hover:underline mt-1 inline-block truncate max-w-[200px]">{paymentLinks.premium}</a>
-                             </div>
-                             <button onClick={() => { setEditingLink({ id: 'premium', name: 'Plano Premium', price: '249,90', url: paymentLinks.premium }); setNewLinkUrl(paymentLinks.premium); }} className="text-xs px-3 py-1.5 rounded bg-white/5 text-slate-300 hover:text-white border border-white/10">Editar Link</button>
-                          </div>
+                          {([
+                            { id: 'loyalty' as const, name: 'Bella PDV Pro Completo — Fidelidade', price: '39,90', detail: 'R$ 39,90/mês por 12 meses • Total R$ 478,80 • 15 dias de teste grátis' },
+                            { id: 'monthly' as const, name: 'Bella PDV Pro Completo — Sem fidelidade', price: '89,90', detail: 'R$ 89,90/mês • Sem permanência mínima • 15 dias de teste grátis' }
+                          ]).map(plan => (
+                            <div key={plan.id} className="flex justify-between items-center gap-4 pb-4 border-b border-white/5">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-white">{plan.name}</p>
+                                <p className="text-xs text-slate-400">{plan.detail}</p>
+                                {paymentLinks[plan.id] ? (
+                                  <a href={paymentLinks[plan.id]} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:underline mt-1 inline-block truncate max-w-[200px]">{paymentLinks[plan.id]}</a>
+                                ) : (
+                                  <p className="text-[10px] text-amber-400 mt-1">Checkout Asaas não configurado</p>
+                                )}
+                              </div>
+                              <button onClick={() => { setEditingLink({ id: plan.id, name: plan.name, price: plan.price, url: paymentLinks[plan.id] }); setNewLinkUrl(paymentLinks[plan.id]); }} className="text-xs px-3 py-1.5 rounded bg-white/5 text-slate-300 hover:text-white border border-white/10 whitespace-nowrap">Editar Link</button>
+                            </div>
+                          ))}
+                          <p className="text-xs text-slate-500">Links inseridos nesta tela são temporários e não configuram cobranças reais. A integração de checkout deve ser homologada no Asaas.</p>
                        </div>
                     </div>
 
@@ -1426,8 +1419,12 @@ export default function AdminPanel() {
                            />
                            <button 
                              onClick={() => {
+                                if (newLinkUrl && (!newLinkUrl.startsWith('https://') || !/^https:\/\/(www\.)?(asaas\.com|asaas\.com\.br|www\.asaas\.com|www\.asaas\.com\.br)\//i.test(newLinkUrl))) {
+                                  toast.error('Informe uma URL HTTPS válida do Asaas.');
+                                  return;
+                                }
                                 setPaymentLinks(prev => ({ ...prev, [editingLink.id]: newLinkUrl }));
-                                toast.success('Link de pagamento atualizado com sucesso!');
+                                toast.info('Link alterado apenas nesta sessão. Persistência ainda não configurada.');
                                 setEditingLink(null);
                              }} 
                              className="px-4 py-3 rounded-lg font-semibold bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/20 transition-colors text-sm whitespace-nowrap"
