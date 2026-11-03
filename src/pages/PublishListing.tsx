@@ -83,6 +83,7 @@ export default function PublishListing() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [isAlreadyPublished, setIsAlreadyPublished] = useState(false);
 
   const uid = auth.currentUser?.uid || '';
   const isEligible = Boolean(
@@ -104,6 +105,7 @@ export default function PublishListing() {
         if (mounted) setHasSubscription(licenseSnap.exists() && licenseSnap.data()?.status === 'active');
         if (mounted && snap.exists()) {
           const x = snap.data();
+          setIsAlreadyPublished(x.published === true);
           setForm({
             ...initial,
             name: x.name || currentUser?.name || '',
@@ -254,16 +256,12 @@ export default function PublishListing() {
         })),
         workingHours: form.workingHours,
         bookingUrl: form.bookingUrl.trim(),
-        published: form.published,
+        published: isAlreadyPublished,
         updatedAt: serverTimestamp()
       };
 
       await setDoc(doc(db, 'public_listings', uid), record, { merge: false });
-      toast.success(
-        form.published
-          ? 'Perfil atualizado. Se ainda não estiver aprovado, aguarde a validação do cadastro.'
-          : 'Perfil salvo como privado. Desativado do diretório público.'
-      );
+      toast.success(isAlreadyPublished ? 'Perfil atualizado.' : 'Cadastro recebido para análise. A publicação depende de aprovação.');
     } catch (e: any) {
       console.error('Save public listing error:', e);
       toast.error('Não foi possível salvar o perfil público.');
@@ -619,13 +617,7 @@ export default function PublishListing() {
 
             {/* Publish Toggle & Save */}
             <div className="p-6 rounded-3xl bg-[#0B1120] border border-slate-800 space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.published}
-                  onChange={(e) => patch('published', e.target.checked)}
-                  className="mt-1 rounded text-pink-600 focus:ring-0 bg-slate-900 border-slate-700"
-                />
+              <div className="flex items-start gap-3">
                 <div>
                   <span className="font-bold text-sm text-white block">
                     Solicitar divulgação da minha empresa no Bella Market
@@ -634,7 +626,7 @@ export default function PublishListing() {
                     A primeira publicação exige aprovação da equipe Bella. O cadastro gratuito oferece divulgação básica; agendamento integrado depende de assinatura ativa.
                   </span>
                 </div>
-              </label>
+              </div>
 
               <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-800">
                 <button
