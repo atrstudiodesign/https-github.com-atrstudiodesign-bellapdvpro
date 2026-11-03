@@ -55,15 +55,15 @@ export function FinalCtaBanner({ onRequestDemo }: FinalCtaBannerProps) {
                     onClick={() => {
                       trackTrialStartClick({
                         source: 'final_cta_promo_badge',
-                        promoText: 'De R$ 89,90 por R$ 29,90 nos primeiros 3 meses',
-                        buttonLabel: 'Plano Básico de R$ 89,90 por R$ 29,90/mês'
+                        promoText: 'R$ 39,90/mês com fidelidade de 12 meses ou R$ 89,90/mês sem fidelidade',
+                        buttonLabel: 'Bella Pro Completo R$ 39,90/mês — 12 meses'
                       });
                     }}
                     className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30 hover:border-cyan-400 transition-colors cursor-pointer"
                   >
-                    Plano Básico de R$ 89,90 por R$ 29,90/mês
+                    Bella Pro Completo: R$ 39,90/mês por 12 meses
                   </a>
-                  <span className="text-slate-400">Sem fidelidade e sem cartão.</span>
+                  <span className="text-slate-400">Ou R$ 89,90/mês sem fidelidade. Teste grátis sem cartão.</span>
                 </div>
               </div>
 
