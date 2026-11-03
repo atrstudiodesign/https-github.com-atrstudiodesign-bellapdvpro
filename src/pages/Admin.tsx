@@ -1,3 +1,4 @@
+import { AdminSupportTickets } from '../components/admin/AdminSupportTickets';
 import { AdminAnalyticsStatus } from '../components/admin/AdminAnalyticsStatus';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -876,13 +877,8 @@ export default function AdminPanel() {
            )}
 
            {activeTab === 'suporte' && (
-             <motion.div key="suporte" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-               <h2 className="text-2xl font-semibold text-white">Suporte Técnico Interno</h2>
-               <div className="rounded-xl border border-amber-500/30 p-6 space-y-3">
-                 <p className="text-amber-400 font-semibold">Central de tickets ainda não conectada</p>
-                 <p className="text-slate-400 text-sm">Os chamados de demonstração foram retirados. Nenhuma resposta será marcada como enviada sem confirmação de gravação e entrega pelo serviço de suporte.</p>
-                 <p className="text-slate-400 text-sm">Pendente: coleção de tickets, permissões administrativas, histórico de mensagens, atribuição, status e notificações reais.</p>
-               </div>
+             <motion.div key="suporte" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+               <AdminSupportTickets />
              </motion.div>
            )}
 

@@ -116,6 +116,35 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isSignedIn() && !isEmployee() && resource.data.companyId == request.auth.uid);
     }
 
+    // Administrative support center: no cross-tenant client access.
+    match /support_tickets/{ticketId} {
+      allow read, delete: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['subject', 'companyId', 'status', 'priority', 'assignedTo', 'createdAt', 'updatedAt'])
+        && request.resource.data.subject is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 160
+        && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
+        && request.resource.data.status == 'open'
+        && request.resource.data.priority in ['low', 'normal', 'high', 'urgent']
+        && request.resource.data.assignedTo == '';
+      allow update: if isAdmin()
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.subject == resource.data.subject
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'priority', 'assignedTo', 'updatedAt'])
+        && request.resource.data.status in ['open', 'in_progress', 'resolved', 'closed']
+        && request.resource.data.priority in ['low', 'normal', 'high', 'urgent']
+        && request.resource.data.assignedTo is string && request.resource.data.assignedTo.size() <= 120;
+      match /messages/{messageId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin()
+          && request.resource.data.keys().hasOnly(['body', 'author', 'createdAt'])
+          && request.resource.data.author == 'admin'
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 4000;
+        allow update, delete: if false;
+      }
+    }
+
     // Commercial demo leads (write-only for prospective guests, read-only for admin)
     match /leads/{leadId} {
       allow create: if request.resource.data.keys().hasOnly(['name', 'companyName', 'phone', 'email', 'source', 'featureAttempted', 'createdAt'])
