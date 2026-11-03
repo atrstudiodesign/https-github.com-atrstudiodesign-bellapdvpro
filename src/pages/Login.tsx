@@ -481,7 +481,7 @@ function LoginContent() {
     } finally { setIsSubmitting(false); }
   };
 
-  const handleSocialAuth = async (provider: 'Google' | 'Apple' | 'Microsoft') => {
+  const handleSocialAuth = async (provider: 'Google') => {
     setIsSubmitting(true);
     try {
       if (provider !== 'Google') {
@@ -672,31 +672,7 @@ function LoginContent() {
               </svg>
               Continuar com Google
             </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                type="button" 
-                onClick={() => handleSocialAuth('Apple')} 
-                disabled={isSubmitting || isDemoLoading}
-                className="flex justify-center items-center gap-1.5 py-2 bg-[#18181B] border border-[#27272A] text-white hover:bg-[#27272A] transition-colors rounded-xl font-medium text-xs disabled:opacity-50"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.126 3.822 3.08 1.567-.052 2.164-.96 4.098-.96 1.905 0 2.45.96 4.128.932 1.696-.027 2.716-1.503 3.73-2.955 1.168-1.745 1.646-3.435 1.674-3.523-.037-.015-3.3-1.265-3.324-5.021-.023-3.136 2.58-4.636 2.695-4.708-1.468-2.146-3.743-2.435-4.551-2.47-1.895-.213-3.774 1.077-4.83 1.077m-.62 13.916Z" fill="#FFF"/>
-                  <path d="M14.954 4.542c.846-1.026 1.417-2.457 1.263-3.882-1.228.05-2.732.817-3.598 1.843-.77.893-1.442 2.36-.168 3.743 1.36.035 2.766-.676 3.503-1.704Z" fill="#FFF"/>
-                </svg>
-                Apple
-              </button>
-              <button 
-                type="button" 
-                onClick={() => handleSocialAuth('Microsoft')} 
-                disabled={isSubmitting || isDemoLoading}
-                className="flex justify-center items-center gap-1.5 py-2 bg-[#18181B] border border-[#27272A] text-white hover:bg-[#27272A] transition-colors rounded-xl font-medium text-xs disabled:opacity-50"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" fill="#00a4ef"/>
-                </svg>
-                Microsoft
-              </button>
-            </div>
+
           </div>
 
           <div className="relative flex items-center py-2 mb-4">
@@ -727,7 +703,7 @@ function LoginContent() {
                 <span>15 Dias de Teste Grátis Incluso</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-tight">
-                Plano Básico de <span className="line-through text-slate-400">R$ 89,90</span> por apenas <strong className="text-white">R$ 29,90/mês</strong> nos 3 primeiros meses! Sem necessidade de cartão de crédito.
+                Bella PDV Pro Completo: <strong className="text-white">R$ 39,90/mês</strong> com fidelidade de 12 meses (12 parcelas, total R$ 478,80) ou <strong className="text-white">R$ 89,90/mês</strong> sem fidelidade. Sem necessidade de cartão de crédito para iniciar o teste.
               </p>
             </div>
           )}
