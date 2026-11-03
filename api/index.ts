@@ -784,7 +784,12 @@ app.use('/api', async (req, res, next) => {
           const expectedSecret = process.env.ASAAS_WEBHOOK_SECRET?.trim();
           const incomingToken = req.headers['asaas-access-token'] as string;
 
-          if (expectedSecret && expectedSecret !== 'MY_ASAAS_WEBHOOK_SECRET' && incomingToken !== expectedSecret) {
+          // Financial callbacks must never be acknowledged without a configured secret.
+          if (!expectedSecret || expectedSecret === 'MY_ASAAS_WEBHOOK_SECRET') {
+              console.error('[Asaas Webhook] Authentication is not configured.');
+              return res.status(503).json({ error: 'Webhook indisponível: autenticação não configurada.' });
+          }
+          if (typeof incomingToken !== 'string' || incomingToken !== expectedSecret) {
               console.warn('[Asaas Webhook] Token de autenticação inválido recebido.');
               return res.status(401).json({ error: 'Token de webhook inválido.' });
           }
