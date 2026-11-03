@@ -94,8 +94,8 @@ export default function Explore() {
               : [],
             workingHours: v.workingHours || { open: '08:00', close: '19:00' },
             professionals: Array.isArray(v.professionals) ? v.professionals : [],
-            rating: typeof v.rating === 'number' ? v.rating : 4.9,
-            reviewCount: typeof v.reviewCount === 'number' ? v.reviewCount : 12,
+            rating: typeof v.rating === 'number' && typeof v.reviewCount === 'number' && v.reviewCount > 0 ? v.rating : undefined,
+            reviewCount: typeof v.reviewCount === 'number' && v.reviewCount > 0 ? v.reviewCount : 0,
             bookingUrl: clean(v.bookingUrl),
             published: v.published === true
           };
@@ -224,7 +224,7 @@ export default function Explore() {
             Encontre e agende os melhores serviços perto de você
           </h1>
           <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-            Barbearias, salões de beleza, clínicas de estética e profissionais verificados. Agendamento instantâneo com confirmação segura no WhatsApp.
+            Descubra barbearias, salões e profissionais de beleza. Empresas podem solicitar divulgação gratuita, sujeita à análise cadastral.
           </p>
 
           {/* Search Box */}
@@ -401,13 +401,13 @@ export default function Explore() {
                   {/* Verified & Rating */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-2 py-1 rounded-full text-[11px] font-bold text-amber-300">
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span>{listing.rating?.toFixed(1) || '4.9'}</span>
-                    <span className="text-slate-400 font-normal">({listing.reviewCount || 12})</span>
+                    <span>{typeof listing.rating === 'number' ? listing.rating.toFixed(1) : 'Sem avaliações'}</span>
+                    {Boolean(listing.reviewCount) && <span className="text-slate-400 font-normal">({listing.reviewCount})</span>}
                   </div>
 
                   {/* Instant Booking Badge */}
                   <div className="absolute bottom-2 left-3 flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                    <CheckCircle2 className="w-3 h-3" /> Confirmação Imediata
+                    <CheckCircle2 className="w-3 h-3" /> Consulte disponibilidade
                   </div>
                 </div>
 
