@@ -37,7 +37,7 @@ export default function Integrations() {
   const [supabaseAuthStatus, setSupabaseAuthStatus] = useState('Não verificado');
   const [qrTab, setQrTab] = useState<'qr' | 'code'>('qr');
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [testTargetPhone, setTestTargetPhone] = useState(whatsappPhone || '+55 (11) 98421-0492');
+  const [testTargetPhone, setTestTargetPhone] = useState(whatsappPhone || '');
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isConfirmingScan, setIsConfirmingScan] = useState(false);
   const [countdown, setCountdown] = useState(60);
@@ -536,10 +536,10 @@ export default function Integrations() {
                            </div>
 
                            <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">
-                              <span>Webhook URL de Retorno: <strong className="text-slate-300 font-mono">https://bellapdv.app/api/v1/webhooks/whatsapp</strong></span>
+                              <span>Webhook URL de Retorno: <strong className="text-slate-300 font-mono">Webhook não configurado — confirme a URL real do provedor</strong></span>
                               <button 
                                  onClick={() => {
-                                    toast.success('Sessão de Webhook Re-sincronizada!', { description: 'Webhook ouvindo com sucesso no Worker.' });
+                                    toast.error('Teste indisponível: configure um endpoint de verificação real antes de validar o webhook.');
                                  }}
                                  className="text-emerald-400 hover:underline flex items-center gap-1 font-bold"
                               >
@@ -553,9 +553,9 @@ export default function Integrations() {
                            <div className="space-y-2">
                               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Metadados de Gateway</span>
                               <div className="text-[11px] font-mono leading-normal text-slate-400 space-y-1">
-                                 <div>Instance: <b className="text-emerald-400">inst_production_bella</b></div>
+                                 <div>Instance: <b className="text-emerald-400">Não verificada</b></div>
                                  <div>Ping: <b className="text-slate-200">12ms - Online</b></div>
-                                 <div>Provider: <b className="text-slate-200">{whatsappProvider} Gateway</b></div>
+                                 <div>Provider: <b className="text-slate-200">{whatsappProvider} (configuração local)</b></div>
                               </div>
                            </div>
 
