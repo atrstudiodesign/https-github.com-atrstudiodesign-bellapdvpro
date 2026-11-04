@@ -33,36 +33,12 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
   qrCode: null,
   pairingCode: null,
   expiresIn: 60,
-  phone: '+55 (11) 98421-0492',
-  businessName: 'Bella PDV Business',
-  provider: 'BellaGateway',
+  phone: '',
+  businessName: '',
+  provider: 'Evolution',
   connectedAt: null,
-  logs: [
-    {
-      id: 'log-1',
-      recipient: '+55 11 98421-0492',
-      text: 'Lembrete de agendamento: Mechas Loiro Supremo às 14:00.',
-      status: 'Delivered',
-      time: '10:14',
-      messageId: 'wamid.demo01'
-    },
-    {
-      id: 'log-2',
-      recipient: '+55 11 97128-5023',
-      text: 'Comprovante fiscal da sua compra no valor de R$ 70,00.',
-      status: 'Read',
-      time: '09:45',
-      messageId: 'wamid.demo02'
-    }
-  ],
-  queue: [
-    {
-      id: 'q-1',
-      recipient: '+55 11 99245-1288',
-      text: 'Olá Mariana, confirmamos seu horário para amanhã às 15h30.',
-      scheduled: 'Hoje às 18:00'
-    }
-  ],
+  logs: [],
+  queue: [],
   isModalOpen: false,
 
   setModalOpen: (open) => set({ isModalOpen: open }),
@@ -183,7 +159,7 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
       if (res.success) {
         toast.success('Mensagem de teste enviada com sucesso!', {
           id: toastId,
-          description: `ID da Mensagem: ${res.messageId || 'wamid.success'}`,
+          description: `ID da Mensagem: ${res.messageId || 'não informado'}`,
         });
         get().refreshLogs();
         return true;
@@ -210,9 +186,7 @@ export const useWhatsAppStore = create<WhatsAppStoreState>((set, get) => ({
   refreshLogs: async () => {
     try {
       const logs = await whatsappService.getLogs();
-      if (logs && logs.length > 0) {
-        set({ logs });
-      }
+      set({ logs: Array.isArray(logs) ? logs : [] });
     } catch {
       // keep current logs
     }
