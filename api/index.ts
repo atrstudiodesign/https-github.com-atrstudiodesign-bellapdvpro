@@ -272,18 +272,15 @@ app.use('/api', async (req, res, next) => {
 
   if (req.path.startsWith('/integrations/whatsapp')) {
     const bearer = req.headers.authorization;
-    let companyId = (req.headers['x-company-id'] as string) || 'empresa_padrao';
-    if (bearer?.startsWith('Bearer ')) {
-      try {
-        const claims = await verifyFirebaseIdToken(bearer.slice(7));
-        companyId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
-        (req as any).firebaseUser = { uid: claims.sub, email: claims.email, companyId };
-      } catch {
-        // Safe fallback for demo / test
-      }
-    }
-    (req as any).company = { id: companyId };
-    return next();
+    if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Firebase token required.' });
+    try {
+      const claims = await verifyFirebaseIdToken(bearer.slice(7));
+      if (claims.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'Anonymous access forbidden.' });
+      const companyId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
+      if (req.headers['x-company-id'] && req.headers['x-company-id'] !== companyId) return res.status(403).json({ error: 'Tenant mismatch.' });
+      (req as any).company = { id: companyId };
+      return next();
+    } catch { return res.status(401).json({ error: 'Invalid Firebase identity.' }); }
   }
 
   const authorization = req.headers.authorization;
@@ -525,7 +522,7 @@ app.use('/api', async (req, res, next) => {
   app.post('/api/integrations/whatsapp/session/start', async (req, res) => {
     try {
       const companyId = (req as any).company?.id || 'empresa_padrao';
-      const { provider = 'Evolution', phone = '+55 (11) 98421-0492', evolutionUrl, evolutionKey } = req.body;
+      const { provider = 'Evolution', phone = '', evolutionUrl, evolutionKey } = req.body || {};
       const instanceName = `bellapdv_${companyId.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
       // Check if external Evolution API is configured
@@ -562,42 +559,7 @@ app.use('/api', async (req, res, next) => {
         }
       }
 
-      // Native WhatsApp Gateway QR Code Generation (Multi-Device Engine)
-      const pairingPayload = `2@${randomUUID()},${Buffer.from(companyId).toString('base64url')},${Date.now()}`;
-      const qrDataUrl = await QRCode.toDataURL(pairingPayload, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#0A0F1D',
-          light: '#FFFFFF',
-        },
-      });
-
-      const pairingCode = 'BLP' + Math.floor(1000 + Math.random() * 9000);
-      const session: WhatsAppSession = {
-        companyId,
-        instanceName,
-        status: 'QRCODE_READY',
-        qrCode: qrDataUrl,
-        pairingCode,
-        expiresAt: Date.now() + 60000,
-        phone,
-        name: 'Bella PDV Business',
-        provider,
-        connectedAt: null,
-        evolutionUrl,
-        evolutionKey,
-      };
-      whatsappSessions.set(companyId, session);
-
-      return res.json({
-        success: true,
-        status: 'QRCODE_READY',
-        qrCode: qrDataUrl,
-        pairingCode,
-        expiresIn: 60,
-        instanceName,
-      });
+      return res.status(503).json({ success: false, error: 'WhatsApp provider unavailable or not configured.' });
     } catch (err: any) {
       console.error('[WhatsApp Session Start Error]', err);
       res.status(500).json({ error: 'Erro ao gerar QR Code de conexão', details: err.message });
@@ -625,52 +587,18 @@ app.use('/api', async (req, res, next) => {
   });
 
   // 3. Confirm Connection (Device paired)
-  app.post('/api/integrations/whatsapp/session/confirm', (req, res) => {
-    const companyId = (req as any).company?.id || 'empresa_padrao';
-    let session = whatsappSessions.get(companyId);
-    if (!session) {
-      session = {
-        companyId,
-        instanceName: `bellapdv_${companyId}`,
-        status: 'CONNECTED',
-        qrCode: null,
-        pairingCode: null,
-        expiresAt: 0,
-        phone: '+55 (11) 98421-0492',
-        name: 'Bella PDV Pro Oficial',
-        provider: 'Evolution',
-        connectedAt: new Date().toISOString(),
-      };
-    } else {
-      session.status = 'CONNECTED';
-      session.connectedAt = new Date().toISOString();
-      session.qrCode = null;
-      session.pairingCode = null;
-    }
-    whatsappSessions.set(companyId, session);
-
-    // Initial log of connection
-    const logs = whatsappLogs.get(companyId) || [];
-    logs.unshift({
-      id: `wpp_conn_${Date.now()}`,
-      companyId,
-      recipient: session.phone,
-      text: '⚡ Sessão WhatsApp Business sincronizada com sucesso via QRCode Multi-Device.',
-      status: 'Delivered',
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      messageId: `wamid.init_${Date.now()}`,
-    });
-    whatsappLogs.set(companyId, logs.slice(0, 100));
-
-    return res.json({
-      success: true,
-      status: 'CONNECTED',
-      profile: {
-        phone: session.phone,
-        name: session.name,
-        connectedAt: session.connectedAt,
-      },
-    });
+  app.post('/api/integrations/whatsapp/session/confirm', async (req, res) => {
+    const companyId = (req as any).company.id;
+    const session = whatsappSessions.get(companyId);
+    if (!session?.evolutionUrl || !session.evolutionKey) return res.status(409).json({ success: false, error: 'No provider session.' });
+    try {
+      const response = await fetch(session.evolutionUrl.replace(/\\/$/, '') + '/instance/connectionState/' + session.instanceName, { headers: { apikey: session.evolutionKey }, signal: AbortSignal.timeout(6000) });
+      if (!response.ok) return res.status(502).json({ success: false, error: 'Provider status unavailable.' });
+      const data: any = await response.json();
+      if (data.instance?.state !== 'open' && data.state !== 'open') return res.status(409).json({ success: false, error: 'Device not paired.' });
+      session.status = 'CONNECTED'; session.connectedAt = new Date().toISOString(); session.qrCode = null; session.pairingCode = null;
+      return res.json({ success: true, status: 'CONNECTED', profile: { phone: session.phone, name: session.name } });
+    } catch { return res.status(502).json({ success: false, error: 'Provider verification failed.' }); }
   });
 
   // 4. Disconnect WhatsApp Session
@@ -708,46 +636,19 @@ app.use('/api', async (req, res, next) => {
       const cleanPhone = to.replace(/\D/g, '');
       const formattedPhone = cleanPhone.length === 10 || cleanPhone.length === 11 ? `55${cleanPhone}` : cleanPhone;
 
-      // If Evolution is configured, dispatch through external server
-      if (session.evolutionUrl && session.evolutionKey) {
-        try {
-          const cleanUrl = session.evolutionUrl.replace(/\/$/, '');
-          await fetch(`${cleanUrl}/message/sendText/${session.instanceName}`, {
-            method: 'POST',
-            headers: {
-              apikey: session.evolutionKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              number: formattedPhone,
-              text,
-            }),
-            signal: AbortSignal.timeout(6000),
-          });
-        } catch (evoSendErr) {
-          console.warn('[Evolution Send Text Error - Proceeding with Gateway delivery]', evoSendErr);
-        }
-      }
-
-      const messageId = `wamid.HBgM${Date.now()}`;
+      if (!session.evolutionUrl || !session.evolutionKey) return res.status(503).json({ success: false, error: 'Provider not configured.' });
+      const response = await fetch(session.evolutionUrl.replace(/\\/$/, '') + '/message/sendText/' + session.instanceName, {
+        method: 'POST', headers: { apikey: session.evolutionKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: formattedPhone, text }), signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) return res.status(502).json({ success: false, error: 'Provider rejected send: HTTP ' + response.status });
+      const receipt: any = await response.json();
+      const messageId = receipt.key?.id || receipt.messageId || receipt.id;
+      if (typeof messageId !== 'string' || !messageId) return res.status(502).json({ success: false, error: 'Provider receipt missing.' });
       const logs = whatsappLogs.get(companyId) || [];
-      logs.unshift({
-        id: `wpp_${Date.now()}`,
-        companyId,
-        recipient: formattedPhone,
-        text,
-        status: 'Sent',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        messageId,
-      });
+      logs.unshift({ id: randomUUID(), companyId, recipient: formattedPhone, text, status: 'Sent', time: new Date().toISOString(), messageId });
       whatsappLogs.set(companyId, logs.slice(0, 100));
-
-      return res.json({
-        success: true,
-        messageId,
-        status: 'Sent',
-        recipient: formattedPhone,
-      });
+      return res.json({ success: true, messageId, status: 'Sent', recipient: formattedPhone });
     } catch (err: any) {
       console.error('[WhatsApp Send Error]', err);
       res.status(500).json({ error: 'Erro ao disparar mensagem', details: err.message });
@@ -762,20 +663,8 @@ app.use('/api', async (req, res, next) => {
   });
 
   // 7. Test Message Dispatch
-  app.post('/api/integrations/whatsapp/test', async (req, res) => {
-    const companyId = (req as any).company?.id || 'empresa_padrao';
-    const { to } = req.body;
-    const testText = `⚡ *Bella PDV Pro — WhatsApp Business Conectado!*\n\nOlá! Sua conexão via QR Code Multi-Device foi realizada com sucesso.\nO canal de notificações, cobranças e comprovantes está ativo e pronto para uso.`;
-
-    const result = await IntegrationService.sendMessage(companyId, 'whatsapp', {
-      to: to || '+55 (11) 98421-0492',
-      text: testText,
-    });
-
-    if (result && result.success) {
-      return res.json({ success: true, messageId: result.messageId });
-    }
-    return res.status(400).json({ error: result?.error || 'Sessão desconectada. Conecte via QR Code primeiro.' });
+  app.post('/api/integrations/whatsapp/test', (_req, res) => {
+    return res.status(409).json({ success: false, error: 'Use authenticated /send with a real connected provider. Test dispatch cannot simulate success.' });
   });
 
   // Webhooks: Asaas Dunning / Billing
