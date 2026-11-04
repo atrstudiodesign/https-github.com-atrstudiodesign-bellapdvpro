@@ -559,42 +559,7 @@ app.use('/api', async (req, res, next) => {
         }
       }
 
-      // Native WhatsApp Gateway QR Code Generation (Multi-Device Engine)
-      const pairingPayload = `2@${randomUUID()},${Buffer.from(companyId).toString('base64url')},${Date.now()}`;
-      const qrDataUrl = await QRCode.toDataURL(pairingPayload, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#0A0F1D',
-          light: '#FFFFFF',
-        },
-      });
-
-      const pairingCode = 'BLP' + Math.floor(1000 + Math.random() * 9000);
-      const session: WhatsAppSession = {
-        companyId,
-        instanceName,
-        status: 'QRCODE_READY',
-        qrCode: qrDataUrl,
-        pairingCode,
-        expiresAt: Date.now() + 60000,
-        phone,
-        name: 'Bella PDV Business',
-        provider,
-        connectedAt: null,
-        evolutionUrl,
-        evolutionKey,
-      };
-      whatsappSessions.set(companyId, session);
-
-      return res.json({
-        success: true,
-        status: 'QRCODE_READY',
-        qrCode: qrDataUrl,
-        pairingCode,
-        expiresIn: 60,
-        instanceName,
-      });
+      return res.status(503).json({ success: false, error: 'WhatsApp provider unavailable or not configured.' });
     } catch (err: any) {
       console.error('[WhatsApp Session Start Error]', err);
       res.status(500).json({ error: 'Erro ao gerar QR Code de conexão', details: err.message });
@@ -622,52 +587,18 @@ app.use('/api', async (req, res, next) => {
   });
 
   // 3. Confirm Connection (Device paired)
-  app.post('/api/integrations/whatsapp/session/confirm', (req, res) => {
-    const companyId = (req as any).company?.id || 'empresa_padrao';
-    let session = whatsappSessions.get(companyId);
-    if (!session) {
-      session = {
-        companyId,
-        instanceName: `bellapdv_${companyId}`,
-        status: 'CONNECTED',
-        qrCode: null,
-        pairingCode: null,
-        expiresAt: 0,
-        phone: '+55 (11) 98421-0492',
-        name: 'Bella PDV Pro Oficial',
-        provider: 'Evolution',
-        connectedAt: new Date().toISOString(),
-      };
-    } else {
-      session.status = 'CONNECTED';
-      session.connectedAt = new Date().toISOString();
-      session.qrCode = null;
-      session.pairingCode = null;
-    }
-    whatsappSessions.set(companyId, session);
-
-    // Initial log of connection
-    const logs = whatsappLogs.get(companyId) || [];
-    logs.unshift({
-      id: `wpp_conn_${Date.now()}`,
-      companyId,
-      recipient: session.phone,
-      text: '⚡ Sessão WhatsApp Business sincronizada com sucesso via QRCode Multi-Device.',
-      status: 'Delivered',
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      messageId: `wamid.init_${Date.now()}`,
-    });
-    whatsappLogs.set(companyId, logs.slice(0, 100));
-
-    return res.json({
-      success: true,
-      status: 'CONNECTED',
-      profile: {
-        phone: session.phone,
-        name: session.name,
-        connectedAt: session.connectedAt,
-      },
-    });
+  app.post('/api/integrations/whatsapp/session/confirm', async (req, res) => {
+    const companyId = (req as any).company.id;
+    const session = whatsappSessions.get(companyId);
+    if (!session?.evolutionUrl || !session.evolutionKey) return res.status(409).json({ success: false, error: 'No provider session.' });
+    try {
+      const response = await fetch(session.evolutionUrl.replace(/\\/$/, '') + '/instance/connectionState/' + session.instanceName, { headers: { apikey: session.evolutionKey }, signal: AbortSignal.timeout(6000) });
+      if (!response.ok) return res.status(502).json({ success: false, error: 'Provider status unavailable.' });
+      const data: any = await response.json();
+      if (data.instance?.state !== 'open' && data.state !== 'open') return res.status(409).json({ success: false, error: 'Device not paired.' });
+      session.status = 'CONNECTED'; session.connectedAt = new Date().toISOString(); session.qrCode = null; session.pairingCode = null;
+      return res.json({ success: true, status: 'CONNECTED', profile: { phone: session.phone, name: session.name } });
+    } catch { return res.status(502).json({ success: false, error: 'Provider verification failed.' }); }
   });
 
   // 4. Disconnect WhatsApp Session
