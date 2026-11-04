@@ -26,6 +26,23 @@ export async function checkBellaSupabase(): Promise<{ connected: boolean; messag
   }
 }
 
+// Report provider status without exposing tokens, passwords or raw server errors.
+async function describeSupabaseLoginFailure(response: Response): Promise<string> {
+  if (response.status === 429) return 'Muitas tentativas de login. Aguarde e tente novamente.';
+  if (response.status >= 500) return 'Serviço Supabase Auth temporariamente indisponível (HTTP ' + response.status + ').';
+  let code = '';
+  try {
+    const data = await response.json();
+    code = String(data.code || data.error_code || '').toLowerCase();
+  } catch { /* Provider may return non-JSON errors. */ }
+  if (code === 'email_not_confirmed') return 'E-mail ainda não confirmado no Supabase Auth. Confirme o endereço pelo e-mail de ativação.';
+  if (code === 'invalid_credentials') return 'E-mail ou senha não reconhecidos no Supabase Auth. A senha do Firebase não é automaticamente válida no Supabase.';
+  if (code === 'email_provider_disabled' || code === 'signup_disabled') return 'Autenticação por e-mail desativada no projeto Supabase.';
+  if (response.status === 400 || response.status === 401) return 'Supabase Auth recusou as credenciais (HTTP ' + response.status + '). Verifique cadastro, senha e confirmação de e-mail.';
+  if (response.status === 403) return 'Supabase Auth bloqueou a solicitação (HTTP 403). Verifique as políticas do projeto.';
+  return 'Supabase Auth não concluiu a autenticação (HTTP ' + response.status + ').';
+}
+
 type SupabaseAuthResult = { ok: boolean; message: string; userId?: string; companyCount?: number };
 
 // Supabase Auth is verified in isolation. It does NOT authenticate the Bella production app.
@@ -40,7 +57,7 @@ export async function testBellaSupabaseAuth(email: string, password: string): Pr
       body: JSON.stringify({ email: email.trim(), password }),
       signal: AbortSignal.timeout(10000),
     });
-    if (!login.ok) return { ok: false, message: 'Credenciais Supabase inválidas ou e-mail não confirmado.' };
+    if (!login.ok) return { ok: false, message: await describeSupabaseLoginFailure(login) };
     const session = await login.json();
     if (typeof session.access_token !== 'string' || typeof session.user?.id !== 'string')
       return { ok: false, message: 'Sessão Supabase não confirmada.' };
@@ -92,7 +109,7 @@ export async function bellaSupabaseSignIn(email: string, password: string): Prom
     method: 'POST', headers: { apikey: publishableKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({email: email.trim(), password}), signal: AbortSignal.timeout(10000)
   });
-  if (!response.ok) throw new Error('E-mail ou senha inválidos no Supabase.');
+  if (!response.ok) throw new Error(await describeSupabaseLoginFailure(response));
   const data = await response.json();
   return bellaIdentity(data.access_token, data.refresh_token, Date.now() + data.expires_in * 1000);
 }
