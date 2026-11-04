@@ -517,29 +517,14 @@ export default function Marketplace() {
     }
   };
 
-  // Superadmin approvals & actions
-  const changeRequestStatus = (id: string, nextStatus: 'pending' | 'analyzing' | 'approved' | 'active' | 'rejected') => {
-    if (!isDemo) { toast.error('Aprovação e cobrança indisponíveis até integrar o gateway.'); return; }
-    setAddonRequests(prev => prev.map(req => {
-      if (req.id === id) {
-        if (nextStatus === 'approved') {
-          // Send automatic notification & update billing
-          toast.success(`Solicitação Aprovada! Cobrança automática de R$${req.cost.toFixed(2)} gerada via gateway.`);
-          // Automatically add app to installed with status native
-          const appModel = APP_LIST.find(a => a.id === req.addon);
-          if (appModel) {
-            setInstalledApps(ia => [
-              ...ia.filter(x => x.appId !== req.addon),
-              { appId: req.addon, status: 'active', installedAt: '2026-06-19', premiumAgreement: true }
-            ]);
-          }
-        } else if (nextStatus === 'rejected') {
-          toast.error('Solicitação de recurso recusada pelo administrador.');
-        }
-        return { ...req, status: nextStatus };
-      }
-      return req;
-    }));
+  // Administrative review only. Payment and feature activation require separate verified flows.
+  const changeRequestStatus = async (id: string, nextStatus: 'pending' | 'analyzing' | 'approved' | 'active' | 'rejected') => {
+    if (isDemo || !isPlatformAdmin) { toast.error('Operação restrita ao Super Admin autenticado.'); return; }
+    if (nextStatus === 'active') { toast.error('Ativação depende de confirmação de pagamento e licenciamento.'); return; }
+    try {
+      await updateDoc(doc(db, 'addon_requests', id), { status: nextStatus });
+      toast.success('Análise registrada no Firestore. Nenhuma cobrança ou ativação foi executada.');
+    } catch (error) { console.error('[Add-ons] review', error); toast.error('Falha ao atualizar solicitação.'); }
   };
 
   const createAutomationFlow = () => {
