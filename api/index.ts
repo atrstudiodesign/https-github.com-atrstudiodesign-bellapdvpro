@@ -663,20 +663,8 @@ app.use('/api', async (req, res, next) => {
   });
 
   // 7. Test Message Dispatch
-  app.post('/api/integrations/whatsapp/test', async (req, res) => {
-    const companyId = (req as any).company?.id || 'empresa_padrao';
-    const { to } = req.body;
-    const testText = `⚡ *Bella PDV Pro — WhatsApp Business Conectado!*\n\nOlá! Sua conexão via QR Code Multi-Device foi realizada com sucesso.\nO canal de notificações, cobranças e comprovantes está ativo e pronto para uso.`;
-
-    const result = await IntegrationService.sendMessage(companyId, 'whatsapp', {
-      to: to || '+55 (11) 98421-0492',
-      text: testText,
-    });
-
-    if (result && result.success) {
-      return res.json({ success: true, messageId: result.messageId });
-    }
-    return res.status(400).json({ error: result?.error || 'Sessão desconectada. Conecte via QR Code primeiro.' });
+  app.post('/api/integrations/whatsapp/test', (_req, res) => {
+    return res.status(409).json({ success: false, error: 'Use authenticated /send with a real connected provider. Test dispatch cannot simulate success.' });
   });
 
   // Webhooks: Asaas Dunning / Billing
