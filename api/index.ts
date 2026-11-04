@@ -272,18 +272,15 @@ app.use('/api', async (req, res, next) => {
 
   if (req.path.startsWith('/integrations/whatsapp')) {
     const bearer = req.headers.authorization;
-    let companyId = (req.headers['x-company-id'] as string) || 'empresa_padrao';
-    if (bearer?.startsWith('Bearer ')) {
-      try {
-        const claims = await verifyFirebaseIdToken(bearer.slice(7));
-        companyId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
-        (req as any).firebaseUser = { uid: claims.sub, email: claims.email, companyId };
-      } catch {
-        // Safe fallback for demo / test
-      }
-    }
-    (req as any).company = { id: companyId };
-    return next();
+    if (!bearer?.startsWith('Bearer ')) return res.status(401).json({ error: 'Firebase token required.' });
+    try {
+      const claims = await verifyFirebaseIdToken(bearer.slice(7));
+      if (claims.firebase?.sign_in_provider === 'anonymous') return res.status(403).json({ error: 'Anonymous access forbidden.' });
+      const companyId = typeof claims.companyId === 'string' && claims.companyId ? claims.companyId : claims.sub;
+      if (req.headers['x-company-id'] && req.headers['x-company-id'] !== companyId) return res.status(403).json({ error: 'Tenant mismatch.' });
+      (req as any).company = { id: companyId };
+      return next();
+    } catch { return res.status(401).json({ error: 'Invalid Firebase identity.' }); }
   }
 
   const authorization = req.headers.authorization;
