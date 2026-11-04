@@ -188,7 +188,7 @@ export default function Integrations() {
           </div>
           <div className="rounded-xl border border-cyan-500/20 bg-[#0C1627] p-4 space-y-3">
             <h3 className="text-white font-semibold">Homologar Supabase Auth (sem trocar login Firebase)</h3>
-            <p className="text-slate-400 text-xs">Valida credenciais do novo Supabase e permissões RLS por empresa. O teste não entra no Bella e não armazena senha ou sessão.</p>
+            <p className="text-slate-400 text-xs">Valida uma conta existente no Supabase Auth e seu vínculo RLS com a empresa. O login Firebase não cria automaticamente usuário Supabase; use credenciais próprias do Supabase. O teste não troca seu login Bella nem armazena senha ou sessão.</p>
             <form className="flex flex-col md:flex-row gap-2" onSubmit={async (e) => {
               e.preventDefault();
               setSupabaseAuthStatus('Verificando...');
