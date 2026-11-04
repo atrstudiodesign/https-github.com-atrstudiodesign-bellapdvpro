@@ -54,9 +54,10 @@ import {
   deleteDoc, 
   onSnapshot, 
   getDocs, 
-  query 
+  query,
+  where
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { useAuthStore } from '../store/auth';
 
 // ==========================================
@@ -319,7 +320,7 @@ export default function Marketplace() {
   const [addonRequests, setAddonRequests] = useState<AddonRequest[]>(() => {
     try {
       localStorage.removeItem('bella_marketplace_requests');
-      const saved = localStorage.getItem(storageKey('requests'));
+      const saved = isDemo ? localStorage.getItem(storageKey('requests')) : null;
       if (saved) return JSON.parse(saved);
     } catch {}
     return isDemo ? [
@@ -468,9 +469,9 @@ export default function Marketplace() {
 
   useEffect(() => {
     try {
-      if (userId) localStorage.setItem(storageKey('requests'), JSON.stringify(addonRequests));
+      if (userId && isDemo) localStorage.setItem(storageKey('requests'), JSON.stringify(addonRequests));
     } catch {}
-  }, [addonRequests, userId]);
+  }, [addonRequests, userId, isDemo]);
 
   useEffect(() => {
     try {
@@ -478,39 +479,42 @@ export default function Marketplace() {
     } catch {}
   }, [automations, userId]);
 
-  // Request activation of addon handler
-  const requestAddonActivation = (addonId: string, addonName: string, cost: number) => {
-    if (!isDemo) { toast.error('Solicitações de add-ons ainda não são enviadas ao administrador.'); return; }
-    // Check if progress already requested
-    const exists = addonRequests.find(r => r.addon === addonId && (r.status === 'pending' || r.status === 'analyzing'));
-    if (exists) {
-      toast.error('Este recurso já possui uma solicitação em andamento!');
-      return;
+  // Persist real requests in Firestore; the admin sees the same collection.
+  useEffect(() => {
+    if (isDemo || !auth.currentUser) return;
+    const source = isPlatformAdmin
+      ? query(collection(db, 'addon_requests'))
+      : query(collection(db, 'addon_requests'), where('ownerUid', '==', auth.currentUser.uid));
+    const unsubscribe = onSnapshot(source, snapshot => {
+      setAddonRequests(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AddonRequest)));
+    }, error => { console.error('[Add-ons]', error); toast.error('Não foi possível consultar solicitações reais.'); });
+    return unsubscribe;
+  }, [isDemo, isPlatformAdmin, userId]);
+
+  const requestAddonActivation = async (addonId: string, addonName: string, cost: number) => {
+    if (isDemo) { toast.error('Solicitações demonstrativas não são enviadas.'); return; }
+    const current = auth.currentUser;
+    if (!current || current.isAnonymous) { toast.error('Faça login para solicitar o recurso.'); return; }
+    if (addonRequests.some(r => r.addon === addonId && ['pending', 'analyzing', 'approved', 'active'].includes(r.status))) {
+      toast.error('Já existe uma solicitação em andamento para este recurso.'); return;
     }
-
-    // Check if already active
-    const activeExists = addonRequests.find(r => r.addon === addonId && r.status === 'active');
-    if (activeExists) {
-      toast.info('Recurso já ativo no seu estabelecimento!');
-      return;
+    try {
+      await addDoc(collection(db, 'addon_requests'), {
+        ownerUid: current.uid,
+        companyId: current.uid,
+        companyName: current.email || current.uid,
+        addon: addonId,
+        addonName: addonName.slice(0, 120),
+        status: 'pending',
+        plan: 'A verificar',
+        requestedAt: new Date().toISOString(),
+        cost: Number(cost),
+      });
+      toast.success('Solicitação registrada para análise do Super Admin. Nenhuma cobrança foi criada.');
+    } catch (error) {
+      console.error('[Add-ons] request failed', error);
+      toast.error('Não foi possível registrar a solicitação. Confira as permissões Firestore.');
     }
-
-    const newReq: AddonRequest = {
-      id: 'req_' + Date.now(),
-      companyId: 'comp_current',
-      companyName: 'Bella Studio Moema',
-      addon: addonId,
-      addonName,
-      status: 'pending',
-      plan: 'Prata',
-      requestedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      cost
-    };
-
-    setAddonRequests(p => [newReq, ...p]);
-    toast.success('Solicitação de ativação enviada!', {
-      description: `Módulo "${addonName}" foi enviado para análise na Central Super Admin.`
-    });
   };
 
   // Superadmin approvals & actions
