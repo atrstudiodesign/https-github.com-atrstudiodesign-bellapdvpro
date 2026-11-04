@@ -116,6 +116,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isSignedIn() && !isEmployee() && resource.data.companyId == request.auth.uid);
     }
 
+    // Tenant-owned requests; admin can review, but no automatic billing or activation.
+    match /addon_requests/{requestId} {
+      allow get, list: if isAdmin() || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['ownerUid','companyId','companyName','addon','addonName','status','plan','requestedAt','cost'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.companyId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.addon is string && request.resource.data.addon.size() <= 100
+        && request.resource.data.addonName is string && request.resource.data.addonName.size() <= 120
+        && request.resource.data.companyName is string && request.resource.data.companyName.size() <= 160
+        && request.resource.data.plan is string && request.resource.data.plan.size() <= 50
+        && request.resource.data.requestedAt is string
+        && request.resource.data.cost is number && request.resource.data.cost >= 0;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['pending','analyzing','approved','rejected'];
+      allow delete: if false;
+    }
+
     // Audit records: append-only from trusted backend via Admin SDK.
     // Client SDK cannot forge, edit or delete audit evidence.
     match /admin_audit_logs/{eventId} {

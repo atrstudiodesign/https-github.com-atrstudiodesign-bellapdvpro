@@ -1,3 +1,4 @@
+import { AdminAuditLogs } from '../components/admin/AdminAuditLogs';
 import { AdminSupportTickets } from '../components/admin/AdminSupportTickets';
 import { AdminAnalyticsStatus } from '../components/admin/AdminAnalyticsStatus';
 import { useState, useMemo, useEffect } from 'react';
@@ -883,14 +884,7 @@ export default function AdminPanel() {
            )}
 
            {activeTab === 'logs' && (
-             <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-               <h2 className="text-2xl font-semibold text-white">Logs de Auditoria</h2>
-               <div className="rounded-xl border border-amber-500/30 p-6 space-y-3">
-                 <p className="text-amber-400 font-semibold">Fonte de auditoria não homologada</p>
-                 <p className="text-slate-400 text-sm">Os eventos, endereços IP e vendas fictícios foram removidos. A exportação CSV ficará indisponível até haver uma fonte de logs reais, com autorização e trilha de integridade.</p>
-                 <p className="text-slate-400 text-sm">Pendente: ingestão server-side de logins, vendas, webhooks e erros, com filtros e exportação auditável.</p>
-               </div>
-             </motion.div>
+             <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><AdminAuditLogs /></motion.div>
            )}
 
            {activeTab === 'campanhas' && (
