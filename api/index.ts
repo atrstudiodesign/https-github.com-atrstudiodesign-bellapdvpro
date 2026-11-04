@@ -522,7 +522,7 @@ app.use('/api', async (req, res, next) => {
   app.post('/api/integrations/whatsapp/session/start', async (req, res) => {
     try {
       const companyId = (req as any).company?.id || 'empresa_padrao';
-      const { provider = 'Evolution', phone = '+55 (11) 98421-0492', evolutionUrl, evolutionKey } = req.body;
+      const { provider = 'Evolution', phone = '', evolutionUrl, evolutionKey } = req.body || {};
       const instanceName = `bellapdv_${companyId.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
       // Check if external Evolution API is configured
@@ -636,46 +636,19 @@ app.use('/api', async (req, res, next) => {
       const cleanPhone = to.replace(/\D/g, '');
       const formattedPhone = cleanPhone.length === 10 || cleanPhone.length === 11 ? `55${cleanPhone}` : cleanPhone;
 
-      // If Evolution is configured, dispatch through external server
-      if (session.evolutionUrl && session.evolutionKey) {
-        try {
-          const cleanUrl = session.evolutionUrl.replace(/\/$/, '');
-          await fetch(`${cleanUrl}/message/sendText/${session.instanceName}`, {
-            method: 'POST',
-            headers: {
-              apikey: session.evolutionKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              number: formattedPhone,
-              text,
-            }),
-            signal: AbortSignal.timeout(6000),
-          });
-        } catch (evoSendErr) {
-          console.warn('[Evolution Send Text Error - Proceeding with Gateway delivery]', evoSendErr);
-        }
-      }
-
-      const messageId = `wamid.HBgM${Date.now()}`;
+      if (!session.evolutionUrl || !session.evolutionKey) return res.status(503).json({ success: false, error: 'Provider not configured.' });
+      const response = await fetch(session.evolutionUrl.replace(/\\/$/, '') + '/message/sendText/' + session.instanceName, {
+        method: 'POST', headers: { apikey: session.evolutionKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: formattedPhone, text }), signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) return res.status(502).json({ success: false, error: 'Provider rejected send: HTTP ' + response.status });
+      const receipt: any = await response.json();
+      const messageId = receipt.key?.id || receipt.messageId || receipt.id;
+      if (typeof messageId !== 'string' || !messageId) return res.status(502).json({ success: false, error: 'Provider receipt missing.' });
       const logs = whatsappLogs.get(companyId) || [];
-      logs.unshift({
-        id: `wpp_${Date.now()}`,
-        companyId,
-        recipient: formattedPhone,
-        text,
-        status: 'Sent',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        messageId,
-      });
+      logs.unshift({ id: randomUUID(), companyId, recipient: formattedPhone, text, status: 'Sent', time: new Date().toISOString(), messageId });
       whatsappLogs.set(companyId, logs.slice(0, 100));
-
-      return res.json({
-        success: true,
-        messageId,
-        status: 'Sent',
-        recipient: formattedPhone,
-      });
+      return res.json({ success: true, messageId, status: 'Sent', recipient: formattedPhone });
     } catch (err: any) {
       console.error('[WhatsApp Send Error]', err);
       res.status(500).json({ error: 'Erro ao disparar mensagem', details: err.message });
