@@ -45,7 +45,8 @@ interface AuthState {
 // Keep track of active subscriptions
 let unsubscribes: Array<() => void> = [];
 
-const DEFAULT_FEATURES: string[] = ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace'];
+// No paid feature is granted by an absent profile entitlement.
+const DEFAULT_FEATURES: string[] = [];
 let activeIdentityKey: string | null = null;
 let authChangeVersion = 0;
 
