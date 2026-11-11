@@ -218,31 +218,7 @@ export const DEMO_QUEUE: QueueItem[] = [
   }
 ];
 
+// The public demo is a separate, read-only route. Never populate tenant stores.
 export function startInstantDemoSession(): void {
-  // 1. Instant auth login with demo flag
-  useAuthStore.getState().login(
-    {
-      id: 'demo-guest-user',
-      name: 'Barbearia Modelo (Demo)',
-      email: 'demo@bellapdv.com',
-      role: 'client',
-      isPlatformAdmin: false,
-      isDemo: true,
-      planFeatures: ['pdv', 'agenda', 'crm', 'ia', 'automacoes', 'relatorios', 'whatsapp', 'marketplace']
-    },
-    'demo-session-token',
-    {
-      id: 'demo-company-1',
-      name: 'Barbearia Modelo VIP',
-      niche: 'barbearia'
-    }
-  );
-
-  // 2. Pre-fill mock data synchronously (0ms wait)
-  useClientStore.getState().setClients(DEMO_CLIENTS);
-  useCatalogStore.getState().setItems(DEMO_CATALOG);
-  useAppointmentStore.getState().setAppointments(DEMO_APPOINTMENTS);
-  useTransactionStore.getState().setTransactions(DEMO_TRANSACTIONS);
-  useProfessionalStore.getState().setProfessionals(DEMO_PROFESSIONALS);
-  useQueueStore.getState().setQueueItems(DEMO_QUEUE);
+  console.info('The demo is available at /demo; no account data is populated.');
 }

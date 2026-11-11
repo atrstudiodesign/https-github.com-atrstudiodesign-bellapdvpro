@@ -145,6 +145,11 @@ async function hydrateFirebaseUser(firebaseUser: typeof auth.currentUser) {
   unsubscribes.forEach(unsub => unsub());
   unsubscribes = [];
 
+  // Remove any in-memory data from the previous identity before resolving the new tenant.
+  // Do not allow a fresh account to inherit a demo or another company's records.
+  resetSubscriptionsAndTenant();
+  activeIdentityKey = null;
+  setFirebaseTenantContext(null);
   if (firebaseUser) {
     if (firebaseUser.isAnonymous) {
       // Anonymous Firebase identities are not business sessions.
