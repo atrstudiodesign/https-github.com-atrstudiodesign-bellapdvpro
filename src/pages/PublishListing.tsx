@@ -82,6 +82,8 @@ export default function PublishListing() {
   const [form, setForm] = useState<ListingForm>(initial);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [isAlreadyPublished, setIsAlreadyPublished] = useState(false);
 
   const uid = auth.currentUser?.uid || '';
   const isEligible = Boolean(
@@ -96,9 +98,14 @@ export default function PublishListing() {
         return;
       }
       try {
-        const snap = await getDoc(doc(db, 'public_listings', uid));
+        const [snap, licenseSnap] = await Promise.all([
+          getDoc(doc(db, 'public_listings', uid)),
+          getDoc(doc(db, 'company_licenses', uid))
+        ]);
+        if (mounted) setHasSubscription(licenseSnap.exists() && licenseSnap.data()?.status === 'active');
         if (mounted && snap.exists()) {
           const x = snap.data();
+          setIsAlreadyPublished(x.published === true);
           setForm({
             ...initial,
             name: x.name || currentUser?.name || '',
@@ -215,6 +222,10 @@ export default function PublishListing() {
       toast.error('Revise o nome, preço e duração dos serviços cadastrados.');
       return;
     }
+    if (!hasSubscription && (form.services.length > 3 || form.professionals.length > 0 || form.bookingUrl.trim())) {
+      toast.error('Cadastro gratuito: até 3 serviços, sem equipe pública ou agendamento integrado.');
+      return;
+    }
     if (!validUrl(form.coverUrl) || !validUrl(form.bookingUrl)) {
       toast.error('Use URLs HTTPS válidas para imagem e agendamento.');
       return;
@@ -245,16 +256,12 @@ export default function PublishListing() {
         })),
         workingHours: form.workingHours,
         bookingUrl: form.bookingUrl.trim(),
-        published: form.published,
+        published: isAlreadyPublished,
         updatedAt: serverTimestamp()
       };
 
       await setDoc(doc(db, 'public_listings', uid), record, { merge: false });
-      toast.success(
-        form.published
-          ? 'Perfil publicado no Marketplace Bella com sucesso!'
-          : 'Perfil salvo como privado. Desativado do diretório público.'
-      );
+      toast.success(isAlreadyPublished ? 'Perfil atualizado.' : 'Cadastro recebido para análise. A publicação depende de aprovação.');
     } catch (e: any) {
       console.error('Save public listing error:', e);
       toast.error('Não foi possível salvar o perfil público.');
@@ -315,16 +322,17 @@ export default function PublishListing() {
         <div className="space-y-1">
           <h2 className="text-2xl font-extrabold text-white">Configurar Meu Perfil no Marketplace</h2>
           <p className="text-xs sm:text-sm text-slate-400">
-            A publicação é voluntária. Ao habilitar a publicação pública, apenas as informações comerciais preenchidas aqui ficarão visíveis para novos clientes. Seus dados financeiros e privados do PDV nunca são expostos.
+            Cadastre seu negócio gratuitamente, mesmo sem assinatura. O perfil gratuito inclui até 3 serviços, sem equipe pública nem agendamento integrado. A primeira publicação depende de validação pela equipe Bella. Informações financeiras e privadas não são exibidas.
           </p>
         </div>
 
         {!isEligible ? (
           <div className="p-6 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs sm:text-sm space-y-2">
-            <p className="font-bold">Acesso Restrito ao Proprietário da Empresa</p>
+            <p className="font-bold">Crie sua conta Bella gratuitamente para divulgar sua empresa</p>
             <p>
-              Apenas o administrador titular com conta autenticada pode autorizar a publicação e gerenciar a vitrine pública do estabelecimento.
+              Não é necessário assinar um plano. Cadastre uma conta de proprietário para solicitar sua vitrine pública.
             </p>
+            <Link to="/login?signup=true" className="inline-block rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white">Cadastrar empresa gratuitamente</Link>
           </div>
         ) : (
           <div className="space-y-6">
@@ -468,7 +476,7 @@ export default function PublishListing() {
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
                     <Scissors className="w-4 h-4 text-pink-400" /> Serviços Disponíveis para Agendamento
                   </h3>
-                  <p className="text-xs text-slate-400">Até 30 serviços selecionados para a vitrine pública.</p>
+                  <p className="text-xs text-slate-400">{hasSubscription ? 'Até 30 serviços na vitrine.' : 'Cadastro gratuito: até 3 serviços. Assine para ampliar sua vitrine.'}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -487,7 +495,7 @@ export default function PublishListing() {
                         services: [...x.services, { name: '', price: 0, duration: 30 }]
                       }))
                     }
-                    disabled={form.services.length >= 30}
+                    disabled={form.services.length >= (hasSubscription ? 30 : 3)}
                     className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200"
                   >
                     + Novo Serviço
@@ -554,7 +562,7 @@ export default function PublishListing() {
             </div>
 
             {/* Published Staff Section */}
-            <div className="p-6 rounded-3xl bg-[#0B1120] border border-slate-800 space-y-4">
+            {hasSubscription && <div className="p-6 rounded-3xl bg-[#0B1120] border border-slate-800 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-base text-white flex items-center gap-2">
@@ -605,24 +613,20 @@ export default function PublishListing() {
               )}
             </div>
 
+            }
+
             {/* Publish Toggle & Save */}
             <div className="p-6 rounded-3xl bg-[#0B1120] border border-slate-800 space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.published}
-                  onChange={(e) => patch('published', e.target.checked)}
-                  className="mt-1 rounded text-pink-600 focus:ring-0 bg-slate-900 border-slate-700"
-                />
+              <div className="flex items-start gap-3">
                 <div>
                   <span className="font-bold text-sm text-white block">
-                    Publicar meu estabelecimento no Marketplace Bella e liberar Agendamento Online
+                    Solicitar divulgação da minha empresa no Bella Market
                   </span>
                   <span className="text-xs text-slate-400 block mt-0.5">
-                    Ao marcar esta opção, seus serviços, fotos e horários ficarão visíveis para novos clientes na rota pública /explorar e você receberá reservas online sincronizadas diretamente na sua agenda.
+                    A primeira publicação exige aprovação da equipe Bella. O cadastro gratuito oferece divulgação básica; agendamento integrado depende de assinatura ativa.
                   </span>
                 </div>
-              </label>
+              </div>
 
               <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-800">
                 <button
@@ -631,7 +635,7 @@ export default function PublishListing() {
                   onClick={save}
                   className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-pink-600/30 transition-all disabled:opacity-50"
                 >
-                  {saving ? 'Salvando...' : 'Salvar e Atualizar Publicação'}
+                  {saving ? 'Salvando...' : 'Salvar cadastro / solicitar análise'}
                 </button>
               </div>
             </div>
